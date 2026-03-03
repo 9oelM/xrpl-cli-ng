@@ -80,7 +80,9 @@ ENV PATH="/home/vscode/.local/bin:$PATH"
 RUN curl -fsSL https://claude.ai/install.sh | bash && \
   claude plugin marketplace add anthropics/skills && \
   claude plugin marketplace add trailofbits/skills && \
-  claude plugin marketplace add trailofbits/skills-curated
+  claude plugin marketplace add trailofbits/skills-curated && \
+  claude plugin marketplace add snarktank/ralph && \
+  claude plugin install ralph-skills@ralph-marketplace
 
 # Install Python 3.13 via uv (fast binary download, not source compilation)
 RUN uv python install 3.13 --default
