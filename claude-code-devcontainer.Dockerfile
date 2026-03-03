@@ -1,4 +1,5 @@
 # Copied directly from https://github.com/trailofbits/claude-code-devcontainer/blob/c7ec556ae6c6a7e79066c115525422beebe85b19/Dockerfile
+# and modified
 
 # Claude Code Devcontainer
 # Based on Microsoft devcontainer image for better devcontainer integration
@@ -79,7 +80,7 @@ ENV PATH="/home/vscode/.local/bin:$PATH"
 RUN curl -fsSL https://claude.ai/install.sh | bash && \
   claude plugin marketplace add anthropics/skills && \
   claude plugin marketplace add trailofbits/skills && \
-  claude plugin marketplace add trailofbits/skills-curated 
+  claude plugin marketplace add trailofbits/skills-curated
 
 # Install Python 3.13 via uv (fast binary download, not source compilation)
 RUN uv python install 3.13 --default
