@@ -1,0 +1,230 @@
+import { describe, it, expect } from "vitest";
+import { spawnSync } from "child_process";
+import { resolve } from "path";
+import { mkdtempSync, rmSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
+
+const CLI = resolve(process.cwd(), "src/index.ts");
+const TSX = resolve(process.cwd(), "node_modules/.bin/tsx");
+
+function runCLI(args: string[], extraEnv?: Record<string, string>) {
+  return spawnSync(TSX, [CLI, ...args], {
+    encoding: "utf-8",
+    env: {
+      ...process.env,
+      PATH: `/home/vscode/.fnm/node-versions/v22.22.0/installation/bin:${process.env.PATH ?? ""}`,
+      ...extraEnv,
+    },
+  });
+}
+
+describe("wallet change-password", () => {
+  it("changes password and allows decrypt with new password", () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
+    try {
+      const wallet = runCLI(["wallet", "new", "--json"]);
+      const { seed, address } = JSON.parse(wallet.stdout) as {
+        seed: string;
+        address: string;
+      };
+
+      runCLI(["wallet", "import", seed, "--password", "oldpassword", "--keystore", tmpDir]);
+
+      const changeResult = runCLI([
+        "wallet",
+        "change-password",
+        address,
+        "--password",
+        "oldpassword",
+        "--new-password",
+        "newpassword",
+        "--keystore",
+        tmpDir,
+      ]);
+
+      expect(changeResult.status).toBe(0);
+      expect(changeResult.stdout).toContain(`Password changed for ${address}`);
+
+      const decryptResult = runCLI([
+        "wallet",
+        "decrypt-keystore",
+        address,
+        "--password",
+        "newpassword",
+        "--keystore",
+        tmpDir,
+      ]);
+
+      expect(decryptResult.status).toBe(0);
+      expect(decryptResult.stdout).toContain(seed);
+    } finally {
+      rmSync(tmpDir, { recursive: true });
+    }
+  });
+
+  it("exits 1 with error on wrong current password", () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
+    try {
+      const wallet = runCLI(["wallet", "new", "--json"]);
+      const { seed, address } = JSON.parse(wallet.stdout) as {
+        seed: string;
+        address: string;
+      };
+
+      runCLI(["wallet", "import", seed, "--password", "correctpassword", "--keystore", tmpDir]);
+
+      const result = runCLI([
+        "wallet",
+        "change-password",
+        address,
+        "--password",
+        "wrongpassword",
+        "--new-password",
+        "newpassword",
+        "--keystore",
+        tmpDir,
+      ]);
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("wrong password or corrupt keystore");
+    } finally {
+      rmSync(tmpDir, { recursive: true });
+    }
+  });
+
+  it("original password no longer works after change", () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
+    try {
+      const wallet = runCLI(["wallet", "new", "--json"]);
+      const { seed, address } = JSON.parse(wallet.stdout) as {
+        seed: string;
+        address: string;
+      };
+
+      runCLI(["wallet", "import", seed, "--password", "oldpassword", "--keystore", tmpDir]);
+
+      runCLI([
+        "wallet",
+        "change-password",
+        address,
+        "--password",
+        "oldpassword",
+        "--new-password",
+        "newpassword",
+        "--keystore",
+        tmpDir,
+      ]);
+
+      const decryptOld = runCLI([
+        "wallet",
+        "decrypt-keystore",
+        address,
+        "--password",
+        "oldpassword",
+        "--keystore",
+        tmpDir,
+      ]);
+
+      expect(decryptOld.status).toBe(1);
+      expect(decryptOld.stderr).toContain("wrong password or corrupt keystore");
+    } finally {
+      rmSync(tmpDir, { recursive: true });
+    }
+  });
+
+  it("alias 'cp' works", () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
+    try {
+      const wallet = runCLI(["wallet", "new", "--json"]);
+      const { seed, address } = JSON.parse(wallet.stdout) as {
+        seed: string;
+        address: string;
+      };
+
+      runCLI(["wallet", "import", seed, "--password", "oldpassword", "--keystore", tmpDir]);
+
+      const result = runCLI([
+        "wallet",
+        "cp",
+        address,
+        "--password",
+        "oldpassword",
+        "--new-password",
+        "newpassword",
+        "--keystore",
+        tmpDir,
+      ]);
+
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain(`Password changed for ${address}`);
+    } finally {
+      rmSync(tmpDir, { recursive: true });
+    }
+  });
+
+  it("exits 1 when keystore file not found", () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
+    try {
+      const result = runCLI([
+        "wallet",
+        "change-password",
+        "rNonExistentAddress123",
+        "--password",
+        "oldpassword",
+        "--new-password",
+        "newpassword",
+        "--keystore",
+        tmpDir,
+      ]);
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("Error:");
+    } finally {
+      rmSync(tmpDir, { recursive: true });
+    }
+  });
+
+  it("seed remains unchanged after password change", () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
+    try {
+      const wallet = runCLI(["wallet", "new", "--json"]);
+      const { seed, address } = JSON.parse(wallet.stdout) as {
+        seed: string;
+        address: string;
+      };
+
+      runCLI(["wallet", "import", seed, "--password", "oldpassword", "--keystore", tmpDir]);
+
+      runCLI([
+        "wallet",
+        "change-password",
+        address,
+        "--password",
+        "oldpassword",
+        "--new-password",
+        "newpassword",
+        "--keystore",
+        tmpDir,
+      ]);
+
+      const decryptResult = runCLI([
+        "wallet",
+        "decrypt-keystore",
+        address,
+        "--password",
+        "newpassword",
+        "--keystore",
+        tmpDir,
+        "--json",
+      ]);
+
+      expect(decryptResult.status).toBe(0);
+      const parsed = JSON.parse(decryptResult.stdout) as { seed: string; address: string };
+      expect(parsed.seed).toBe(seed);
+      expect(parsed.address).toBe(address);
+    } finally {
+      rmSync(tmpDir, { recursive: true });
+    }
+  });
+});
