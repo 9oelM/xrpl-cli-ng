@@ -8,3 +8,4 @@ Here's the overarching spec:
 1. It uses traditional npm & package.json structure
 1. Cover all amendments and features supported by [xrpl.js](https://js.xrpl.org/) and seen as enabled on https://livenet.xrpl.org/amendments. If an amendment is still being voted for but is supported by xrpl.js, xrpl-cli must be support the amendment.
 1. Refer to the design choices of popular CLIs for other blockchains such as [`cast` for Ethereum](https://www.getfoundry.sh/reference/cast/cast), or [`starkli` for Starknet](https://book.starkli.rs/) whenever you're lost.
+
