@@ -113,3 +113,5 @@ RUN echo 'source ~/.zshrc.custom' >> /home/vscode/.zshrc
 
 # Copy post_install script
 COPY --chown=vscode:vscode post_install.py /opt/post_install.py
+
+COPY --chown=vscode:vscode .claude /workspace/.claude
