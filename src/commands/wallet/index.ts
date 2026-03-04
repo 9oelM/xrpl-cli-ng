@@ -9,6 +9,7 @@ import { listCommand } from "./list.js";
 import { removeCommand } from "./remove.js";
 import { decryptKeystoreCommand } from "./decrypt-keystore.js";
 import { changePasswordCommand } from "./change-password.js";
+import { signCommand } from "./sign.js";
 
 export const walletCommand = new Command("wallet").description(
   "Wallet management commands"
@@ -24,3 +25,4 @@ walletCommand.addCommand(listCommand);
 walletCommand.addCommand(removeCommand);
 walletCommand.addCommand(decryptKeystoreCommand);
 walletCommand.addCommand(changePasswordCommand);
+walletCommand.addCommand(signCommand);
