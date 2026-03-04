@@ -1,0 +1,165 @@
+import { describe, it, expect } from "vitest";
+import { spawnSync } from "child_process";
+import { resolve } from "path";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
+
+const CLI = resolve(process.cwd(), "src/index.ts");
+const TSX = resolve(process.cwd(), "node_modules/.bin/tsx");
+
+function runCLI(args: string[]) {
+  return spawnSync(TSX, [CLI, ...args], {
+    encoding: "utf-8",
+    env: {
+      ...process.env,
+      PATH: `/home/vscode/.fnm/node-versions/v22.22.0/installation/bin:${process.env.PATH ?? ""}`,
+    },
+  });
+}
+
+describe("wallet import", () => {
+  it("imports a seed with --password and --keystore and creates the keystore file", () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
+    try {
+      const newResult = runCLI(["wallet", "new", "--json"]);
+      expect(newResult.status).toBe(0);
+      const { seed, address } = JSON.parse(newResult.stdout) as {
+        seed: string;
+        address: string;
+      };
+
+      const importResult = runCLI([
+        "wallet", "import", seed,
+        "--password", "testpassword",
+        "--keystore", tmpDir,
+      ]);
+      expect(importResult.stderr).toContain("Warning: passing passwords via flag is insecure");
+      expect(importResult.status).toBe(0);
+      expect(importResult.stdout).toContain(`Imported account ${address}`);
+
+      const keystoreFile = join(tmpDir, `${address}.json`);
+      expect(existsSync(keystoreFile)).toBe(true);
+
+      const keystoreData = JSON.parse(readFileSync(keystoreFile, "utf-8")) as {
+        address: string;
+        version: number;
+      };
+      expect(keystoreData.address).toBe(address);
+      expect(keystoreData.version).toBe(1);
+    } finally {
+      rmSync(tmpDir, { recursive: true });
+    }
+  });
+
+  it("exits 1 if keystore file already exists without --force", () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
+    try {
+      const newResult = runCLI(["wallet", "new", "--json"]);
+      const { seed } = JSON.parse(newResult.stdout) as { seed: string };
+
+      runCLI(["wallet", "import", seed, "--password", "testpassword", "--keystore", tmpDir]);
+
+      const secondImport = runCLI([
+        "wallet", "import", seed,
+        "--password", "testpassword",
+        "--keystore", tmpDir,
+      ]);
+      expect(secondImport.status).toBe(1);
+      expect(secondImport.stderr).toMatch(/already exists/);
+    } finally {
+      rmSync(tmpDir, { recursive: true });
+    }
+  });
+
+  it("--force overwrites existing keystore file", () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
+    try {
+      const newResult = runCLI(["wallet", "new", "--json"]);
+      const { seed, address } = JSON.parse(newResult.stdout) as {
+        seed: string;
+        address: string;
+      };
+
+      runCLI(["wallet", "import", seed, "--password", "testpassword", "--keystore", tmpDir]);
+
+      const forceResult = runCLI([
+        "wallet", "import", seed,
+        "--password", "newpassword",
+        "--keystore", tmpDir,
+        "--force",
+      ]);
+      expect(forceResult.status).toBe(0);
+      expect(forceResult.stdout).toContain(`Imported account ${address}`);
+    } finally {
+      rmSync(tmpDir, { recursive: true });
+    }
+  });
+
+  it("alias 'i' works", () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
+    try {
+      const newResult = runCLI(["wallet", "new", "--json"]);
+      const { seed } = JSON.parse(newResult.stdout) as { seed: string };
+
+      const importResult = runCLI([
+        "wallet", "i", seed,
+        "--password", "testpassword",
+        "--keystore", tmpDir,
+      ]);
+      expect(importResult.status).toBe(0);
+    } finally {
+      rmSync(tmpDir, { recursive: true });
+    }
+  });
+
+  it("respects XRPL_KEYSTORE env var", () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
+    try {
+      const newResult = runCLI(["wallet", "new", "--json"]);
+      const { seed, address } = JSON.parse(newResult.stdout) as {
+        seed: string;
+        address: string;
+      };
+
+      const importResult = spawnSync(TSX, [CLI, "wallet", "import", seed, "--password", "testpassword"], {
+        encoding: "utf-8",
+        env: {
+          ...process.env,
+          PATH: `/home/vscode/.fnm/node-versions/v22.22.0/installation/bin:${process.env.PATH ?? ""}`,
+          XRPL_KEYSTORE: tmpDir,
+        },
+      });
+      expect(importResult.status).toBe(0);
+      expect(existsSync(join(tmpDir, `${address}.json`))).toBe(true);
+    } finally {
+      rmSync(tmpDir, { recursive: true });
+    }
+  });
+
+  it("imports a secp256k1 seed and creates correct keystore", () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
+    try {
+      const newResult = runCLI(["wallet", "new", "--key-type", "secp256k1", "--json"]);
+      const { seed, address } = JSON.parse(newResult.stdout) as {
+        seed: string;
+        address: string;
+      };
+
+      const importResult = runCLI([
+        "wallet", "import", seed,
+        "--password", "testpassword",
+        "--keystore", tmpDir,
+      ]);
+      expect(importResult.status).toBe(0);
+
+      const keystoreData = JSON.parse(
+        readFileSync(join(tmpDir, `${address}.json`), "utf-8")
+      ) as { address: string; keyType: string };
+      expect(keystoreData.address).toBe(address);
+      expect(keystoreData.keyType).toBe("secp256k1");
+    } finally {
+      rmSync(tmpDir, { recursive: true });
+    }
+  });
+});
