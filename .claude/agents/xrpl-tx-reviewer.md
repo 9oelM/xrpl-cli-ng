@@ -1,6 +1,6 @@
 ---
 name: xrpl-tx-reviewer
-description: Reviews transaction construction code for XRPL-specific bugs. Use after editing src/commands/ or src/lib/xrpl-client.ts. Triggered on: review this transaction, check tx construction, xrpl review, audit this command.
+description: Reviews transaction construction code for XRPL-specific bugs. Triggered on: review this transaction, check tx construction, xrpl review, audit this command.
 model: haiku
 tools:
   - Read
