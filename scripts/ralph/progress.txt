@@ -32,6 +32,15 @@ Started: Thu Mar  5 00:40:32 Universal 2026
   - All 102 tests pass
 ---
 
+## 2026-03-05 - US-004
+- Implemented: `--alias <name>` option on `wallet import`; stores label in keystore file at import time, applies alias uniqueness check (same logic as `alias set`), updated confirmation message
+- Files changed: src/commands/wallet/import.ts, tests/e2e/wallet/import.test.ts
+- **Learnings for future iterations:**
+  - `checkAliasUniqueness` logic was duplicated from alias.ts into import.ts (not exported from alias.ts); consider extracting to keystore utils if needed again
+  - Alias uniqueness check happens before `encryptKeystore` call so we exit 1 before writing any file
+  - All 107 tests pass
+---
+
 ## 2026-03-05 - US-003
 - Implemented: `wallet alias list` subcommand added to the alias group in alias.ts
 - Files changed: src/commands/wallet/alias.ts, tests/e2e/wallet/alias.test.ts
