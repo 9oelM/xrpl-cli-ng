@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { Command } from "commander";
-import { accountCommand, walletCommand, paymentCommand } from "./commands/index.js";
+import { accountCommand, walletCommand, paymentCommand, trustCommand } from "./commands/index.js";
 
 const program = new Command();
 
@@ -17,5 +17,6 @@ program
 program.addCommand(accountCommand);
 program.addCommand(walletCommand);
 program.addCommand(paymentCommand);
+program.addCommand(trustCommand);
 
 program.parse();
