@@ -14,6 +14,9 @@ Started: Thu Mar  5 00:40:32 Universal 2026
 - Alias uniqueness scan: readdirSync + filter `.json` + parse each, skip on error
 - Global `--node` option lives on root `program`; subcommand actions get node URL via `getNodeUrl(cmd)` where `cmd` is the last argument passed to the action handler
 - `cmd.optsWithGlobals()` retrieves merged options from root + subcommand; cast to `{ node: string }` for type safety
+- In beforeAll with xrpl.js WebSocket + CLI calls: use `execAsync` (promisify(exec)) NOT `spawnSync` to avoid blocking the event loop and breaking WebSocket connections
+- After submitting a tx, `await new Promise(res => setTimeout(res, 8000))` is reliable for waiting for testnet validation
+- DeletableAccounts amendment: new XRPL accounts start with sequence = current_ledger_index; AccountDelete requires sequence + 256 ≤ current_ledger → fresh testnet wallets always get tecTOO_SOON. Test actNotFound via Wallet.generate() (unfunded address) instead.
 
 ## 2026-03-05 - US-001
 - Implemented: label field on KeystoreFile, getKeystoreDir utility extracted to keystore.ts, resolveAccount() utility, updated all wallet commands
@@ -97,6 +100,61 @@ Started: Thu Mar  5 00:40:32 Universal 2026
   - All 113 tests pass
 ---
 
+## 2026-03-05 - US-010
+- Implemented: `account offers <address-or-alias>` command; --limit and --marker for pagination; --json for raw output; alias `of`
+- Human-readable output: `#<seq>  <taker-pays> → <taker-gets>  quality: <quality>` per offer; `(no open offers)` when empty
+- XRP amounts formatted via `dropsToXrp`; issued tokens as `<value> <currency>/<issuer>`
+- Files changed: src/commands/account/offers.ts (new), src/commands/account/index.ts, tests/e2e/account/offers.test.ts (new)
+- **Learnings for future iterations:**
+  - `account_offers` response has `offers` array at top level; no marker in --json output needed (offers doesn't paginate the same way)
+  - Amount can be string (drops) or `{ currency, issuer, value }` object; use dropsToXrp for string amounts
+  - All 124 tests pass
+---
+
+## 2026-03-05 - US-011
+- Implemented: `account trust-lines <address-or-alias>` command; --peer for filtering by peer; --limit and --marker for pagination; --json for raw output; alias `lines`
+- Human-readable output: `<currency>/<account>  balance: <bal>  limit: <limit>` per line; `(no trust lines)` when empty
+- Files changed: src/commands/account/trust-lines.ts (new), src/commands/account/index.ts, tests/e2e/account/trust-lines.test.ts (new)
+- **Learnings for future iterations:**
+  - `account_lines` response has `lines` array at top level; each entry has `account`, `currency`, `balance`, `limit` fields
+  - `--peer <address>` maps to `peer` param in the account_lines request
+  - All 127 tests pass
+---
+
+## 2026-03-05 - US-012
+- Implemented: `account channels <address-or-alias>` command; --destination-account for filtering; --limit and --marker for pagination; --json for raw output; alias `chan`
+- Human-readable output: `<channel-id>  dest: <dest>  amount: <xrp> XRP  balance: <xrp> XRP` per channel; `(no payment channels)` when empty
+- Files changed: src/commands/account/channels.ts (new), src/commands/account/index.ts, tests/e2e/account/channels.test.ts (new)
+- **Learnings for future iterations:**
+  - `account_channels` response has `channels` array at top level; each entry has `channel_id`, `destination_account`, `amount`, `balance` fields
+  - `--destination-account` maps to `destination_account` param in the request
+  - 3 new tests pass (130 total)
+---
+
+## 2026-03-05 - US-013
+- Implemented: `account nfts <address-or-alias>` command; --limit and --marker for pagination; --json for raw output; alias `nft`
+- Human-readable output: `<nft-id>  taxon: <taxon>  serial: <serial>  flags: <flags>` per NFT; `(no NFTs)` when empty
+- Files changed: src/commands/account/nfts.ts (new), src/commands/account/index.ts, tests/e2e/account/nfts.test.ts (new)
+- **Learnings for future iterations:**
+  - `account_nfts` response has `account_nfts` array (not `nfts`); each entry has `NFTokenID`, `NFTokenTaxon`, `nft_serial`, `Flags` fields
+  - 3 new tests pass (133 total)
+---
+
+## 2026-03-05 - US-014
+- Implemented: `account set` command with AccountSet transaction support
+- Key material: --seed, --mnemonic, --account (loads from keystore with interactive/--password)
+- Settable fields: --domain (auto hex-encodes), --email-hash, --transfer-rate, --tick-size
+- Flag options: --set-flag / --clear-flag with ASF flag name mapping (requireDestTag, requireAuth, disallowXRP, disableMaster, noFreeze, globalFreeze, defaultRipple, depositAuth)
+- --dry-run prints unsigned tx JSON, --json outputs { hash, result, tx_blob }
+- Files changed: src/commands/account/set.ts (new), src/commands/account/index.ts, tests/e2e/account/set.test.ts (new)
+- **Learnings for future iterations:**
+  - `spawnSync` blocks the entire Node.js event loop, breaking WebSocket listeners — use `execAsync` (promisify(exec)) in beforeAll when you need to keep xrpl.js WebSocket alive alongside CLI calls
+  - After submitting a tx and waiting for validation, `await new Promise(res => setTimeout(res, 8000))` is reliable on testnet (ledgers close every 3-4s)
+  - AccountSetAsfFlags numeric values: requireDestTag=1, requireAuth=2, disallowXRP=3, disableMaster=4, noFreeze=6, globalFreeze=7, defaultRipple=8, depositAuth=9
+  - Domain field in AccountSet must be hex-encoded: `Buffer.from(domain, "utf8").toString("hex").toUpperCase()`
+  - 139 tests pass total
+---
+
 ## 2026-03-05 - US-009
 - Implemented: `account transactions <address-or-alias>` command; --limit (default 20, max 400); --marker for pagination; --json for structured output; alias `txs`
 - Human-readable output: one line per tx as `<ledger>  <type>  <result>  <hash>`
@@ -106,4 +164,18 @@ Started: Thu Mar  5 00:40:32 Universal 2026
   - In `account_tx` response, `hash` is a top-level field on each entry (`entry.hash`), NOT inside `entry.tx_json.hash`
   - `account_tx` request params: `ledger_index_min: -1` fetches full history; `limit` and `marker` for pagination
   - All 121 tests pass
+---
+
+## 2026-03-05 - US-015
+- Implemented: `account delete` command with AccountDelete transaction support
+- Key material: --seed, --mnemonic, --account (same pattern as account set)
+- --destination (required), --destination-tag (optional)
+- --yes skips interactive confirmation; warning printed to stderr
+- --dry-run prints unsigned tx JSON; --json outputs { hash, result, tx_blob }
+- Files changed: src/commands/account/delete.ts (new), src/commands/account/index.ts, tests/e2e/account/delete.test.ts (new)
+- **Learnings for future iterations:**
+  - DeletableAccounts amendment: new XRPL accounts start with sequence = current_ledger_index (NOT 1). AccountDelete requires sequence + 256 ≤ current_ledger, so fresh testnet accounts CANNOT be deleted (tecTOO_SOON). Must wait ~256 ledgers (~15 min).
+  - `submitAndWait()` throws for expired LastLedgerSequence or tec* final results; use `client.submit()` when you want fire-and-forget (consistent with set.ts pattern)
+  - For E2E testing actNotFound: use an unfunded (Wallet.generate()) address — it won't exist on testnet, so account info returns actNotFound without needing to actually delete anything
+  - 145 tests pass total
 ---
