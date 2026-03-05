@@ -165,4 +165,58 @@ describe("trust set", () => {
     expect(typeof out.fee).toBe("string");
     expect(typeof out.ledger).toBe("number");
   });
+
+  it("--no-ripple sets no_ripple: true on trust line", () => {
+    const result = runCLI([
+      "--node", "testnet",
+      "trust", "set",
+      "--currency", "MXN",
+      "--issuer", issuer.address,
+      "--limit", "1000",
+      "--no-ripple",
+      "--seed", trustor.seed!,
+    ]);
+    expect(result.status, `stdout: ${result.stdout} stderr: ${result.stderr}`).toBe(0);
+    expect(result.stdout).toContain("tesSUCCESS");
+
+    const linesResult = runCLI([
+      "--node", "testnet",
+      "account", "trust-lines", "--json", trustor.address,
+    ]);
+    expect(linesResult.status).toBe(0);
+    const lines = JSON.parse(linesResult.stdout) as Array<{ currency: string; no_ripple?: boolean }>;
+    const mxnLine = lines.find((l) => l.currency === "MXN");
+    expect(mxnLine).toBeDefined();
+    expect(mxnLine?.no_ripple).toBe(true);
+  });
+
+  it("--no-ripple and --clear-no-ripple together exits 1", () => {
+    const result = runCLI([
+      "--node", "testnet",
+      "trust", "set",
+      "--currency", "USD",
+      "--issuer", issuer.address,
+      "--limit", "100",
+      "--seed", trustor.seed!,
+      "--no-ripple",
+      "--clear-no-ripple",
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("mutually exclusive");
+  });
+
+  it("--freeze and --unfreeze together exits 1", () => {
+    const result = runCLI([
+      "--node", "testnet",
+      "trust", "set",
+      "--currency", "USD",
+      "--issuer", issuer.address,
+      "--limit", "100",
+      "--seed", trustor.seed!,
+      "--freeze",
+      "--unfreeze",
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("mutually exclusive");
+  });
 });

@@ -41,6 +41,14 @@ interface TrustSetOptions {
   noWait: boolean;
   json: boolean;
   dryRun: boolean;
+  // Commander converts --no-ripple to options.ripple = false (not noRipple)
+  ripple: boolean;
+  clearNoRipple: boolean;
+  freeze: boolean;
+  unfreeze: boolean;
+  auth: boolean;
+  qualityIn?: string;
+  qualityOut?: string;
 }
 
 const trustSetCommand = new Command("set")
@@ -57,6 +65,13 @@ const trustSetCommand = new Command("set")
   .option("--no-wait", "Submit without waiting for validation", false)
   .option("--json", "Output as JSON", false)
   .option("--dry-run", "Print signed tx without submitting", false)
+  .option("--no-ripple", "Set NoRipple flag on trust line")
+  .option("--clear-no-ripple", "Clear NoRipple flag on trust line", false)
+  .option("--freeze", "Freeze the trust line", false)
+  .option("--unfreeze", "Unfreeze the trust line", false)
+  .option("--auth", "Authorize the trust line", false)
+  .option("--quality-in <n>", "Set QualityIn (unsigned integer)")
+  .option("--quality-out <n>", "Set QualityOut (unsigned integer)")
   .action(async (options: TrustSetOptions, cmd: Command) => {
     // Validate currency
     let currency: string;
@@ -64,6 +79,18 @@ const trustSetCommand = new Command("set")
       currency = validateCurrency(options.currency);
     } catch (e: unknown) {
       process.stderr.write(`Error: ${(e as Error).message}\n`);
+      process.exit(1);
+    }
+
+    // Validate flag combinations
+    // Commander converts --no-ripple to options.ripple = false
+    const noRipple = options.ripple === false;
+    if (noRipple && options.clearNoRipple) {
+      process.stderr.write("Error: --no-ripple and --clear-no-ripple are mutually exclusive\n");
+      process.exit(1);
+    }
+    if (options.freeze && options.unfreeze) {
+      process.stderr.write("Error: --freeze and --unfreeze are mutually exclusive\n");
       process.exit(1);
     }
 
@@ -146,6 +173,19 @@ const trustSetCommand = new Command("set")
         value: options.limit,
       },
     };
+
+    // Apply flags via bitwise OR
+    let flags = 0;
+    if (noRipple) flags |= TrustSetFlags.tfSetNoRipple;
+    if (options.clearNoRipple) flags |= TrustSetFlags.tfClearNoRipple;
+    if (options.freeze) flags |= TrustSetFlags.tfSetFreeze;
+    if (options.unfreeze) flags |= TrustSetFlags.tfClearFreeze;
+    if (options.auth) flags |= TrustSetFlags.tfSetfAuth;
+    if (flags !== 0) tx.Flags = flags;
+
+    // Apply quality fields
+    if (options.qualityIn !== undefined) tx.QualityIn = parseInt(options.qualityIn, 10);
+    if (options.qualityOut !== undefined) tx.QualityOut = parseInt(options.qualityOut, 10);
 
     const url = getNodeUrl(cmd);
 
