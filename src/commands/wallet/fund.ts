@@ -8,6 +8,8 @@ const DEVNET_FAUCET = "https://faucet.devnet.rippletest.net/accounts";
 
 const MAX_RETRIES = 10;
 const RETRY_DELAY_MS = 2000;
+const FAUCET_MAX_RETRIES = 6;
+const FAUCET_RETRY_DELAY_MS = 5000;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -33,14 +35,24 @@ export const fundCommand = new Command("fund")
       process.exit(1);
     }
 
-    const response = await fetch(faucetUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ destination: address }),
-    });
+    let response: Response | undefined;
+    for (let attempt = 0; attempt < FAUCET_MAX_RETRIES; attempt++) {
+      response = await fetch(faucetUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ destination: address }),
+      });
+      if (response.ok) break;
+      // Retry on 429 (rate limit) or 5xx server errors
+      if ((response.status === 429 || response.status >= 500) && attempt < FAUCET_MAX_RETRIES - 1) {
+        await sleep(FAUCET_RETRY_DELAY_MS * (attempt + 1));
+        continue;
+      }
+      break;
+    }
 
-    if (!response.ok) {
-      const text = await response.text();
+    if (!response!.ok) {
+      const text = await response!.text();
       process.stderr.write(`Error: ${text}\n`);
       process.exit(1);
     }
