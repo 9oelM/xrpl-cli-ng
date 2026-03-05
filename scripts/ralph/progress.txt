@@ -1,32 +1,34 @@
 ## Codebase Patterns
-- Commands follow payment.ts pattern: walletFromSeed helper, key material validation (exactly one of --seed/--mnemonic/--account), withClient wrapper, autofill+sign+submitAndWait flow
-- TrustSet flags are in `TrustSetFlags` from xrpl package (e.g., TrustSetFlags.tfSetNoRipple)
-- E2E tests use spawnSync with tsx runner, fund accounts via fundFromFaucet helper
-- Currency validation: 3-char ASCII uppercased OR 40-char hex; throw Error with descriptive message
-- Subcommands use `new Command('parent').addCommand(new Command('sub').alias('s'))` pattern
-- getKeystoreDir(options) + resolveAccount() are used to resolve --issuer and --account
-- Commander.js `--no-X` options set `options.X = false` (not `options.noX`); check `options.X === false` to detect the flag; omit the explicit default to allow distinction (default is `true` when not passed)
+- E2E tests use `spawnSync(TSX, [CLI, ...args])` pattern with 120s timeout per test call
+- `wallet import <seed>` takes key material as positional arg, not `--seed`; use `--password`, `--keystore` flags for keystore control
+- `account trust-lines --json <address>` returns raw array including `no_ripple`, `quality_in`, `quality_out`, `freeze_peer`, `peer_authorized` fields
+- Tests within a describe block run sequentially, so CNY trust line created in test A is visible in test B
+- Currency codes available: CNY, JPY, FRZ, AUT (USD, EUR, GBP, CAD, MXN, XYZ used by existing tests)
+- For --auth tests: enable RequireAuth on a dedicated authIssuer wallet in beforeAll (not inline in the test) to avoid LastLedgerSequence expiry due to setup time
+- Use beforeAll timeout of 240_000ms when funding 3+ wallets + AccountSet setup
 
 # Ralph Progress Log
-Started: Thu Mar  5 05:48:33 AM Universal 2026
----
-
-## 2026-03-05 - US-001
-- Implemented `trust set` (alias `s`) subcommand under `trust` command
-- Files changed: src/commands/trust.ts (new), src/commands/index.ts, src/index.ts, tests/e2e/trust/trust.test.ts (new)
-- **Learnings for future iterations:**
-  - Followed payment.ts pattern exactly for key material resolution and submit flow
-  - Currency validation: /^[A-Z0-9]{3}$/ for 3-char or /^[0-9A-Fa-f]{40}$/ for hex
-  - TrustSetFlags exported from trust.ts for US-002 to reuse
-  - All 8 E2E tests pass on testnet (tesSUCCESS, dry-run, no-wait, --json, error cases)
+Started: Thu Mar  5 02:15:42 PM Universal 2026
 ---
 
 ## 2026-03-05 - US-002
-- Added --no-ripple, --clear-no-ripple, --freeze, --unfreeze, --auth flags and --quality-in/--quality-out options to `trust set`
-- Applied flags via bitwise OR into Flags field on TrustSet tx; QualityIn/QualityOut added when explicitly provided
-- Added mutual exclusivity validation for --no-ripple/--clear-no-ripple and --freeze/--unfreeze
-- Files changed: src/commands/trust.ts, tests/e2e/trust/trust.test.ts
+- Added 3 new E2E tests: --freeze (FRZ, issuer freezes trust line), --unfreeze (FRZ, issuer unfreezes), --auth (AUT, authIssuer authorizes)
+- Files changed: tests/e2e/trust/trust.test.ts
 - **Learnings for future iterations:**
-  - Commander.js treats `--no-X` specially: property name is `X` (not `noX`), set to `false` when flag present, `true` by default when not present. Must check `options.X === false` to detect the flag. Do NOT provide an explicit `false` default or you can't distinguish from "not provided".
-  - `--clear-no-ripple` works fine with camelCase as `clearNoRipple` since it doesn't start with `no-` from Commander's perspective
+  - `--freeze`/`--unfreeze` tests: trustor creates line first, then issuer runs trust set with `--issuer <trustor-address>` (reversed roles) to freeze/unfreeze
+  - `--auth` test: enable RequireAuth on a dedicated wallet in `beforeAll` to avoid LastLedgerSequence issues from inline client setup
+  - Increase `beforeAll` timeout to 240_000ms when funding 3+ wallets plus AccountSet transactions
+  - `peer_authorized` field is only present in trust-lines output when the peer has authorized (not always included)
+  - `AccountSetAsfFlags` should be imported from `xrpl` package
+---
+
+## 2026-03-05 - US-001
+- Added 3 new E2E tests to tests/e2e/trust/trust.test.ts: --account/--keystore/--password (CNY), --clear-no-ripple on-chain effect (CNY), --quality-in/--quality-out (JPY)
+- Files changed: tests/e2e/trust/trust.test.ts
+- **Learnings for future iterations:**
+  - `wallet import` takes key material as first positional arg (not `--seed`)
+  - `account trust-lines --json` returns `quality_in`/`quality_out` as numbers matching the ledger value
+  - For --clear-no-ripple test: set no-ripple first on the same line, then clear it and assert falsy
+  - Imported `mkdtempSync`, `rmSync` from `fs` and `tmpdir` from `os` for temp keystore dir
+  - Import `Client` from xrpl is still needed in beforeAll even if not used directly in new tests
 ---
