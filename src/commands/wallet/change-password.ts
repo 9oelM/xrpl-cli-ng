@@ -1,18 +1,8 @@
 import { Command } from "commander";
 import { existsSync, readFileSync, renameSync, writeFileSync } from "fs";
-import { createInterface } from "readline";
 import { join } from "path";
 import { decryptKeystore, encryptKeystore, getKeystoreDir, type KeystoreFile } from "../../utils/keystore.js";
-
-async function promptPassword(prompt: string): Promise<string> {
-  return new Promise((resolve) => {
-    const rl = createInterface({ input: process.stdin, output: process.stderr });
-    rl.question(prompt, (answer) => {
-      rl.close();
-      resolve(answer);
-    });
-  });
-}
+import { promptPassword } from "../../utils/prompt.js";
 
 interface ChangePasswordOptions {
   password?: string;

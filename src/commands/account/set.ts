@@ -1,13 +1,13 @@
 import { Command } from "commander";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
-import { createInterface } from "readline";
 import { Wallet } from "xrpl";
 import type { AccountSet, AccountSetAsfFlags } from "xrpl";
 import { deriveKeypair } from "ripple-keypairs";
 import { withClient } from "../../utils/client.js";
 import { getNodeUrl } from "../../utils/node.js";
 import { decryptKeystore, getKeystoreDir, resolveAccount, type KeystoreFile } from "../../utils/keystore.js";
+import { promptPassword } from "../../utils/prompt.js";
 
 // Map user-friendly flag names to AccountSetAsfFlags numeric values
 const ASF_FLAG_MAP: Record<string, AccountSetAsfFlags> = {
@@ -20,16 +20,6 @@ const ASF_FLAG_MAP: Record<string, AccountSetAsfFlags> = {
   defaultRipple: 8 as AccountSetAsfFlags,
   depositAuth: 9 as AccountSetAsfFlags,
 };
-
-async function promptPassword(): Promise<string> {
-  return new Promise((resolve) => {
-    const rl = createInterface({ input: process.stdin, output: process.stderr });
-    rl.question("Password: ", (answer) => {
-      rl.close();
-      resolve(answer);
-    });
-  });
-}
 
 function walletFromSeed(seed: string): Wallet {
   const { publicKey, privateKey } = deriveKeypair(seed);

@@ -1,11 +1,11 @@
 import { Command } from "commander";
 import { existsSync, readFileSync } from "fs";
-import { createInterface } from "readline";
 import { join, resolve } from "path";
 import { deriveKeypair } from "ripple-keypairs";
 import { Wallet } from "xrpl";
 import type { ECDSA } from "xrpl";
 import { decryptKeystore, getKeystoreDir, type KeystoreFile } from "../../utils/keystore.js";
+import { promptPassword } from "../../utils/prompt.js";
 
 type KeyType = "ed25519" | "secp256k1";
 
@@ -43,16 +43,6 @@ function derivePrivateKeyFromMaterial(
     // raw private key stored directly
     return material;
   }
-}
-
-async function promptPassword(): Promise<string> {
-  return new Promise((resolve) => {
-    const rl = createInterface({ input: process.stdin, output: process.stderr });
-    rl.question("Password: ", (answer) => {
-      rl.close();
-      resolve(answer);
-    });
-  });
 }
 
 interface DecryptKeystoreOptions {

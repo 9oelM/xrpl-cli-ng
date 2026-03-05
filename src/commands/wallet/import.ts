@@ -1,6 +1,5 @@
 import { Command } from "commander";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "fs";
-import { createInterface } from "readline";
 import { join } from "path";
 import { deriveAddress, deriveKeypair } from "ripple-keypairs";
 import { Wallet } from "xrpl";
@@ -8,6 +7,7 @@ import type { ECDSA } from "xrpl";
 import { ed25519 } from "@noble/curves/ed25519";
 import { secp256k1 } from "@noble/curves/secp256k1";
 import { encryptKeystore, getKeystoreDir, type KeystoreFile } from "../../utils/keystore.js";
+import { promptPassword } from "../../utils/prompt.js";
 
 type KeyType = "ed25519" | "secp256k1";
 
@@ -87,16 +87,6 @@ function deriveFromPrivateKey(
 
   const address = deriveAddress(publicKey);
   return { address, seedToEncrypt: privateKeyHex, keyType };
-}
-
-async function promptPassword(): Promise<string> {
-  return new Promise((resolve) => {
-    const rl = createInterface({ input: process.stdin, output: process.stderr });
-    rl.question("Password: ", (answer) => {
-      rl.close();
-      resolve(answer);
-    });
-  });
 }
 
 function checkAliasUniqueness(

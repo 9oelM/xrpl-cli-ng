@@ -1,12 +1,12 @@
 import { Command } from "commander";
 import { existsSync, readFileSync } from "fs";
-import { createInterface } from "readline";
 import { homedir } from "os";
 import { join, resolve } from "path";
 import { sign as rippleSign, deriveKeypair } from "ripple-keypairs";
 import { Wallet } from "xrpl";
 import type { ECDSA } from "xrpl";
 import { decryptKeystore, type KeystoreFile } from "../../utils/keystore.js";
+import { promptPassword } from "../../utils/prompt.js";
 
 type KeyType = "ed25519" | "secp256k1";
 
@@ -25,16 +25,6 @@ function getKeystoreDir(options: { keystore?: string }): string {
     return resolve(envDir);
   }
   return join(homedir(), ".xrpl", "keystore");
-}
-
-async function promptPassword(): Promise<string> {
-  return new Promise((res) => {
-    const rl = createInterface({ input: process.stdin, output: process.stderr });
-    rl.question("Password: ", (answer) => {
-      rl.close();
-      res(answer);
-    });
-  });
 }
 
 function detectMaterialType(material: string): "seed" | "mnemonic" | "privateKey" {

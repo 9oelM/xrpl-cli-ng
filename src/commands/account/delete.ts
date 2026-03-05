@@ -8,16 +8,7 @@ import { deriveKeypair } from "ripple-keypairs";
 import { withClient } from "../../utils/client.js";
 import { getNodeUrl } from "../../utils/node.js";
 import { decryptKeystore, getKeystoreDir, resolveAccount, type KeystoreFile } from "../../utils/keystore.js";
-
-async function promptPassword(): Promise<string> {
-  return new Promise((resolve) => {
-    const rl = createInterface({ input: process.stdin, output: process.stderr });
-    rl.question("Password: ", (answer) => {
-      rl.close();
-      resolve(answer);
-    });
-  });
-}
+import { promptPassword } from "../../utils/prompt.js";
 
 async function promptConfirm(): Promise<boolean> {
   return new Promise((resolve) => {
