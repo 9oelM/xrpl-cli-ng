@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { spawnSync } from "child_process";
 import { resolve } from "path";
+import { mkdtempSync, rmSync } from "fs";
+import { tmpdir } from "os";
 import { Client, Wallet } from "xrpl";
 import { fundFromFaucet, TESTNET_URL } from "../../helpers/testnet.js";
 
@@ -218,5 +220,105 @@ describe("trust set", () => {
     ]);
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("mutually exclusive");
+  });
+
+  it("--account + --keystore + --password signs and submits trust set", () => {
+    const tmpDir = mkdtempSync(resolve(tmpdir(), "xrpl-test-keystore-"));
+    try {
+      // Import the funded trustor seed into a temp keystore
+      const importResult = runCLI([
+        "wallet", "import",
+        trustor.seed!,
+        "--password", "pw123",
+        "--keystore", tmpDir,
+      ]);
+      expect(importResult.status, `stdout: ${importResult.stdout} stderr: ${importResult.stderr}`).toBe(0);
+
+      // Use --account + --keystore + --password to sign a trust set
+      const result = runCLI([
+        "--node", "testnet",
+        "trust", "set",
+        "--currency", "CNY",
+        "--issuer", issuer.address,
+        "--limit", "1000",
+        "--account", trustor.address,
+        "--keystore", tmpDir,
+        "--password", "pw123",
+      ]);
+      expect(result.status, `stdout: ${result.stdout} stderr: ${result.stderr}`).toBe(0);
+      expect(result.stdout).toContain("tesSUCCESS");
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("--clear-no-ripple clears the NoRipple flag on an existing trust line", () => {
+    // First set no-ripple on a CNY trust line
+    const setResult = runCLI([
+      "--node", "testnet",
+      "trust", "set",
+      "--currency", "CNY",
+      "--issuer", issuer.address,
+      "--limit", "5000",
+      "--no-ripple",
+      "--seed", trustor.seed!,
+    ]);
+    expect(setResult.status, `stdout: ${setResult.stdout} stderr: ${setResult.stderr}`).toBe(0);
+    expect(setResult.stdout).toContain("tesSUCCESS");
+
+    // Clear no-ripple on the same trust line
+    const clearResult = runCLI([
+      "--node", "testnet",
+      "trust", "set",
+      "--currency", "CNY",
+      "--issuer", issuer.address,
+      "--limit", "5000",
+      "--clear-no-ripple",
+      "--seed", trustor.seed!,
+    ]);
+    expect(clearResult.status, `stdout: ${clearResult.stdout} stderr: ${clearResult.stderr}`).toBe(0);
+    expect(clearResult.stdout).toContain("tesSUCCESS");
+
+    // Verify no_ripple is cleared
+    const linesResult = runCLI([
+      "--node", "testnet",
+      "account", "trust-lines", "--json", trustor.address,
+    ]);
+    expect(linesResult.status).toBe(0);
+    const lines = JSON.parse(linesResult.stdout) as Array<{ currency: string; no_ripple?: boolean }>;
+    const cnyLine = lines.find((l) => l.currency === "CNY");
+    expect(cnyLine).toBeDefined();
+    expect(cnyLine?.no_ripple).toBeFalsy();
+  });
+
+  it("--quality-in and --quality-out set quality values on trust line", () => {
+    const result = runCLI([
+      "--node", "testnet",
+      "trust", "set",
+      "--currency", "JPY",
+      "--issuer", issuer.address,
+      "--limit", "10000",
+      "--quality-in", "950000000",
+      "--quality-out", "950000000",
+      "--seed", trustor.seed!,
+    ]);
+    expect(result.status, `stdout: ${result.stdout} stderr: ${result.stderr}`).toBe(0);
+    expect(result.stdout).toContain("tesSUCCESS");
+
+    // Verify quality values on the trust line
+    const linesResult = runCLI([
+      "--node", "testnet",
+      "account", "trust-lines", "--json", trustor.address,
+    ]);
+    expect(linesResult.status).toBe(0);
+    const lines = JSON.parse(linesResult.stdout) as Array<{
+      currency: string;
+      quality_in?: number;
+      quality_out?: number;
+    }>;
+    const jpyLine = lines.find((l) => l.currency === "JPY");
+    expect(jpyLine).toBeDefined();
+    expect(jpyLine?.quality_in).toBe(950000000);
+    expect(jpyLine?.quality_out).toBe(950000000);
   });
 });
