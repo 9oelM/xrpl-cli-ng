@@ -10,6 +10,8 @@ Started: Thu Mar  5 00:40:32 Universal 2026
 - resolveAccount: regex `/^r[a-zA-Z0-9]{24,33}$/` matches XRPL addresses; else scan keystore for label match
 - encryptKeystore now takes optional 5th param `label?: string`; included in output only when provided
 - All wallet commands import getKeystoreDir from `../../utils/keystore.js` (not local copies)
+- Atomic writes use writeFileSync to `<path>.tmp` then renameSync to `<path>` (same pattern for all keystore mutations)
+- Alias uniqueness scan: readdirSync + filter `.json` + parse each, skip on error
 
 ## 2026-03-05 - US-001
 - Implemented: label field on KeystoreFile, getKeystoreDir utility extracted to keystore.ts, resolveAccount() utility, updated all wallet commands
@@ -18,4 +20,24 @@ Started: Thu Mar  5 00:40:32 Universal 2026
   - Codebase uses ESM modules (package.json "type": "module"), imports need .js extension
   - Edit tool requires file to be read before editing (even if read earlier in conversation)
   - All 97 existing tests pass after refactor
+---
+
+## 2026-03-05 - US-002
+- Implemented: `wallet alias set <address> <name>` and `wallet alias remove <address>` subcommands
+- Files changed: src/commands/wallet/alias.ts (new), src/commands/wallet/index.ts, tests/e2e/wallet/alias.test.ts (new)
+- **Learnings for future iterations:**
+  - Alias command is a subcommand group: `new Command("alias")` with `.command("set")` and `.command("remove")` chained on it
+  - Uniqueness check: scan all *.json in keystoreDir, skip file for the target address itself
+  - aliasCommand registered in wallet/index.ts with `walletCommand.addCommand(aliasCommand)`
+  - All 102 tests pass
+---
+
+## 2026-03-05 - US-003
+- Implemented: `wallet alias list` subcommand added to the alias group in alias.ts
+- Files changed: src/commands/wallet/alias.ts, tests/e2e/wallet/alias.test.ts
+- **Learnings for future iterations:**
+  - `list` scans readdirSync + filters .json + collects entries where data.label && data.address
+  - `--json` flag outputs JSON.stringify(aliases) array; human output is `alias  →  address` per line
+  - Empty case: catch on readdirSync (dir may not exist) returns [] aliases → prints "(no aliases set)"
+  - All 8 alias tests pass (including 3 new list tests)
 ---
