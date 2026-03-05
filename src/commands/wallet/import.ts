@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "fs";
 import { createInterface } from "readline";
 import { join } from "path";
 import { deriveAddress, deriveKeypair } from "ripple-keypairs";
@@ -7,7 +7,7 @@ import { Wallet } from "xrpl";
 import type { ECDSA } from "xrpl";
 import { ed25519 } from "@noble/curves/ed25519";
 import { secp256k1 } from "@noble/curves/secp256k1";
-import { encryptKeystore, getKeystoreDir } from "../../utils/keystore.js";
+import { encryptKeystore, getKeystoreDir, type KeystoreFile } from "../../utils/keystore.js";
 
 type KeyType = "ed25519" | "secp256k1";
 
@@ -99,11 +99,37 @@ async function promptPassword(): Promise<string> {
   });
 }
 
+function checkAliasUniqueness(
+  name: string,
+  excludeAddress: string,
+  keystoreDir: string
+): string | null {
+  let files: string[];
+  try {
+    files = readdirSync(keystoreDir).filter((f) => f.endsWith(".json"));
+  } catch {
+    return null;
+  }
+
+  for (const file of files) {
+    try {
+      const data = JSON.parse(readFileSync(join(keystoreDir, file), "utf-8")) as Partial<KeystoreFile>;
+      if (data.label === name && data.address && data.address !== excludeAddress) {
+        return data.address;
+      }
+    } catch {
+      // skip unreadable files
+    }
+  }
+  return null;
+}
+
 interface ImportOptions {
   keyType?: KeyType;
   password?: string;
   keystore?: string;
   force: boolean;
+  alias?: string;
 }
 
 export const importCommand = new Command("import")
@@ -117,6 +143,7 @@ export const importCommand = new Command("import")
     "Keystore directory (default: ~/.xrpl/keystore/; XRPL_KEYSTORE env var also accepted)"
   )
   .option("--force", "Overwrite existing keystore entry", false)
+  .option("--alias <name>", "Set a human-readable alias for this wallet at import time")
   .action(async (keyMaterial: string, options: ImportOptions) => {
     let input = keyMaterial;
     if (keyMaterial === "-") {
@@ -166,8 +193,22 @@ export const importCommand = new Command("import")
       process.exit(1);
     }
 
-    const keystoreData = encryptKeystore(seedToEncrypt, password, keyType, address);
+    if (options.alias !== undefined) {
+      const conflictAddress = checkAliasUniqueness(options.alias, address, keystoreDir);
+      if (conflictAddress !== null && !options.force) {
+        process.stderr.write(
+          `Error: alias '${options.alias}' is already used by ${conflictAddress}. Use --force to overwrite.\n`
+        );
+        process.exit(1);
+      }
+    }
+
+    const keystoreData = encryptKeystore(seedToEncrypt, password, keyType, address, options.alias);
     writeFileSync(filePath, JSON.stringify(keystoreData, null, 2), "utf-8");
 
-    console.log(`Imported account ${address} to ${filePath}`);
+    if (options.alias !== undefined) {
+      console.log(`Imported account ${address} (alias: ${options.alias}) to ${filePath}`);
+    } else {
+      console.log(`Imported account ${address} to ${filePath}`);
+    }
   });

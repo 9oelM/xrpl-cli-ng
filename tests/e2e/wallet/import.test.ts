@@ -137,6 +137,71 @@ describe("wallet import", () => {
     }
   });
 
+  it("--alias stores label in keystore JSON and shows in alias list", () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
+    try {
+      const newResult = runCLI(["wallet", "new", "--json"]);
+      const { seed, address } = JSON.parse(newResult.stdout) as { seed: string; address: string };
+
+      const importResult = runCLI([
+        "wallet", "import", seed,
+        "--password", "testpassword",
+        "--keystore", tmpDir,
+        "--alias", "alice",
+      ]);
+      expect(importResult.status).toBe(0);
+      expect(importResult.stdout).toContain(`Imported account ${address} (alias: alice)`);
+
+      // verify label in keystore JSON
+      const keystoreData = JSON.parse(
+        readFileSync(join(tmpDir, `${address}.json`), "utf-8")
+      ) as { label?: string };
+      expect(keystoreData.label).toBe("alice");
+
+      // verify alias list shows alice
+      const listResult = runCLI(["wallet", "alias", "list", "--keystore", tmpDir]);
+      expect(listResult.status).toBe(0);
+      expect(listResult.stdout).toContain("alice");
+      expect(listResult.stdout).toContain(address);
+    } finally {
+      rmSync(tmpDir, { recursive: true });
+    }
+  });
+
+  it("--alias exits 1 if alias already taken; --force succeeds", () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
+    try {
+      const wallet1 = JSON.parse(runCLI(["wallet", "new", "--json"]).stdout) as { seed: string; address: string };
+      const wallet2 = JSON.parse(runCLI(["wallet", "new", "--json"]).stdout) as { seed: string; address: string };
+
+      // import first wallet with alias
+      runCLI(["wallet", "import", wallet1.seed, "--password", "testpassword", "--keystore", tmpDir, "--alias", "shared"]);
+
+      // import second wallet with same alias — should fail
+      const dupResult = runCLI([
+        "wallet", "import", wallet2.seed,
+        "--password", "testpassword",
+        "--keystore", tmpDir,
+        "--alias", "shared",
+      ]);
+      expect(dupResult.status).toBe(1);
+      expect(dupResult.stderr).toMatch(/already used/);
+
+      // --force should succeed
+      const forceResult = runCLI([
+        "wallet", "import", wallet2.seed,
+        "--password", "testpassword",
+        "--keystore", tmpDir,
+        "--alias", "shared",
+        "--force",
+      ]);
+      expect(forceResult.status).toBe(0);
+      expect(forceResult.stdout).toContain(`Imported account ${wallet2.address} (alias: shared)`);
+    } finally {
+      rmSync(tmpDir, { recursive: true });
+    }
+  });
+
   it("imports a secp256k1 seed and creates correct keystore", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
