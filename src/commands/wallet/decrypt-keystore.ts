@@ -1,12 +1,11 @@
 import { Command } from "commander";
 import { existsSync, readFileSync } from "fs";
 import { createInterface } from "readline";
-import { homedir } from "os";
 import { join, resolve } from "path";
 import { deriveKeypair } from "ripple-keypairs";
 import { Wallet } from "xrpl";
 import type { ECDSA } from "xrpl";
-import { decryptKeystore, type KeystoreFile } from "../../utils/keystore.js";
+import { decryptKeystore, getKeystoreDir, type KeystoreFile } from "../../utils/keystore.js";
 
 type KeyType = "ed25519" | "secp256k1";
 
@@ -14,17 +13,6 @@ const DEFAULT_DERIVATION_PATH = "m/44'/144'/0'/0/0";
 
 function toAlgorithm(keyType: KeyType): ECDSA {
   return (keyType === "secp256k1" ? "ecdsa-secp256k1" : "ed25519") as unknown as ECDSA;
-}
-
-function getKeystoreDir(options: { keystore?: string }): string {
-  if (options.keystore) {
-    return resolve(options.keystore);
-  }
-  const envDir = process.env["XRPL_KEYSTORE"];
-  if (envDir) {
-    return resolve(envDir);
-  }
-  return join(homedir(), ".xrpl", "keystore");
 }
 
 function detectStoredMaterialType(material: string): "seed" | "mnemonic" | "privateKey" {

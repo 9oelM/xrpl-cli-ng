@@ -1,18 +1,7 @@
 import { Command } from "commander";
 import { existsSync, rmSync } from "fs";
-import { homedir } from "os";
-import { join, resolve } from "path";
-
-function getKeystoreDir(options: { keystore?: string }): string {
-  if (options.keystore) {
-    return resolve(options.keystore);
-  }
-  const envDir = process.env["XRPL_KEYSTORE"];
-  if (envDir) {
-    return resolve(envDir);
-  }
-  return join(homedir(), ".xrpl", "keystore");
-}
+import { join } from "path";
+import { getKeystoreDir } from "../../utils/keystore.js";
 
 interface RemoveOptions {
   keystore?: string;

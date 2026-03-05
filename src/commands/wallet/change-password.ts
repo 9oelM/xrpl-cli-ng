@@ -1,20 +1,8 @@
 import { Command } from "commander";
 import { existsSync, readFileSync, renameSync, writeFileSync } from "fs";
 import { createInterface } from "readline";
-import { homedir } from "os";
-import { join, resolve } from "path";
-import { decryptKeystore, encryptKeystore, type KeystoreFile } from "../../utils/keystore.js";
-
-function getKeystoreDir(options: { keystore?: string }): string {
-  if (options.keystore) {
-    return resolve(options.keystore);
-  }
-  const envDir = process.env["XRPL_KEYSTORE"];
-  if (envDir) {
-    return resolve(envDir);
-  }
-  return join(homedir(), ".xrpl", "keystore");
-}
+import { join } from "path";
+import { decryptKeystore, encryptKeystore, getKeystoreDir, type KeystoreFile } from "../../utils/keystore.js";
 
 async function promptPassword(prompt: string): Promise<string> {
   return new Promise((resolve) => {

@@ -1,14 +1,13 @@
 import { Command } from "commander";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { createInterface } from "readline";
-import { homedir } from "os";
-import { join, resolve } from "path";
+import { join } from "path";
 import { deriveAddress, deriveKeypair } from "ripple-keypairs";
 import { Wallet } from "xrpl";
 import type { ECDSA } from "xrpl";
 import { ed25519 } from "@noble/curves/ed25519";
 import { secp256k1 } from "@noble/curves/secp256k1";
-import { encryptKeystore } from "../../utils/keystore.js";
+import { encryptKeystore, getKeystoreDir } from "../../utils/keystore.js";
 
 type KeyType = "ed25519" | "secp256k1";
 
@@ -24,17 +23,6 @@ function bytesToHex(bytes: Uint8Array): string {
 
 function hexToBytes(hex: string): Uint8Array {
   return Buffer.from(hex, "hex");
-}
-
-function getKeystoreDir(options: { keystore?: string }): string {
-  if (options.keystore) {
-    return resolve(options.keystore);
-  }
-  const envDir = process.env["XRPL_KEYSTORE"];
-  if (envDir) {
-    return resolve(envDir);
-  }
-  return join(homedir(), ".xrpl", "keystore");
 }
 
 function detectKeyMaterialType(input: string): "seed" | "mnemonic" | "privateKey" {

@@ -1,18 +1,7 @@
 import { Command } from "commander";
 import { readdirSync, existsSync } from "fs";
-import { homedir } from "os";
-import { join, resolve, basename } from "path";
-
-function getKeystoreDir(options: { keystore?: string }): string {
-  if (options.keystore) {
-    return resolve(options.keystore);
-  }
-  const envDir = process.env["XRPL_KEYSTORE"];
-  if (envDir) {
-    return resolve(envDir);
-  }
-  return join(homedir(), ".xrpl", "keystore");
-}
+import { basename } from "path";
+import { getKeystoreDir } from "../../utils/keystore.js";
 
 interface ListOptions {
   keystore?: string;
