@@ -12,6 +12,8 @@ Started: Thu Mar  5 00:40:32 Universal 2026
 - All wallet commands import getKeystoreDir from `../../utils/keystore.js` (not local copies)
 - Atomic writes use writeFileSync to `<path>.tmp` then renameSync to `<path>` (same pattern for all keystore mutations)
 - Alias uniqueness scan: readdirSync + filter `.json` + parse each, skip on error
+- Global `--node` option lives on root `program`; subcommand actions get node URL via `getNodeUrl(cmd)` where `cmd` is the last argument passed to the action handler
+- `cmd.optsWithGlobals()` retrieves merged options from root + subcommand; cast to `{ node: string }` for type safety
 
 ## 2026-03-05 - US-001
 - Implemented: label field on KeystoreFile, getKeystoreDir utility extracted to keystore.ts, resolveAccount() utility, updated all wallet commands
@@ -60,4 +62,28 @@ Started: Thu Mar  5 00:40:32 Universal 2026
   - `--json` flag outputs JSON.stringify(aliases) array; human output is `alias  →  address` per line
   - Empty case: catch on readdirSync (dir may not exist) returns [] aliases → prints "(no aliases set)"
   - All 8 alias tests pass (including 3 new list tests)
+---
+
+## 2026-03-05 - US-006
+- Implemented: Global `--node <url>` option on root `program` in `src/index.ts`; created `src/utils/node.ts` exporting `getNodeUrl(cmd)` which calls `cmd.optsWithGlobals().node` and resolves via `resolveNodeUrl`; removed local `--node` from `src/commands/account.ts` and updated action handler to accept `cmd` as 3rd argument
+- Files changed: src/index.ts, src/utils/node.ts (new), src/commands/account.ts, tests/e2e/account/info.test.ts (new)
+- **Learnings for future iterations:**
+  - Commander.js action handler receives positional args, then options object, then Command instance as last arg
+  - `cmd.optsWithGlobals()` retrieves options from all parent commands including root; needed for global --node
+  - XRPL_NODE env var sets default for --node via `process.env.XRPL_NODE ?? "testnet"` in option definition
+  - `rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh` is the XRPL testnet genesis address (always funded, good for E2E tests)
+  - All 111 tests pass
+---
+
+## 2026-03-05 - US-007
+- Implemented: `account info` command in new `src/commands/account/` directory structure; deleted old `src/commands/account.ts`
+- Full human-readable output: Address, Balance, Sequence, Owner Count, Reserve (computed from server_state), Flags (hex + decoded names via parseAccountRootFlags), Domain (hex → UTF-8), Email Hash, Transfer Rate, Tick Size
+- `--json` outputs raw account_data object; alias `i` works
+- Used `Promise.all([account_info, server_state])` to fetch reserve info in parallel
+- Files changed: src/commands/account/index.ts (new), src/commands/account/info.ts (new), src/commands/index.ts, tests/e2e/account/info.test.ts; deleted src/commands/account.ts
+- **Learnings for future iterations:**
+  - `parseAccountRootFlags(flags)` from xrpl returns an object with boolean fields for each flag name
+  - server_state response has `state.validated_ledger.reserve_base` and `reserve_inc` in drops
+  - When restructuring commands into subdirectories, update src/commands/index.ts export path
+  - All 113 tests pass
 ---
