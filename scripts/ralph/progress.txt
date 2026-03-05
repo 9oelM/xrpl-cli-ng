@@ -1,22 +1,3 @@
-## Codebase Patterns
-- CLI commands use `getNodeUrl(cmd)` for node resolution (reads global --node flag)
-- Use `resolveAccount(addressOrAlias, keystoreDir)` with `getKeystoreDir({ keystore: undefined })` for address/alias resolution
-- `withClient(url, fn)` wraps connect/disconnect around XRPL requests
-- E2E tests use `spawnSync(TSX, [CLI, ...args], { timeout: N, encoding: 'utf-8' })` with PATH set to fnm node bin
-- Commands register with `.alias("x")` for short aliases
-- `--json` flag outputs structured JSON; default is human-readable lines
-- Error output goes to `process.stderr.write(...)` followed by `process.exit(1)`
-
 # Ralph Progress Log
-Started: Thu Mar  5 02:32:37 Universal 2026
----
-
-## 2026-03-05 - US-001
-- Implemented `wallet fund <address-or-alias>` command
-- Files changed: `src/commands/wallet/fund.ts` (new), `src/commands/wallet/index.ts` (registered fund command), `tests/e2e/wallet/fund.test.ts` (new)
-- **Learnings for future iterations:**
-  - Faucet URL detection uses `nodeUrl.includes('altnet')` vs `nodeUrl.includes('devnet')` after `getNodeUrl()` resolves aliases
-  - The xrpl.js client throws on `account_info` for non-existent accounts; catch errors in retry loop
-  - E2E tests that hit testnet faucet need `timeout: 120_000` since funding + polling can take 10-30s
-  - Use Node 22 built-in `fetch` (no extra HTTP lib needed)
+Started: Thu Mar  5 03:21:39 Universal 2026
 ---
