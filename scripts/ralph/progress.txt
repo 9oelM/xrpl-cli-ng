@@ -41,6 +41,17 @@ Started: Thu Mar  5 00:40:32 Universal 2026
   - All 107 tests pass
 ---
 
+## 2026-03-05 - US-005
+- Implemented: `wallet list` now reads label from each keystore JSON file and shows alias column
+- Human-readable output: `<address>  <alias>` when alias set, just `<address>` when not
+- `--json` output changed from `string[]` to `{ address: string, alias?: string }[]`; alias key omitted when not set
+- Files changed: src/commands/wallet/list.ts, tests/e2e/wallet/list.test.ts
+- **Learnings for future iterations:**
+  - Existing tests that parsed `--json` as `string[]` needed updating to parse as `{ address: string, alias?: string }[]`
+  - Human-readable output: only append alias when defined, no dash placeholder for absent aliases
+  - All 109 tests pass
+---
+
 ## 2026-03-05 - US-003
 - Implemented: `wallet alias list` subcommand added to the alias group in alias.ts
 - Files changed: src/commands/wallet/alias.ts, tests/e2e/wallet/alias.test.ts
