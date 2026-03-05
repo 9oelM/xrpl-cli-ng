@@ -39,6 +39,10 @@ interface PaymentOptions {
   memoFormat?: string;
   sendMax?: string;
   deliverMin?: string;
+  paths?: string;
+  partial: boolean;
+  noRippleDirect: boolean;
+  limitQuality: boolean;
   noWait: boolean;
   json: boolean;
   dryRun: boolean;
@@ -60,6 +64,10 @@ export const paymentCommand = new Command("payment")
   .option("--memo-format <hex>", "MemoFormat hex for the last memo")
   .option("--send-max <amount>", "SendMax field; supports XRP, IOU, and MPT amounts")
   .option("--deliver-min <amount>", "DeliverMin field; automatically adds tfPartialPayment flag")
+  .option("--paths <json-or-file>", "Payment paths as JSON array or path to a .json file")
+  .option("--partial", "Set tfPartialPayment flag", false)
+  .option("--no-ripple-direct", "Set tfNoRippleDirect flag (value 0x00040000)", false)
+  .option("--limit-quality", "Set tfLimitQuality flag (value 0x00080000)", false)
   .option("--no-wait", "Submit without waiting for validation", false)
   .option("--json", "Output as JSON", false)
   .option("--dry-run", "Print signed tx without submitting", false)
@@ -160,6 +168,20 @@ export const paymentCommand = new Command("payment")
       }
     }
 
+    // Parse --paths
+    let xrplPaths: unknown[] | undefined;
+    if (options.paths !== undefined) {
+      try {
+        const raw = options.paths.endsWith(".json")
+          ? readFileSync(options.paths, "utf-8")
+          : options.paths;
+        xrplPaths = JSON.parse(raw) as unknown[];
+      } catch (e: unknown) {
+        process.stderr.write(`Error: failed to parse --paths: ${(e as Error).message}\n`);
+        process.exit(1);
+      }
+    }
+
     // Resolve destination
     const keystoreDir = getKeystoreDir(options);
     const destination = resolveAccount(options.to, keystoreDir);
@@ -189,6 +211,12 @@ export const paymentCommand = new Command("payment")
       });
     }
 
+    // Compute combined payment flags
+    let combinedFlags = 0;
+    if (options.partial || xrplDeliverMin !== undefined) combinedFlags |= PaymentFlags.tfPartialPayment;
+    if (options.noRippleDirect) combinedFlags |= PaymentFlags.tfNoRippleDirect;
+    if (options.limitQuality) combinedFlags |= PaymentFlags.tfLimitQuality;
+
     // Build the Payment transaction
     const tx: Payment = {
       TransactionType: "Payment",
@@ -199,7 +227,8 @@ export const paymentCommand = new Command("payment")
       ...(memos ? { Memos: memos } : {}),
       ...(xrplSendMax !== undefined ? { SendMax: xrplSendMax as Payment["Amount"] } : {}),
       ...(xrplDeliverMin !== undefined ? { DeliverMin: xrplDeliverMin as Payment["Amount"] } : {}),
-      ...(xrplDeliverMin !== undefined ? { Flags: PaymentFlags.tfPartialPayment } : {}),
+      ...(combinedFlags !== 0 ? { Flags: combinedFlags } : {}),
+      ...(xrplPaths !== undefined && xrplPaths.length > 0 ? { Paths: xrplPaths as Payment["Paths"] } : {}),
     };
 
     const url = getNodeUrl(cmd);
@@ -241,7 +270,10 @@ export const paymentCommand = new Command("payment")
       const txResult = response.result as {
         hash?: string;
         ledger_index?: number;
-        meta?: { TransactionResult?: string };
+        meta?: {
+          TransactionResult?: string;
+          delivered_amount?: string | { value: string; currency: string; issuer: string };
+        };
         tx_json?: { Fee?: string };
       };
 
@@ -267,6 +299,9 @@ export const paymentCommand = new Command("payment")
         const out: Record<string, unknown> = { hash, result: resultCode, fee: feeXrp, ledger };
         if (destTag !== undefined) out.destinationTag = destTag;
         if (memos) out.memos = memos;
+        if (options.partial && txResult.meta?.delivered_amount !== undefined) {
+          out.deliveredAmount = txResult.meta.delivered_amount;
+        }
         console.log(JSON.stringify(out));
       } else {
         console.log(`Transaction: ${hash}`);
