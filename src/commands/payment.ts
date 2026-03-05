@@ -2,7 +2,7 @@ import { Command } from "commander";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { createInterface } from "readline";
-import { Wallet } from "xrpl";
+import { Wallet, PaymentFlags } from "xrpl";
 import type { Payment, Memo } from "xrpl";
 import { deriveKeypair } from "ripple-keypairs";
 import { withClient } from "../utils/client.js";
@@ -37,6 +37,8 @@ interface PaymentOptions {
   memo?: string[];
   memoType?: string;
   memoFormat?: string;
+  sendMax?: string;
+  deliverMin?: string;
   noWait: boolean;
   json: boolean;
   dryRun: boolean;
@@ -56,6 +58,8 @@ export const paymentCommand = new Command("payment")
   .option("--memo <text>", "Memo text to attach (repeatable)", (val: string, prev: string[]) => [...(prev ?? []), val], [] as string[])
   .option("--memo-type <hex>", "MemoType hex for the last memo")
   .option("--memo-format <hex>", "MemoFormat hex for the last memo")
+  .option("--send-max <amount>", "SendMax field; supports XRP, IOU, and MPT amounts")
+  .option("--deliver-min <amount>", "DeliverMin field; automatically adds tfPartialPayment flag")
   .option("--no-wait", "Submit without waiting for validation", false)
   .option("--json", "Output as JSON", false)
   .option("--dry-run", "Print signed tx without submitting", false)
@@ -134,6 +138,28 @@ export const paymentCommand = new Command("payment")
       process.exit(1);
     }
 
+    // Parse --send-max
+    let xrplSendMax: string | { value: string; currency: string; issuer: string } | { value: string; mpt_issuance_id: string } | undefined;
+    if (options.sendMax !== undefined) {
+      try {
+        xrplSendMax = toXrplAmount(parseAmount(options.sendMax));
+      } catch (e: unknown) {
+        process.stderr.write(`Error: ${(e as Error).message}\n`);
+        process.exit(1);
+      }
+    }
+
+    // Parse --deliver-min
+    let xrplDeliverMin: string | { value: string; currency: string; issuer: string } | { value: string; mpt_issuance_id: string } | undefined;
+    if (options.deliverMin !== undefined) {
+      try {
+        xrplDeliverMin = toXrplAmount(parseAmount(options.deliverMin));
+      } catch (e: unknown) {
+        process.stderr.write(`Error: ${(e as Error).message}\n`);
+        process.exit(1);
+      }
+    }
+
     // Resolve destination
     const keystoreDir = getKeystoreDir(options);
     const destination = resolveAccount(options.to, keystoreDir);
@@ -171,6 +197,9 @@ export const paymentCommand = new Command("payment")
       Amount: xrplAmount as Payment["Amount"],
       ...(destTag !== undefined ? { DestinationTag: destTag } : {}),
       ...(memos ? { Memos: memos } : {}),
+      ...(xrplSendMax !== undefined ? { SendMax: xrplSendMax as Payment["Amount"] } : {}),
+      ...(xrplDeliverMin !== undefined ? { DeliverMin: xrplDeliverMin as Payment["Amount"] } : {}),
+      ...(xrplDeliverMin !== undefined ? { Flags: PaymentFlags.tfPartialPayment } : {}),
     };
 
     const url = getNodeUrl(cmd);
