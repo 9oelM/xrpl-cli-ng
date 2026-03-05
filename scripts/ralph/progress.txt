@@ -75,6 +75,15 @@ Started: Thu Mar  5 00:40:32 Universal 2026
   - All 111 tests pass
 ---
 
+## 2026-03-05 - US-008
+- Implemented: `account balance <address-or-alias>` command; --drops flag for raw drops; --json for structured output; alias `bal`
+- Files changed: src/commands/account/balance.ts (new), src/commands/account/index.ts, tests/e2e/account/balance.test.ts (new)
+- **Learnings for future iterations:**
+  - Balance command fetches account_info and converts drops to XRP with `Number(data.Balance) / 1_000_000`
+  - `--json` outputs `{ address, balanceXrp, balanceDrops }` where balanceDrops is the raw string from XRPL
+  - All 117 tests pass
+---
+
 ## 2026-03-05 - US-007
 - Implemented: `account info` command in new `src/commands/account/` directory structure; deleted old `src/commands/account.ts`
 - Full human-readable output: Address, Balance, Sequence, Owner Count, Reserve (computed from server_state), Flags (hex + decoded names via parseAccountRootFlags), Domain (hex → UTF-8), Email Hash, Transfer Rate, Tick Size
@@ -86,4 +95,15 @@ Started: Thu Mar  5 00:40:32 Universal 2026
   - server_state response has `state.validated_ledger.reserve_base` and `reserve_inc` in drops
   - When restructuring commands into subdirectories, update src/commands/index.ts export path
   - All 113 tests pass
+---
+
+## 2026-03-05 - US-009
+- Implemented: `account transactions <address-or-alias>` command; --limit (default 20, max 400); --marker for pagination; --json for structured output; alias `txs`
+- Human-readable output: one line per tx as `<ledger>  <type>  <result>  <hash>`
+- `--json` outputs `{ transactions: [...], marker?: ... }`; prints `(no transactions)` when empty
+- Files changed: src/commands/account/transactions.ts (new), src/commands/account/index.ts, tests/e2e/account/transactions.test.ts (new)
+- **Learnings for future iterations:**
+  - In `account_tx` response, `hash` is a top-level field on each entry (`entry.hash`), NOT inside `entry.tx_json.hash`
+  - `account_tx` request params: `ledger_index_min: -1` fetches full history; `limit` and `marker` for pagination
+  - All 121 tests pass
 ---
