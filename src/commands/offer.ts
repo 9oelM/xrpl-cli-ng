@@ -90,7 +90,7 @@ interface OfferCreateOptions {
   fillOrKill: boolean;
   expiration?: string;
   replace?: string;
-  noWait: boolean;
+  wait: boolean;
   json: boolean;
   dryRun: boolean;
 }
@@ -102,7 +102,7 @@ interface OfferCancelOptions {
   account?: string;
   password?: string;
   keystore?: string;
-  noWait: boolean;
+  wait: boolean;
   json: boolean;
   dryRun: boolean;
 }
@@ -123,7 +123,7 @@ const offerCreateCommand = new Command("create")
   .option("--fill-or-kill", "Set tfFillOrKill — fill completely or cancel entire offer", false)
   .option("--expiration <iso>", "Offer expiration as ISO 8601 string (e.g. 2030-01-01T00:00:00Z)")
   .option("--replace <sequence>", "Cancel offer with this sequence and replace it atomically (OfferSequence field)")
-  .option("--no-wait", "Submit without waiting for validation", false)
+  .option("--no-wait", "Submit without waiting for validation")
   .option("--json", "Output as JSON", false)
   .option("--dry-run", "Print signed tx without submitting", false)
   .action(async (options: OfferCreateOptions, cmd: Command) => {
@@ -213,7 +213,7 @@ const offerCreateCommand = new Command("create")
 
       const signed = signerWallet.sign(filled);
 
-      if (options.noWait) {
+      if (!options.wait) {
         await client.submit(signed.tx_blob);
         if (options.json) {
           console.log(JSON.stringify({ hash: signed.hash }));
@@ -272,7 +272,7 @@ const offerCancelCommand = new Command("cancel")
   .option("--account <address-or-alias>", "Account address or alias to load from keystore")
   .option("--password <password>", "Keystore decryption password (insecure, prefer interactive prompt)")
   .option("--keystore <dir>", "Keystore directory (default: ~/.xrpl/keystore/; XRPL_KEYSTORE env var also accepted)")
-  .option("--no-wait", "Submit without waiting for validation", false)
+  .option("--no-wait", "Submit without waiting for validation")
   .option("--json", "Output as JSON", false)
   .option("--dry-run", "Print signed tx without submitting", false)
   .action(async (options: OfferCancelOptions, cmd: Command) => {
@@ -314,7 +314,7 @@ const offerCancelCommand = new Command("cancel")
 
       const signed = signerWallet.sign(filled);
 
-      if (options.noWait) {
+      if (!options.wait) {
         await client.submit(signed.tx_blob);
         if (options.json) {
           console.log(JSON.stringify({ hash: signed.hash }));
