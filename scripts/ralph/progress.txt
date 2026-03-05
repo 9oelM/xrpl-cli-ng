@@ -41,3 +41,13 @@ Started: Thu Mar  5 03:07:41 PM Universal 2026
   - book_offers query direction: our offer (TakerPays=USD, TakerGets=XRP) appears in `{ taker_pays: {currency:"USD", issuer:...}, taker_gets: {currency:"XRP"} }` — NOT the reversed direction
   - Keep xrpl.js client alive for entire test file (beforeAll connect, afterAll disconnect) when multiple async tests need on-chain queries
 ---
+
+## 2026-03-05 - US-004
+- Created tests/e2e/offer/offer.flags.test.ts (4 flag-specific on-chain tests: --passive, --replace, --expiration, --immediate-or-cancel)
+- Fixed offer.ts to treat tecKILLED as non-fatal for IOC/FOK offers (expected outcome, exits 0 with "Offer killed" message)
+- Files changed: tests/e2e/offer/offer.flags.test.ts, src/commands/offer.ts
+- **Learnings for future iterations:**
+  - `tecKILLED` result for OfferCreate with IOC/FOK: ledger killed offer because it couldn't be immediately filled — normal/expected outcome, must exit 0
+  - For --expiration test: `account_offers` JSON response includes `expiration` as a number (XRPL epoch) if set
+  - For --replace test: use xrpl.js to pre-create an offer directly to get a reliable sequence number
+---
