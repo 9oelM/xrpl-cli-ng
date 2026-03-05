@@ -3,12 +3,47 @@ Started: Thu Mar  5 03:21:39 Universal 2026
 ---
 
 ## Codebase Patterns
+- MPTokenIssuanceID is 24 bytes (48 hex chars) = 4-byte big-endian sequence + 20-byte account ID (computed via decodeAccountID from xrpl)
+- For IOU E2E tests, use direct issuance (issuer sends to holder) rather than rippling between two holders — avoids Default Ripple and lsfNoRipple trust line flag complexities
+- MPTokenIssuance ledger entry type has NO MPTokenIssuanceID field; the ID must be computed from the creating tx's Sequence and Account
+- For MPT payments, receiver must create MPTokenAuthorize before receiving MPT; the issuance must have tfMPTCanTransfer (flag 32) set
 - Tests use vitest with `describe`/`it`/`expect` from "vitest"
 - All imports use `.js` extension (ESM module project with `"type": "module"`)
 - Test files live alongside source in `src/` for unit tests; E2E tests in `tests/e2e/`
 - `npm run typecheck` for type checking, `npm test` for all tests
 - Use `BigInt` for XRP drops arithmetic to avoid float precision issues
 
+---
+
+## 2026-03-05 - US-004
+- Added `--send-max <amount>` option: sets SendMax field; supports XRP, IOU, MPT via parseAmount/toXrplAmount
+- Added `--deliver-min <amount>` option: sets DeliverMin field and automatically adds `PaymentFlags.tfPartialPayment` to Flags
+- Added E2E test for IOU: fund issuer from faucet, receiver sets TrustSet, issuer directly sends IOU via CLI
+- Added E2E test for MPT: create MPTokenIssuanceCreate with tfMPTCanTransfer, compute ID from Sequence+Account, receiver MPTokenAuthorize, CLI sends MPT
+- Added E2E test for invalid amount: exits 1 with 'invalid amount' in stderr (no network needed)
+- All 9 payment tests + 175 total tests pass
+- Files changed: `src/commands/payment.ts`, `tests/e2e/payment/payment.test.ts`
+- **Learnings for future iterations:**
+  - MPTokenIssuanceID = uint32BE(Sequence) + 20-byte AccountID — use `decodeAccountID` from xrpl + Buffer.concat
+  - MPTokenIssuance ledger type has NO MPTokenIssuanceID field; don't look in NewFields for it
+  - For IOU E2E tests, use direct issuance (issuer sends to holder); rippling tests are fragile due to Default Ripple and lsfNoRipple order-of-creation issues
+  - `tecPATH_DRY` = path found but liquidity is zero (often Default Ripple or lsfNoRipple issue)
+  - To use PaymentFlags.tfPartialPayment with the Flags spread, just use `...(condition ? { Flags: PaymentFlags.tfPartialPayment } : {})`
+---
+
+## 2026-03-05 - US-003
+- Added `--destination-tag <n>` option: validates 0–4294967295, sets DestinationTag on Payment tx
+- Added `--memo <text>` repeatable option: hex-encodes text via `Buffer.from(text, 'utf8').toString('hex').toUpperCase()`
+- Added `--memo-type <hex>` and `--memo-format <hex>` options applied to the last memo
+- Updated human-readable output to print `Destination Tag: <n>` when set
+- Updated JSON output to include `destinationTag` and `memos` fields when present
+- Created 2 new E2E tests (destination-tag and memo), all 6 payment tests pass
+- Files changed: `src/commands/payment.ts`, `tests/e2e/payment/payment.test.ts`
+- **Learnings for future iterations:**
+  - Commander.js repeatable options: use `(val, prev) => [...prev, val]` with default `[]` as the collector
+  - `Memo` type from xrpl: `{ Memo: { MemoData, MemoType?, MemoFormat? } }`
+  - For spread optional fields: `...(condition ? { field: value } : {})` keeps TypeScript happy
+  - E2E tests for tx content: query `account transactions --json --limit 5` and `find()` by field value
 ---
 
 ## 2026-03-05 - US-002
