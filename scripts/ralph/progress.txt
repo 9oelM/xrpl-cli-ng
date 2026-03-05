@@ -1,45 +1,21 @@
 ## Codebase Patterns
-- Test framework: vitest with ESM imports (use `import ... from './module.js'` with .js extension)
-- TypeScript strict mode with NodeNext moduleResolution — always use .js extensions in imports
-- Existing commands use `createInterface` from readline for password prompts (no masking)
-- To mock process.stdin in tests: use Object.defineProperty with a custom EventEmitter having isTTY/setRawMode/resume/pause/setEncoding mock fns
-- process.exit tests: mock with a fn that throws a sentinel Error, await rejects.toThrow()
-- For sequential async prompts in tests, use nested setTimeout(0) to allow microtasks between data emissions
----
+- Commands follow payment.ts pattern: walletFromSeed helper, key material validation (exactly one of --seed/--mnemonic/--account), withClient wrapper, autofill+sign+submitAndWait flow
+- TrustSet flags are in `TrustSetFlags` from xrpl package (e.g., TrustSetFlags.tfSetNoRipple)
+- E2E tests use spawnSync with tsx runner, fund accounts via fundFromFaucet helper
+- Currency validation: 3-char ASCII uppercased OR 40-char hex; throw Error with descriptive message
+- Subcommands use `new Command('parent').addCommand(new Command('sub').alias('s'))` pattern
+- getKeystoreDir(options) + resolveAccount() are used to resolve --issuer and --account
 
 # Ralph Progress Log
-Started: Thu Mar  5 04:55:38 AM Universal 2026
----
-
-## 2026-03-05 - US-002
-- Removed local `promptPassword` function definitions from 7 command files
-- Removed unused `createInterface` imports from readline (except delete.ts which still needs it for promptConfirm)
-- Added `import { promptPassword } from '../../utils/prompt.js'` (or `'../utils/prompt.js'` for payment.ts)
-- Files changed: wallet/import.ts, wallet/decrypt-keystore.ts, wallet/sign.ts, wallet/change-password.ts, account/delete.ts, account/set.ts, payment.ts
-- **Learnings for future iterations:**
-  - PRD import paths for account/delete.ts and account/set.ts said `'../utils/prompt.js'` but correct path is `'../../utils/prompt.js'`
-  - account/delete.ts keeps `createInterface` import because `promptConfirm` (non-password prompt) still uses it
-  - change-password.ts uses `promptPassword('Current password: ')` and `promptPassword('New password: ')` — the utility's optional prompt param handles this
----
-
-## 2026-03-05 - US-003
-- Removed local `promptPasswordWithConfirmation` function and `createInterface` import from wallet/new.ts and wallet/new-mnemonic.ts
-- Added `import { promptPasswordWithConfirmation } from '../../utils/prompt.js'` to both files
-- Files changed: src/commands/wallet/new.ts, src/commands/wallet/new-mnemonic.ts
-- **Learnings for future iterations:**
-  - Both files had identical local implementations of promptPasswordWithConfirmation; the shared utility drop-in works with no callers needing changes
-  - All 9 E2E tests in tests/e2e/wallet/new.test.ts passed without modification
+Started: Thu Mar  5 05:48:33 AM Universal 2026
 ---
 
 ## 2026-03-05 - US-001
-- Implemented src/utils/prompt.ts with promptPassword and promptPasswordWithConfirmation
-- promptPassword uses raw mode (setRawMode) when isTTY, falling back to readline otherwise
-- Masks input with '*', handles backspace (\u007f/\b), Ctrl+C, and Enter
-- promptPasswordWithConfirmation calls process.exit(1) with error on stderr when passwords differ
-- Created src/utils/prompt.test.ts with 4 unit tests covering all behaviors
-- Files changed: src/utils/prompt.ts (new), src/utils/prompt.test.ts (new)
+- Implemented `trust set` (alias `s`) subcommand under `trust` command
+- Files changed: src/commands/trust.ts (new), src/commands/index.ts, src/index.ts, tests/e2e/trust/trust.test.ts (new)
 - **Learnings for future iterations:**
-  - process.stdin.setRawMode! (non-null assertion) needed since TypeScript doesn't narrow after isTTY check
-  - process.exit mock type: use `(_code?: string | number | null): never =>` to match Node.js signature
-  - Nested setTimeout(0) pattern allows microtasks to run between first and second prompt in tests
+  - Followed payment.ts pattern exactly for key material resolution and submit flow
+  - Currency validation: /^[A-Z0-9]{3}$/ for 3-char or /^[0-9A-Fa-f]{40}$/ for hex
+  - TrustSetFlags exported from trust.ts for US-002 to reuse
+  - All 8 E2E tests pass on testnet (tesSUCCESS, dry-run, no-wait, --json, error cases)
 ---
