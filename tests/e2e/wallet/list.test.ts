@@ -58,7 +58,7 @@ describe("wallet list", () => {
     }
   });
 
-  it("--json outputs a JSON array of addresses", () => {
+  it("--json outputs a JSON array of wallet objects", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const wallet1 = runCLI(["wallet", "new", "--json"]);
@@ -71,10 +71,15 @@ describe("wallet list", () => {
 
       const result = runCLI(["wallet", "list", "--keystore", tmpDir, "--json"]);
       expect(result.status).toBe(0);
-      const addresses = JSON.parse(result.stdout) as string[];
-      expect(Array.isArray(addresses)).toBe(true);
+      const entries = JSON.parse(result.stdout) as { address: string; alias?: string }[];
+      expect(Array.isArray(entries)).toBe(true);
+      const addresses = entries.map((e) => e.address);
       expect(addresses).toContain(address1);
       expect(addresses).toContain(address2);
+      // No alias key when not set
+      for (const entry of entries) {
+        expect(entry).not.toHaveProperty("alias");
+      }
     } finally {
       rmSync(tmpDir, { recursive: true });
     }
@@ -84,8 +89,8 @@ describe("wallet list", () => {
     const nonExistentDir = join(tmpdir(), `xrpl-nonexistent-${Date.now()}`);
     const result = runCLI(["wallet", "list", "--keystore", nonExistentDir, "--json"]);
     expect(result.status).toBe(0);
-    const addresses = JSON.parse(result.stdout) as string[];
-    expect(addresses).toEqual([]);
+    const entries = JSON.parse(result.stdout) as { address: string }[];
+    expect(entries).toEqual([]);
   });
 
   it("alias 'ls' works", () => {
@@ -110,6 +115,51 @@ describe("wallet list", () => {
       const result = runCLI(["wallet", "list"], { XRPL_KEYSTORE: tmpDir });
       expect(result.status).toBe(0);
       expect(result.stdout).toContain(address);
+    } finally {
+      rmSync(tmpDir, { recursive: true });
+    }
+  });
+
+  it("shows alias column in human-readable output when alias is set", () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
+    try {
+      const wallet1 = runCLI(["wallet", "new", "--json"]);
+      const { seed, address } = JSON.parse(wallet1.stdout) as { seed: string; address: string };
+
+      runCLI(["wallet", "import", seed, "--password", "testpassword", "--alias", "myalias", "--keystore", tmpDir]);
+
+      const result = runCLI(["wallet", "list", "--keystore", tmpDir]);
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain(address);
+      expect(result.stdout).toContain("myalias");
+    } finally {
+      rmSync(tmpDir, { recursive: true });
+    }
+  });
+
+  it("--json output contains alias field when set, no alias field when unset", () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
+    try {
+      const wallet1 = runCLI(["wallet", "new", "--json"]);
+      const wallet2 = runCLI(["wallet", "new", "--json"]);
+      const { seed: seed1, address: address1 } = JSON.parse(wallet1.stdout) as { seed: string; address: string };
+      const { seed: seed2, address: address2 } = JSON.parse(wallet2.stdout) as { seed: string; address: string };
+
+      runCLI(["wallet", "import", seed1, "--password", "testpassword", "--alias", "walletalias", "--keystore", tmpDir]);
+      runCLI(["wallet", "import", seed2, "--password", "testpassword", "--keystore", tmpDir]);
+
+      const result = runCLI(["wallet", "list", "--keystore", tmpDir, "--json"]);
+      expect(result.status).toBe(0);
+      const entries = JSON.parse(result.stdout) as { address: string; alias?: string }[];
+
+      const entry1 = entries.find((e) => e.address === address1);
+      const entry2 = entries.find((e) => e.address === address2);
+
+      expect(entry1).toBeDefined();
+      expect(entry1?.alias).toBe("walletalias");
+
+      expect(entry2).toBeDefined();
+      expect(entry2).not.toHaveProperty("alias");
     } finally {
       rmSync(tmpDir, { recursive: true });
     }

@@ -1,11 +1,16 @@
 import { Command } from "commander";
-import { readdirSync, existsSync } from "fs";
-import { basename } from "path";
-import { getKeystoreDir } from "../../utils/keystore.js";
+import { readdirSync, existsSync, readFileSync } from "fs";
+import { basename, join } from "path";
+import { getKeystoreDir, KeystoreFile } from "../../utils/keystore.js";
 
 interface ListOptions {
   keystore?: string;
   json: boolean;
+}
+
+interface WalletEntry {
+  address: string;
+  alias?: string;
 }
 
 export const listCommand = new Command("list")
@@ -26,13 +31,31 @@ export const listCommand = new Command("list")
     }
 
     const files = readdirSync(keystoreDir).filter((f) => f.endsWith(".json"));
-    const addresses = files.map((f) => basename(f, ".json"));
+    const entries: WalletEntry[] = files.map((f) => {
+      const address = basename(f, ".json");
+      try {
+        const data = JSON.parse(readFileSync(join(keystoreDir, f), "utf-8")) as Partial<KeystoreFile>;
+        const entry: WalletEntry = { address };
+        if (data.label) {
+          entry.alias = data.label;
+        }
+        return entry;
+      } catch {
+        return { address };
+      }
+    });
 
     if (options.json) {
-      console.log(JSON.stringify(addresses));
-    } else if (addresses.length === 0) {
+      console.log(JSON.stringify(entries));
+    } else if (entries.length === 0) {
       console.log("(empty)");
     } else {
-      addresses.forEach((addr) => console.log(addr));
+      entries.forEach(({ address, alias }) => {
+        if (alias) {
+          console.log(`${address}  ${alias}`);
+        } else {
+          console.log(address);
+        }
+      });
     }
   });
