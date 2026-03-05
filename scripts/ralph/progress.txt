@@ -29,3 +29,15 @@ Started: Thu Mar  5 03:07:41 PM Universal 2026
   - When building offer.ts, all flags were implemented upfront — US-002 was effectively a no-op at implementation time
   - OfferCreate.OfferSequence (not to be confused with the account's Sequence) is used for --replace (atomic cancel+replace)
 ---
+
+## 2026-03-05 - US-003
+- Created tests/e2e/offer/offer.validation.test.ts (4 no-network tests)
+- Created tests/e2e/offer/offer.core.test.ts (6 on-chain tests with beforeAll faucet funding and USD trust line setup)
+- Fixed --no-wait bug in offer.ts: `.option("--no-wait", ..., false)` with explicit `false` default makes both states identical; removed default and changed `options.noWait` → `!options.wait`
+- Files changed: tests/e2e/offer/offer.validation.test.ts, tests/e2e/offer/offer.core.test.ts, src/commands/offer.ts
+- **Learnings for future iterations:**
+  - Commander.js `--no-xxx` option stores property as `xxx` (not `noWait`), default `true`, `--no-wait` sets to `false`. DO NOT pass explicit `false` default — it makes the flag a no-op. Check `!options.wait` not `options.noWait`.
+  - For offer on-chain verification: use `account offers --json <address>`, filter by seq number parsed from CLI output
+  - book_offers query direction: our offer (TakerPays=USD, TakerGets=XRP) appears in `{ taker_pays: {currency:"USD", issuer:...}, taker_gets: {currency:"XRP"} }` — NOT the reversed direction
+  - Keep xrpl.js client alive for entire test file (beforeAll connect, afterAll disconnect) when multiple async tests need on-chain queries
+---
