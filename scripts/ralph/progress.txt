@@ -2,6 +2,24 @@
 Started: Thu Mar  5 03:21:39 Universal 2026
 ---
 
+## 2026-03-05 - US-005
+- Added `--paths <json-or-file>` option: parses inline JSON array or reads from `.json` file; adds Paths to tx when non-empty
+- Added `--partial` flag: sets tfPartialPayment (0x00020000); combined with --deliver-min via bitwise OR
+- Added `--no-ripple-direct` flag: sets tfNoRippleDirect (0x00040000); Commander treats `--no-*` as literal flag when no positive `--ripple-direct` exists → attribute is `noRippleDirect`
+- Added `--limit-quality` flag: sets tfLimitQuality (0x00080000)
+- Flags are ORed together (partial | noRippleDirect | limitQuality) replacing prior per-flag Flags spread
+- `--partial --json` output includes `deliveredAmount` from `meta.delivered_amount`
+- Fixed E2E test: XRP-to-XRP partial not allowed (temBAD_SEND_XRP_PARTIAL); used IOU direct issuance for --partial tests instead
+- All 178 tests pass
+- Files changed: `src/commands/payment.ts`, `tests/e2e/payment/payment.test.ts`
+- **Learnings for future iterations:**
+  - XRP-to-XRP partial payments are rejected with temBAD_SEND_XRP_PARTIAL; use IOU for partial payment tests
+  - Empty Paths array (`--paths '[]'`) should be omitted from tx (XRPL ignores/rejects empty paths for XRP)
+  - Commander's `--no-X` treated as literal flag (not negation) when `--X` isn't defined; camelCase attr is `noX`
+  - PaymentFlags exports tfNoRippleDirect, tfPartialPayment, tfLimitQuality from xrpl
+  - `meta.delivered_amount` is always present in Payment tx metadata (string for XRP, object for IOU)
+---
+
 ## Codebase Patterns
 - MPTokenIssuanceID is 24 bytes (48 hex chars) = 4-byte big-endian sequence + 20-byte account ID (computed via decodeAccountID from xrpl)
 - For IOU E2E tests, use direct issuance (issuer sends to holder) rather than rippling between two holders — avoids Default Ripple and lsfNoRipple trust line flag complexities
