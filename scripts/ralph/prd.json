@@ -1,0 +1,321 @@
+{
+  "project": "xrpl-cli",
+  "branchName": "ralph/account-commands",
+  "description": "xrpl account — Wallet aliases, global --node flag, and full account command suite: info, balance, transactions, offers, trust-lines, channels, nfts, set, delete",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Extract getKeystoreDir helper + add label field + resolveAccount() utility",
+      "description": "As a developer, I need shared keystore utilities (getKeystoreDir, resolveAccount) and a label field on KeystoreFile so wallet aliases work consistently across all commands.",
+      "acceptanceCriteria": [
+        "Add `label?: string` to the `KeystoreFile` type in `src/utils/keystore.ts`",
+        "Add `encryptKeystore` optional 5th parameter `label?: string`; include it in output JSON when provided",
+        "Extract `getKeystoreDir(options: { keystore?: string }): string` from duplicated command code into `src/utils/keystore.ts`; resolution order: options.keystore → XRPL_KEYSTORE env var → ~/.xrpl/keystore/",
+        "Update all wallet commands (import, list, remove, decrypt-keystore, change-password) to import and use `getKeystoreDir` from keystore.ts instead of their own local copy",
+        "Add `resolveAccount(addressOrAlias: string, keystoreDir: string): string` to `src/utils/keystore.ts`: if input starts with 'r' and length is 25–34, return unchanged; otherwise scan *.json files in keystoreDir for matching label field and return address; throw 'Error: no wallet with alias <name> found in keystore' if not found",
+        "Unit tests in `src/utils/keystore.test.ts`: resolveAccount returns address as-is; resolves a known alias; throws on unknown alias",
+        "Existing wallet E2E tests still pass after getKeystoreDir refactor",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "wallet alias set and wallet alias remove",
+      "description": "As a user, I want to assign or remove a human-readable alias on an existing keystore entry so I can reference wallets by name.",
+      "acceptanceCriteria": [
+        "Create `src/commands/wallet/alias.ts` with a `wallet alias` subcommand group registered in `src/commands/wallet/index.ts`",
+        "`xrpl wallet alias set <address> <name>` reads <address>.json from keystore, sets label to <name>, writes back atomically (tmp + rename)",
+        "`alias set` exits 1 with error if <address>.json not found in keystore",
+        "`alias set` exits 1 if <name> is already used by a different address unless --force is passed; scans all *.json files in keystore dir to check uniqueness",
+        "`xrpl wallet alias remove <address>` removes the label field from <address>.json; exits 1 if file not found",
+        "Both subcommands respect --keystore <dir> / XRPL_KEYSTORE env var via getKeystoreDir",
+        "`alias set` prints: Alias '<name>' set for <address>",
+        "`alias remove` prints: Alias removed from <address>",
+        "E2E test: import a wallet, alias set, read keystore JSON and assert label field matches, alias remove, read JSON and assert label is absent",
+        "E2E test: alias set with a duplicate name exits 1; --force overwrites",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "wallet alias list — show all aliases",
+      "description": "As a user, I want to see all named wallets at a glance.",
+      "acceptanceCriteria": [
+        "Add `list` subcommand to the `wallet alias` group in `src/commands/wallet/alias.ts`",
+        "`xrpl wallet alias list` scans keystore dir, prints one '<alias>  →  <address>' line per wallet with a label",
+        "Wallets without a label are omitted",
+        "--json outputs array of { alias, address } objects",
+        "Prints '(no aliases set)' when no labelled wallets exist",
+        "Respects --keystore <dir> / XRPL_KEYSTORE via getKeystoreDir",
+        "E2E test: import two wallets with --alias flags, run alias list, assert both name→address pairs appear; import third wallet without alias, assert it does not appear",
+        "E2E test: --json output is a valid JSON array with alias and address fields",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "--alias flag on wallet import",
+      "description": "As a user, I want to set an alias at import time without a separate command.",
+      "acceptanceCriteria": [
+        "Add `--alias <name>` option to `src/commands/wallet/import.ts`",
+        "When --alias is provided, pass label to encryptKeystore so it is stored in the keystore file",
+        "Apply same alias uniqueness check as `alias set`: scan keystore dir, exit 1 if name taken, --force overrides",
+        "Confirmation message updated to: 'Imported account <address> (alias: <name>) to <filepath>' when alias is given",
+        "E2E test: wallet import --alias alice, verify keystore JSON contains \"label\": \"alice\", verify wallet alias list shows alice",
+        "E2E test: importing with a duplicate alias exits 1; --force succeeds",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "wallet list shows alias column",
+      "description": "As a user, I want wallet list to show aliases alongside addresses so I can see the full picture at a glance.",
+      "acceptanceCriteria": [
+        "Update `src/commands/wallet/list.ts` to read label from each keystore JSON file",
+        "Human-readable output: '<address>  <alias>' where alias column is blank (not a dash) when unset",
+        "--json output changes from string[] to { address: string, alias?: string }[] — omit alias key when not set",
+        "E2E test: import wallet with alias, run wallet list, assert output line contains both address and alias",
+        "E2E test: --json output contains alias field when set, no alias field when unset",
+        "Existing wallet list E2E tests updated to match new output format",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Global --node flag on root command + getNodeUrl() utility",
+      "description": "As a developer, I need a single --node configuration point on the root command so no subcommand needs to duplicate it.",
+      "acceptanceCriteria": [
+        "Add `.option('-n, --node <url>', 'XRPL node URL or network name (mainnet|testnet|devnet)', process.env.XRPL_NODE ?? 'testnet')` to root program in `src/index.ts`",
+        "Create `src/utils/node.ts` exporting `getNodeUrl(cmd: Command): string` that calls `resolveNodeUrl(cmd.optsWithGlobals().node)`",
+        "Remove --node option from `src/commands/account.ts` (the existing stub); update its action handler to use `getNodeUrl(cmd)` — action handler must accept Command instance as last argument",
+        "E2E test: run `xrpl --node testnet account info <known-testnet-address>` and assert it returns account data (use a well-known funded testnet address)",
+        "E2E test: run with `XRPL_NODE=testnet` env var and no --node flag, assert it connects successfully",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "account info — rewrite and restructure into account/ directory",
+      "description": "As a user, I want to see the full on-ledger state of an XRPL account with all relevant fields.",
+      "acceptanceCriteria": [
+        "Create `src/commands/account/` directory with `index.ts` (command group) and `info.ts` (subcommand)",
+        "Delete `src/commands/account.ts`; update `src/commands/index.ts` to export `accountCommand` from `./account/index.js`",
+        "`xrpl account info <address-or-alias>` uses resolveAccount() for alias resolution with keystoreDir from getKeystoreDir({ keystore: undefined })",
+        "Fetches account_info with ledger_index: 'validated'",
+        "Human-readable output prints labelled lines: Address, Balance (converted from drops to XRP), Sequence, Owner Count, Reserve (base + owner × increment), Flags (hex + decoded names via xrpl.parseAccountRootFlags), Domain (hex decoded to UTF-8, omitted if not set), Email Hash (omitted if not set), Transfer Rate (raw integer + '(<rate/1e9> fee factor)', omitted if 0), Tick Size (omitted if 0)",
+        "--json outputs the raw account_data object from the XRPL response",
+        "Uses getNodeUrl(cmd) — action must receive Command instance as last arg",
+        "Alias: xrpl account i",
+        "E2E test: run account info with a well-known testnet address (or fund one with fundFromFaucet), assert output contains 'Address:' and 'Balance:' lines",
+        "E2E test: --json output contains Account and Balance fields",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "account balance — XRP balance shorthand",
+      "description": "As a user, I want a quick one-liner to check an account's XRP balance.",
+      "acceptanceCriteria": [
+        "Create `src/commands/account/balance.ts` registered in `src/commands/account/index.ts`",
+        "`xrpl account balance <address-or-alias>` fetches account_info and prints '<amount> XRP' (drops divided by 1,000,000)",
+        "--drops flag prints raw drops as a plain integer string instead",
+        "--json outputs { address, balanceXrp, balanceDrops }",
+        "Uses resolveAccount() for alias and getNodeUrl(cmd) for node",
+        "Alias: xrpl account bal",
+        "E2E test: fund testnet account, run account balance, assert output matches /^\\d+(\\.\\d+)? XRP$/",
+        "E2E test: --drops output is a plain integer string with no 'XRP' suffix",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "account transactions — list recent transactions",
+      "description": "As a user, I want to see an account's recent transactions with key fields visible at a glance.",
+      "acceptanceCriteria": [
+        "Create `src/commands/account/transactions.ts` registered in `src/commands/account/index.ts`",
+        "`xrpl account transactions <address-or-alias>` fetches account_tx with ledger_index_min: -1",
+        "--limit <n> defaults to 20; max 400",
+        "--marker <json-string> enables pagination; accepts the marker value from a previous --json response",
+        "Human-readable output: one line per tx formatted as '<ledger>  <type>  <result>  <hash>'",
+        "--json outputs { transactions: [...raw tx objects...], marker?: <marker> }",
+        "Prints '(no transactions)' if the account has no transaction history",
+        "Uses resolveAccount() and getNodeUrl(cmd)",
+        "Alias: xrpl account txs",
+        "E2E test: fund a testnet account, submit a self-payment, run account transactions, assert the transaction hash appears in output",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "account offers — list open DEX offers",
+      "description": "As a user, I want to see all open DEX offers placed by an account.",
+      "acceptanceCriteria": [
+        "Create `src/commands/account/offers.ts` registered in `src/commands/account/index.ts`",
+        "`xrpl account offers <address-or-alias>` fetches account_offers",
+        "Human-readable output: one line per offer — '#<seq>  <taker-pays> → <taker-gets>  quality: <quality>'",
+        "XRP amounts displayed as '<value> XRP' (converted from drops); issued tokens as '<value> <currency>/<issuer>'",
+        "--json outputs the raw offers array",
+        "--limit <n> and --marker <json-string> for pagination",
+        "Prints '(no open offers)' if the account has no offers",
+        "Uses resolveAccount() and getNodeUrl(cmd)",
+        "Alias: xrpl account of",
+        "E2E test: run account offers on a fresh testnet account, assert output is '(no open offers)'",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "account trust-lines — list trust lines",
+      "description": "As a user, I want to see all trust lines an account has established.",
+      "acceptanceCriteria": [
+        "Create `src/commands/account/trust-lines.ts` registered in `src/commands/account/index.ts`",
+        "`xrpl account trust-lines <address-or-alias>` fetches account_lines",
+        "Human-readable output: one line per line — '<currency>/<account>  balance: <bal>  limit: <limit>'",
+        "--peer <address> option filters to trust lines with a specific peer",
+        "--json outputs the raw lines array",
+        "--limit <n> and --marker <json-string> for pagination",
+        "Prints '(no trust lines)' when empty",
+        "Uses resolveAccount() and getNodeUrl(cmd)",
+        "Alias: xrpl account lines",
+        "E2E test: run account trust-lines on a fresh testnet account, assert output is '(no trust lines)'",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "account channels — list payment channels",
+      "description": "As a user, I want to see all payment channels where an account is the source.",
+      "acceptanceCriteria": [
+        "Create `src/commands/account/channels.ts` registered in `src/commands/account/index.ts`",
+        "`xrpl account channels <address-or-alias>` fetches account_channels",
+        "Human-readable output: one line per channel — '<channel-id>  dest: <dest>  amount: <xrp> XRP  balance: <xrp> XRP' (drops converted to XRP)",
+        "--destination-account <address> option filters by destination",
+        "--json outputs the raw channels array",
+        "--limit <n> and --marker <json-string> for pagination",
+        "Prints '(no payment channels)' when empty",
+        "Uses resolveAccount() and getNodeUrl(cmd)",
+        "Alias: xrpl account chan",
+        "E2E test: run account channels on a fresh testnet account, assert output is '(no payment channels)'",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "account nfts — list NFTs owned",
+      "description": "As a user, I want to see all NFTs an account owns.",
+      "acceptanceCriteria": [
+        "Create `src/commands/account/nfts.ts` registered in `src/commands/account/index.ts`",
+        "`xrpl account nfts <address-or-alias>` fetches account_nfts",
+        "Human-readable output: one line per NFT — '<nft-id>  taxon: <taxon>  serial: <serial>  flags: <flags>'",
+        "--json outputs the raw account_nfts array",
+        "--limit <n> and --marker <json-string> for pagination",
+        "Prints '(no NFTs)' when empty",
+        "Uses resolveAccount() and getNodeUrl(cmd)",
+        "Alias: xrpl account nft",
+        "E2E test: run account nfts on a fresh testnet account, assert output is '(no NFTs)'",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-014",
+      "title": "account set — AccountSet transaction",
+      "description": "As a user, I want to update my account's on-ledger settings (domain, email hash, transfer rate, flags).",
+      "acceptanceCriteria": [
+        "Create `src/commands/account/set.ts` registered in `src/commands/account/index.ts`",
+        "Key material options (at least one required): --seed <seed>, --mnemonic <phrase>, --account <address-or-alias> (loads from keystore via getKeystoreDir; --password skips interactive prompt with insecure warning to stderr)",
+        "Settable fields (at least one required): --domain <utf8-string> (auto hex-encodes), --email-hash <32-byte-hex>, --transfer-rate <integer> (0 or 1000000000–2000000000), --tick-size <n> (0 or 3–15)",
+        "Flag options: --set-flag <name> and --clear-flag <name>; accepted names: requireDestTag, requireAuth, disallowXRP, disableMaster, noFreeze, globalFreeze, defaultRipple, depositAuth",
+        "Calls client.autofill(tx) before signing",
+        "Prints: 'Transaction submitted: <hash>' on success",
+        "--json outputs { hash, result, tx_blob }",
+        "--dry-run prints the unsigned tx JSON to stdout without calling client.submit()",
+        "Uses getNodeUrl(cmd) for connection",
+        "E2E test: fund a testnet account, run account set --domain example.com --seed <seed>, then run account info and assert Domain field is present",
+        "E2E test: --dry-run prints JSON containing TransactionType: 'AccountSet' and does not submit",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-015",
+      "title": "account delete — AccountDelete transaction",
+      "description": "As a user, I want to delete an account and sweep its XRP to a destination address.",
+      "acceptanceCriteria": [
+        "Create `src/commands/account/delete.ts` registered in `src/commands/account/index.ts`",
+        "--destination <address-or-alias> (required) specifies the XRP recipient",
+        "--destination-tag <n> optional destination tag",
+        "Key material: --seed <seed>, --mnemonic <phrase>, or --account <address-or-alias> (same pattern as account set)",
+        "Prints warning to stderr: 'Warning: AccountDelete is irreversible. The account will be removed from the ledger.'",
+        "Without --yes, prompts 'Confirm? [y/N]' interactively; exits without submitting if user enters anything other than 'y' or 'Y'",
+        "--yes flag skips interactive confirmation",
+        "Calls client.autofill(tx) before signing",
+        "Prints: 'Account deleted. Transaction hash: <hash>'",
+        "--json outputs { hash, result, tx_blob }",
+        "--dry-run prints unsigned tx JSON without calling client.submit()",
+        "Uses getNodeUrl(cmd) for connection",
+        "E2E test: fund a testnet account (source), fund a destination account, run account delete --destination <dest> --seed <seed> --yes, then run account info on the deleted address and assert it returns an error containing 'actNotFound'",
+        "E2E test: --dry-run outputs JSON with TransactionType: 'AccountDelete' and does not submit",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

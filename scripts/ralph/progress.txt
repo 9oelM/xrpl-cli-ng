@@ -1,0 +1,21 @@
+# Ralph Progress Log
+Started: Thu Mar  5 00:40:32 Universal 2026
+---
+
+## Codebase Patterns
+- Tests use `spawnSync(TSX, [CLI, ...args])` with `encoding: "utf-8"` for E2E testing. TSX = `node_modules/.bin/tsx`, CLI = `src/index.ts`
+- PATH must be set in env for E2E tests: `/home/vscode/.fnm/node-versions/v22.22.0/installation/bin:${process.env.PATH}`
+- Use tmp dirs with `mkdtempSync` + `rmSync(dir, { recursive: true })` in try/finally for test isolation
+- getKeystoreDir resolution order: options.keystore → XRPL_KEYSTORE env var → ~/.xrpl/keystore/
+- resolveAccount: regex `/^r[a-zA-Z0-9]{24,33}$/` matches XRPL addresses; else scan keystore for label match
+- encryptKeystore now takes optional 5th param `label?: string`; included in output only when provided
+- All wallet commands import getKeystoreDir from `../../utils/keystore.js` (not local copies)
+
+## 2026-03-05 - US-001
+- Implemented: label field on KeystoreFile, getKeystoreDir utility extracted to keystore.ts, resolveAccount() utility, updated all wallet commands
+- Files changed: src/utils/keystore.ts, src/utils/keystore.test.ts, src/commands/wallet/list.ts, src/commands/wallet/remove.ts, src/commands/wallet/import.ts, src/commands/wallet/decrypt-keystore.ts, src/commands/wallet/change-password.ts
+- **Learnings for future iterations:**
+  - Codebase uses ESM modules (package.json "type": "module"), imports need .js extension
+  - Edit tool requires file to be read before editing (even if read earlier in conversation)
+  - All 97 existing tests pass after refactor
+---
