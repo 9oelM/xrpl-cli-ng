@@ -1,0 +1,34 @@
+{
+  "project": "xrpl-cli",
+  "branchName": "ralph/wallet-fund",
+  "description": "xrpl wallet fund — Fund a testnet or devnet address from the faucet via a single CLI command",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "wallet fund <address> — fund address from testnet/devnet faucet",
+      "description": "As a developer, I want to fund a testnet address from the faucet so I can test transactions without visiting a web UI.",
+      "acceptanceCriteria": [
+        "Create src/commands/wallet/fund.ts registered in src/commands/wallet/index.ts",
+        "xrpl wallet fund <address-or-alias> POSTs to the correct faucet URL based on the active network: testnet node → https://faucet.altnet.rippletest.net/accounts, devnet node → https://faucet.devnet.rippletest.net/accounts",
+        "Network detection: if resolved WSS URL contains 'altnet' use testnet faucet; if contains 'devnet' use devnet faucet; any other URL exits 1 with: 'Error: wallet fund is only available on testnet and devnet'",
+        "POST body is JSON: { \"destination\": \"<address>\" }; uses Node 22 built-in fetch (no extra HTTP lib)",
+        "After faucet POST succeeds, polls account_info on the XRPL node until account appears: max 10 retries with 2000ms delay between each",
+        "Resolves alias to address via resolveAccount() using getKeystoreDir({ keystore: undefined })",
+        "On success prints two lines: 'Funded <address>' and 'Balance: <amount> XRP'",
+        "--json outputs { address, balanceXrp, balanceDrops }",
+        "Exits 1 with faucet error message to stderr if POST returns non-2xx status",
+        "Exits 1 with 'Error: account did not appear on ledger after 10 retries' if polling times out",
+        "Uses getNodeUrl(cmd) for node resolution — no local --node flag on this command",
+        "Alias: xrpl wallet f",
+        "E2E test: generate a fresh wallet address with wallet new --json, run wallet fund <address> --node testnet, assert exit 0 and stdout contains 'Funded' and 'Balance:'",
+        "E2E test: run wallet fund <address> with --node wss://xrplcluster.com (mainnet), assert exit 1 and stderr contains 'only available on testnet and devnet'",
+        "E2E test: --json output contains address, balanceXrp, and balanceDrops fields with non-zero values",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

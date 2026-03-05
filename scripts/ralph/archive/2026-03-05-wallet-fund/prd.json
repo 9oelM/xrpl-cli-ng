@@ -1,0 +1,33 @@
+{
+  "project": "xrpl-cli",
+  "branchName": "ralph/wallet-new-save",
+  "description": "xrpl wallet new --save — Generate and save a wallet to the keystore in one step, avoiding the separate wallet import command",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "wallet new --save and wallet new-mnemonic --save",
+      "description": "As a user, I want to save a newly generated wallet to the keystore in one step so I don't have to pipe seed output into a separate import command.",
+      "acceptanceCriteria": [
+        "Add --save flag to src/commands/wallet/new.ts; when passed, calls encryptKeystore and writes <address>.json to the keystore directory after generating the wallet",
+        "Add --password <pw> option to wallet new: skips interactive prompt and prints 'Warning: passing passwords via flag is insecure' to stderr",
+        "Without --password, prompts interactively for password twice (confirm match) using readline",
+        "Add --alias <name> option to wallet new: passed to encryptKeystore as label; applies same alias uniqueness check as wallet import (scan keystoreDir, exit 1 if taken, --force overrides)",
+        "Add --keystore <dir> option to wallet new: overrides keystore directory; XRPL_KEYSTORE env var also respected via getKeystoreDir",
+        "When --save is used, human-readable output appends line: 'Saved to <filepath>'",
+        "When --save is used with --json, output includes keystorePath field",
+        "Non-interactive safety: if --save is passed and process.stdin.isTTY is false and --password is not provided, exit 1 with: 'Error: --password is required when --save is used in non-interactive mode'",
+        "Existing wallet new behaviour is unchanged when --save is not passed (all existing tests still pass)",
+        "Add identical --save, --password, --alias, --keystore flags to src/commands/wallet/new-mnemonic.ts with same behaviour; stores the mnemonic phrase as the keystore secret (same as wallet import does for mnemonics)",
+        "E2E test (wallet new): run wallet new --save --password test123 --keystore <tmpdir> --json, assert exit 0, assert <address>.json exists in tmpdir, assert keystorePath field in JSON output",
+        "E2E test (wallet new --alias): run with --alias bob --save --password test123 --keystore <tmpdir>, assert keystore JSON contains label: 'bob', assert wallet alias list --keystore <tmpdir> shows bob",
+        "E2E test (wallet new-mnemonic): run wallet new-mnemonic --save --password test123 --keystore <tmpdir>, assert keystore file exists, run wallet decrypt-keystore --password test123 --keystore <tmpdir> --json on the address, assert seed field equals the mnemonic from wallet new-mnemonic output",
+        "E2E test (non-TTY): run wallet new --save --keystore <tmpdir> with stdin redirected from /dev/null and no --password, assert exit 1 and stderr contains '--password is required'",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

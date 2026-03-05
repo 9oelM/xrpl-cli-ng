@@ -1,0 +1,20 @@
+# Ralph Progress Log
+Started: 2026-03-05
+
+## Codebase Patterns
+- Tests use `spawnSync(TSX, [CLI, ...args])` with `encoding: "utf-8"` for E2E testing. TSX = `node_modules/.bin/tsx`, CLI = `src/index.ts`
+- PATH must be set in env for E2E tests: `/home/vscode/.fnm/node-versions/v22.22.0/installation/bin:${process.env.PATH}`
+- Use tmp dirs with `mkdtempSync` + `rmSync(dir, { recursive: true })` in try/finally for test isolation
+- Global `--node` option on root `program`; subcommand actions get node URL via `getNodeUrl(cmd)` from `src/utils/node.ts`
+- `cmd.optsWithGlobals()` retrieves merged options from root + subcommand; cast to `{ node: string }` for type safety
+- `resolveNodeUrl(url)` in `src/utils/client.ts` converts "testnet"/"mainnet"/"devnet" to WSS URLs
+- `resolveAccount(addressOrAlias, keystoreDir)` in `src/utils/keystore.ts` resolves alias → address
+- `getKeystoreDir(options)` in `src/utils/keystore.ts`; resolution: options.keystore → XRPL_KEYSTORE → ~/.xrpl/keystore/
+- Atomic writes: writeFileSync to `<path>.tmp` then renameSync to `<path>`
+- `process.exit(1)` after `process.stderr.write(msg)` — do NOT throw (commander catches throws)
+- In beforeAll with xrpl.js WebSocket + CLI calls: use `execAsync` (promisify(exec)) NOT `spawnSync` to avoid blocking the event loop
+- After submitting a tx, `await new Promise(res => setTimeout(res, 8000))` is reliable for testnet validation
+- `rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh` is the XRPL testnet genesis address (always funded, good for read-only E2E tests)
+- Node 22 has built-in `fetch` — no extra HTTP library needed
+- Testnet faucet: POST to `https://faucet.altnet.rippletest.net/accounts` with body `{ "destination": "<address>" }`
+- Devnet faucet: POST to `https://faucet.devnet.rippletest.net/accounts` with body `{ "destination": "<address>" }`

@@ -1,0 +1,23 @@
+# Ralph Progress Log
+Started: 2026-03-04
+
+## Codebase Patterns
+- PATH must include `/home/vscode/.fnm/node-versions/v22.22.0/installation/bin` for node/npm/npx/vitest
+- Project uses ESM (`"type": "module"`) — all imports must use `.js` extensions
+- Typecheck: `npx tsc --noEmit`; Test runner: `npx vitest run` or `npx vitest run <file>`
+- E2E test pattern: `spawnSync(TSX_PATH, [CLI_PATH, ...args], { encoding: "utf-8", env: { ...process.env, PATH: NODE_BIN_PATH } })`
+- `xrpl` ECDSA enum cannot be imported as a runtime named export in ESM — use `import type { ECDSA }` for types only; cast string values: `"ecdsa-secp256k1"` (secp256k1) and `"ed25519"` (ed25519)
+- `Wallet.fromSeed(seed)` always defaults to ed25519 regardless of seed encoding — use `deriveKeypair(seed)` from `ripple-keypairs` to correctly infer algorithm
+- `@scure/bip39`, `@noble/curves`, and `ripple-keypairs` are available as transitive deps of xrpl.js — no extra install needed
+- Keystore dir precedence: `--keystore` flag > `XRPL_KEYSTORE` env var > `~/.xrpl/keystore/`; `getKeystoreDir(options)` helper in `src/utils/keystore.ts`
+- Atomic file update: `writeFileSync(tmpPath, data)` then `renameSync(tmpPath, filePath)` — prevents corrupt writes on crash
+- Interactive password prompt (readline) cannot be tested with spawnSync — always use `--password` flag in E2E tests
+- `process.exit(1)` after `process.stderr.write(msg)` — do NOT throw (commander catches throws and prints usage)
+- For mnemonic wallets imported to keystore, encrypt the mnemonic phrase itself (not a family seed); `decryptKeystore` returns the mnemonic
+- `ripple-keypairs.sign(hexData, privateKey)` is deterministic — same inputs always produce same signature
+- `xrpl.verifySignature(tx_blob)` verifies a signed tx blob — no manual decoding needed
+- `ripple-keypairs.verify(hexData, sig, pubKey)` returns `false` for invalid sigs (does not throw) — wrap in try/catch anyway
+- Commander action handler receives `Command` instance as last arg — use `cmd.optsWithGlobals()` to access parent/global options
+- `xrpl.parseAccountRootFlags(flags)` returns a `Record<string, boolean>` of decoded flag names — use in `account info`
+- `getNodeUrl(cmd)` in `src/utils/node.ts` calls `cmd.optsWithGlobals().node` then `resolveNodeUrl()` — all network commands use this
+- E2E tests needing testnet accounts use `fundFromFaucet(client)` from `tests/helpers/testnet.ts`

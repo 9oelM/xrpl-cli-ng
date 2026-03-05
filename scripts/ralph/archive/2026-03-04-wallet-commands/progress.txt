@@ -1,0 +1,195 @@
+# Ralph Progress Log
+Started: Wed Mar  4 09:37:11 Universal 2026
+## [2026-03-04] - US-013
+- Created `src/commands/wallet/verify.ts` with `verifyCommand` (alias: `v`)
+- `--message` mode: UTF-8 encodes string (or accepts `--from-hex`), calls `ripple-keypairs.verify(messageHex, signature, publicKey)` — returns bool, no exception
+- `--tx` mode: calls `xrpl.verifySignature(tx_blob)` which handles decoding + signature verification internally
+- Exits 0 + prints `✓ Valid signature` on success; exits 1 + prints `✗ Invalid signature` on failure
+- `--json` outputs `{valid: boolean}`
+- Registered in `src/commands/wallet/index.ts`
+- Created `tests/e2e/wallet/verify.test.ts` with 8 passing E2E tests
+- **Learnings for future iterations:**
+  - `xrpl.verifySignature(tx_blob)` is the simplest way to verify a signed tx blob — no manual decoding needed
+  - `ripple-keypairs.verify(hexData, sig, pubKey)` returns `false` for invalid sigs (doesn't throw) — wrap in try/catch anyway
+  - For `--json` mode with invalid: still print the JSON to stdout, then exit 1 (don't skip the output)
+---
+
+## [2026-03-04] - US-012
+- Created `src/commands/wallet/sign.ts` with `signCommand` (alias: `s`)
+- `--message` mode: UTF-8 encodes string, calls `ripple-keypairs.sign(messageHex, privateKey)`
+- `--from-hex` flag treats `--message` value as already hex-encoded
+- `--tx` mode: parses JSON (inline or file path), calls `wallet.sign(tx)`, prints `tx_blob` and `hash`
+- Key material: `--seed` uses `deriveKeypair(seed)` + `new Wallet(publicKey, privateKey)`; `--mnemonic` uses `Wallet.fromMnemonic`; `--account` loads from keystore
+- Registered in `src/commands/wallet/index.ts`
+- Created `tests/e2e/wallet/sign.test.ts` with 10 passing E2E tests
+- **Learnings for future iterations:**
+  - `ripple-keypairs.sign(hexData, privateKey)` is deterministic — same inputs always produce same signature
+  - `new Wallet(publicKey, privateKey)` constructs a wallet directly from key material (no seed needed)
+  - tx_blob from `wallet.sign(tx)` starts with `12` (XRPL binary encoding of Payment TransactionType)
+  - For `--account` keystore path: decrypt → detect material type (seed/mnemonic/privateKey) → construct Wallet accordingly
+---
+
+## Codebase Patterns
+- Node.js built-in `crypto` module used for AES-256-GCM encryption (createCipheriv/createDecipheriv) and PBKDF2 key derivation
+- PATH must include `/home/vscode/.fnm/node-versions/v22.22.0/installation/bin` to use node/npm/npx/vitest
+- Project uses ESM (`"type": "module"`) — imports must use `.js` extensions
+- Test runner: `vitest run <file>` to run individual test files
+- Typecheck: `npx tsc --noEmit`
+- xrpl `ECDSA` enum cannot be imported as a named export in ESM context; use `import type { ECDSA }` for types only and cast string values: `"ecdsa-secp256k1"` (secp256k1) and `"ed25519"` (ed25519)
+- E2E tests use `spawnSync` from Node.js `child_process` to run `tsx src/index.ts <args>`; PATH must be set in the spawn env
+- `@scure/bip39` is a transitive dep of xrpl.js — use `generateMnemonic(wordlist, 128)` from `@scure/bip39` + wordlist from `@scure/bip39/wordlists/english` for 12-word BIP39 mnemonics; no extra install needed
+- `Wallet.fromMnemonic(mnemonic, { mnemonicEncoding: 'bip39', derivationPath, algorithm })` is the xrpl.js API for BIP39 wallet derivation
+- **CRITICAL**: `Wallet.fromSeed(seed)` defaults to `ed25519` algorithm regardless of seed type — use `deriveKeypair(seed)` from `ripple-keypairs` to correctly infer algorithm from seed encoding
+- To derive address from seed without specifying algorithm: `const {publicKey} = deriveKeypair(seed); const address = deriveAddress(publicKey)` from `ripple-keypairs`
+- Private key derivation from raw hex: ed25519 keys have "ED" prefix → use `@noble/curves/ed25519` `ed25519.getPublicKey(rawBytes)`; secp256k1 keys have "00" prefix → use `@noble/curves/secp256k1` `secp256k1.getPublicKey(rawBytes, true)`
+- `@noble/curves` and `ripple-keypairs` are available as transitive deps of xrpl.js — no extra install needed
+---
+
+## [2026-03-04] - US-002
+- Created `src/commands/wallet/new.ts` with `newWalletCommand` (alias: `n`)
+- Created `src/commands/wallet/index.ts` as the wallet command group
+- Updated `src/commands/index.ts` to export `walletCommand`
+- Updated `src/index.ts` to add `walletCommand` to the program
+- Created `tests/e2e/wallet/new.test.ts` with 5 passing E2E tests
+- **Learnings for future iterations:**
+  - `ECDSA` from xrpl cannot be imported as a runtime named export in ESM; use `import type { ECDSA }` and cast string values (`"ecdsa-secp256k1"`, `"ed25519"`) with `as unknown as ECDSA`
+  - E2E test pattern: `spawnSync(TSX, [CLI, ...args], { encoding: "utf-8", env: { ...process.env, PATH: ... } })`
+  - The wallet command group follows the pattern: create `src/commands/<group>/index.ts` with a `Command("<group>")`, add subcommands, export from `src/commands/index.ts`, add to main program in `src/index.ts`
+---
+
+## [2026-03-04] - US-001
+- Implemented `src/utils/keystore.ts` with `KeystoreFile` type, `encryptKeystore()`, and `decryptKeystore()`
+- Uses Node.js `crypto` module: AES-256-GCM cipher, PBKDF2 key derivation (600k iterations, SHA-256)
+- Random salt (32 bytes) and IV (12 bytes) generated per call
+- `src/utils/keystore.test.ts`: round-trip test, wrong-password throws, randomness test
+- **Learnings for future iterations:**
+  - PATH must be set explicitly: `/home/vscode/.fnm/node-versions/v22.22.0/installation/bin`
+  - Git identity must be configured before committing: `git config --global user.email/name`
+  - ESM project: always import with `.js` extensions
+---
+
+## [2026-03-04] - US-004
+- Created `src/commands/wallet/address.ts` with `addressCommand` (aliases: `a`, `addr`)
+- Supports `--seed`, `--mnemonic`, `--private-key` key material sources
+- Uses `ripple-keypairs.deriveKeypair(seed)` (not `Wallet.fromSeed`) to correctly infer algorithm from seed encoding
+- Derives public key from private key hex using `@noble/curves/ed25519` and `@noble/curves/secp256k1`
+- Registered in `src/commands/wallet/index.ts`
+- Created `tests/e2e/wallet/address.test.ts` with 9 passing E2E tests
+- **Learnings for future iterations:**
+  - `Wallet.fromSeed(seed)` ignores the seed's algorithm encoding and always defaults to ed25519 — must use `deriveKeypair(seed)` from `ripple-keypairs` for correct algorithm inference
+  - To derive public key from ed25519 private key: strip "ED" prefix, call `ed25519.getPublicKey(rawBytes)` from `@noble/curves/ed25519`
+  - To derive public key from secp256k1 private key: strip "00" prefix, call `secp256k1.getPublicKey(rawBytes, true)` from `@noble/curves/secp256k1`
+---
+
+## [2026-03-04] - US-005
+- Created `src/commands/wallet/private-key.ts` with `privateKeyCommand` (alias: `pk`)
+- Supports `--seed` and `--mnemonic` key material sources with `--derivation-path` for mnemonic
+- Uses `ripple-keypairs.deriveKeypair(seed)` to infer key type from seed encoding
+- Uses `Wallet.fromMnemonic()` with `mnemonicEncoding: 'bip39'` for mnemonic path
+- Registered in `src/commands/wallet/index.ts`
+- Created `tests/e2e/wallet/private-key.test.ts` with 8 passing E2E tests
+- **Learnings for future iterations:**
+  - Pattern mirrors `address.ts` closely — private key extraction uses same `deriveKeypair` approach
+  - `deriveKeypair(seed).privateKey` returns the full hex private key (ED-prefixed for ed25519, 00-prefixed for secp256k1)
+---
+
+## [2026-03-04] - US-006
+- Created `src/commands/wallet/public-key.ts` with `publicKeyCommand` (alias: `pubkey`)
+- Supports `--seed`, `--mnemonic`, and `--private-key` key material sources
+- Uses `ripple-keypairs.deriveKeypair(seed)` for seed-based derivation
+- Uses `@noble/curves/ed25519` and `@noble/curves/secp256k1` for private-key-based derivation
+- Registered in `src/commands/wallet/index.ts`
+- Created `tests/e2e/wallet/public-key.test.ts` with 8 passing E2E tests
+- **Learnings for future iterations:**
+  - US-006 is nearly identical to address.ts but outputs `{publicKey, keyType}` instead of `{address, publicKey, keyType}`
+  - The pattern for all key-derivation commands: accept one of `--seed`, `--mnemonic`, `--private-key`, validate mutual exclusivity, branch on input type
+---
+
+## [2026-03-04] - US-007
+- Created `src/commands/wallet/import.ts` with `importCommand` (alias: `i`)
+- Accepts seed, mnemonic, or private key as positional arg (or '-' for stdin)
+- `--password` flag prints insecure warning to stderr; otherwise prompts interactively
+- `--keystore <dir>` overrides default `~/.xrpl/keystore/`; `XRPL_KEYSTORE` env var also respected
+- Uses `encryptKeystore` from `src/utils/keystore.ts` to write `<address>.json`
+- `--force` flag overwrites existing keystore file
+- Auto-detects key material type: mnemonic (multiple words), seed (starts with 's'), or raw hex private key
+- Registered in `src/commands/wallet/index.ts`
+- Created `tests/e2e/wallet/import.test.ts` with 6 passing E2E tests
+- **Learnings for future iterations:**
+  - Keystore dir precedence: `--keystore` flag > `XRPL_KEYSTORE` env var > `~/.xrpl/keystore/`
+  - Auto-detect key material type: multi-word = mnemonic; starts with 's' + 20+ alphanumeric = seed; else = private key hex
+  - For mnemonic wallets, encrypt the mnemonic phrase itself (no family seed); `decrypt-keystore` will return the mnemonic
+  - `mkdirSync(dir, { recursive: true })` ensures keystore dir exists before writing
+  - Interactive password prompt uses `readline.createInterface`; but E2E tests use `--password` flag to avoid TTY issues
+---
+
+## [2026-03-04] - US-008
+- Created `src/commands/wallet/list.ts` with `listCommand` (alias: `ls`)
+- Reads all `*.json` files from keystore directory using `readdirSync`
+- Prints one address per line or `(empty)` when no keystores exist
+- `--json` outputs JSON array of address strings
+- `--keystore <dir>` / `XRPL_KEYSTORE` env var respected (same pattern as import.ts)
+- Registered in `src/commands/wallet/index.ts`
+- Created `tests/e2e/wallet/list.test.ts` with 7 passing E2E tests
+- **Learnings for future iterations:**
+  - Check `existsSync(keystoreDir)` before calling `readdirSync` to handle non-existent dirs gracefully
+  - `basename(filename, '.json')` extracts the address from the filename
+  - The `getKeystoreDir` helper is duplicated across commands; consider extracting to a shared utility if more commands are added
+---
+
+## [2026-03-04] - US-009
+- Created `src/commands/wallet/remove.ts` with `removeCommand` (alias: `rm`)
+- Accepts `<address>` as positional arg, deletes `<address>.json` from keystore directory
+- Exits 1 with error message if address not found
+- `--keystore <dir>` / `XRPL_KEYSTORE` env var respected
+- Registered in `src/commands/wallet/index.ts`
+- Created `tests/e2e/wallet/remove.test.ts` with 5 passing E2E tests
+- **Learnings for future iterations:**
+  - `rmSync(filePath)` (no options) suffices for removing a single file
+  - The `getKeystoreDir` helper pattern is identical across list/remove/import — consider extracting to a shared utility
+---
+
+## [2026-03-04] - US-010
+- Created `src/commands/wallet/decrypt-keystore.ts` with `decryptKeystoreCommand` (alias: `dk`)
+- Accepts `<address>` positional arg (looks up `<address>.json` in keystore) or `--file <path>` for explicit file path
+- `--password` flag prints insecure warning to stderr; otherwise prompts interactively
+- `--show-private-key` flag additionally prints private key hex
+- `--json` outputs `{address, seed, privateKey, keyType}`
+- `--keystore <dir>` / `XRPL_KEYSTORE` env var respected
+- Exits 1 with 'Error: wrong password or corrupt keystore' on decryption failure
+- Uses `decryptKeystore` from `src/utils/keystore.ts`
+- Registered in `src/commands/wallet/index.ts`
+- Created `tests/e2e/wallet/decrypt-keystore.test.ts` with 7 passing E2E tests
+- **Learnings for future iterations:**
+  - Private key derivation from decrypted material: detect type (seed/mnemonic/raw hex), then use `deriveKeypair(seed).privateKey`, `Wallet.fromMnemonic(...).privateKey`, or return as-is
+  - `process.exit(1)` after writing to `process.stderr.write` — must NOT throw (commander catches throws and prints usage)
+  - Keystore JSON needs to be typed as `KeystoreFile` (export the type from keystore.ts)
+---
+
+## [2026-03-04] - US-003
+- Created `src/commands/wallet/new-mnemonic.ts` with `newMnemonicCommand` (alias: `nm`)
+- Uses `@scure/bip39` (transitive dep of xrpl.js) — `generateMnemonic(wordlist, 128)` generates 12-word BIP39 mnemonic
+- Uses `Wallet.fromMnemonic()` with `mnemonicEncoding: 'bip39'` for wallet derivation
+- Registered in `src/commands/wallet/index.ts`
+- Created `tests/e2e/wallet/new-mnemonic.test.ts` with 6 passing E2E tests
+- **Learnings for future iterations:**
+  - `@scure/bip39` is already available as a transitive dep — no need to add to package.json
+  - Import: `import { generateMnemonic } from "@scure/bip39"` and `import { wordlist } from "@scure/bip39/wordlists/english"`
+  - `generateMnemonic(wordlist, 128)` = 12 words; 256 bits = 24 words
+---
+
+## [2026-03-04] - US-011
+- Created `src/commands/wallet/change-password.ts` with `changePasswordCommand` (alias: `cp`)
+- Accepts `<address>` as positional arg, looks up `<address>.json` in keystore
+- `--password <current>` and `--new-password <new>` flags print insecure warning to stderr
+- Decrypts with old password using `decryptKeystore`, re-encrypts with new password using `encryptKeystore`
+- Atomic write: writes to `<file>.tmp` then renames to `<file>` using `renameSync`
+- `--keystore <dir>` / `XRPL_KEYSTORE` env var respected (same `getKeystoreDir` pattern)
+- Prints: `Password changed for <address>`; exits 1 on wrong current password
+- Registered in `src/commands/wallet/index.ts`
+- Created `tests/e2e/wallet/change-password.test.ts` with 6 passing E2E tests
+- **Learnings for future iterations:**
+  - Atomic file update pattern: `writeFileSync(tmpPath, ...)` then `renameSync(tmpPath, filePath)` — prevents partial writes on crash
+  - `getKeystoreDir` helper is duplicated across many commands — a shared utility would DRY this up significantly
+  - When both `--password` and `--new-password` flags are used, each triggers its own insecure warning independently
+---

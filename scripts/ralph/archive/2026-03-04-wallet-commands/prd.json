@@ -1,0 +1,276 @@
+{
+  "project": "xrpl-cli",
+  "branchName": "ralph/wallet-commands",
+  "description": "xrpl wallet — Full wallet lifecycle management: key generation, BIP39 mnemonics, encrypted keystore (AES-256-GCM + PBKDF2), message/transaction signing and verification",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Encrypted keystore utility (encryptKeystore / decryptKeystore)",
+      "description": "As a developer, I need encrypt/decrypt helpers for keystore files so all wallet import/export commands share a single, tested implementation.",
+      "acceptanceCriteria": [
+        "Create src/utils/keystore.ts exporting: KeystoreFile type, encryptKeystore(seed, password, keyType, address), decryptKeystore(file, password)",
+        "KeystoreFile schema: version=1, address, keyType, kdf='pbkdf2', kdfparams={iterations:600000, keylen:32, digest:'sha256', salt:<hex>}, cipher='aes-256-gcm', cipherparams={iv:<hex>, tag:<hex>}, ciphertext:<hex>",
+        "ciphertext is AES-256-GCM encryption of the family seed UTF-8 string using PBKDF2-derived key",
+        "salt and iv are randomly generated per call using crypto.randomBytes",
+        "All crypto uses Node.js built-in crypto module only (no third-party libs)",
+        "src/utils/keystore.test.ts: round-trip test encrypts a known seed then decrypts it and asserts equality",
+        "src/utils/keystore.test.ts: decryptKeystore throws on wrong password",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "wallet new — Generate a random wallet",
+      "description": "As a user, I want to generate a new random XRPL wallet so I have a fresh address and key pair.",
+      "acceptanceCriteria": [
+        "Create src/commands/wallet/new.ts and register it under src/commands/wallet/index.ts, which is added to src/commands/index.ts",
+        "xrpl wallet new prints: Address, Public Key, Private Key, Seed (one labelled line each)",
+        "--key-type secp256k1|ed25519 flag selects algorithm; default is ed25519",
+        "--json flag outputs {address, publicKey, privateKey, seed, keyType} as JSON",
+        "Alias: xrpl wallet n",
+        "E2E test in tests/e2e/wallet/new.test.ts: run xrpl wallet new --json, assert address starts with 'r', seed starts with 's', publicKey and privateKey are non-empty strings",
+        "E2E test: run xrpl wallet new --key-type secp256k1 --json, assert keyType === 'secp256k1'",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "wallet new-mnemonic — Generate a BIP39 mnemonic wallet",
+      "description": "As a user, I want to generate a wallet from a fresh BIP39 mnemonic so I can back it up as a word phrase.",
+      "acceptanceCriteria": [
+        "Create src/commands/wallet/new-mnemonic.ts registered under wallet command group",
+        "xrpl wallet new-mnemonic prints: Mnemonic (12 words), Derivation Path, Address, Public Key, Private Key",
+        "Default derivation path is m/44'/144'/0'/0/0",
+        "--derivation-path <path> overrides the default",
+        "--key-type secp256k1|ed25519 flag; default ed25519",
+        "--json outputs {mnemonic, derivationPath, address, publicKey, privateKey, keyType}",
+        "Alias: xrpl wallet nm",
+        "E2E test: run xrpl wallet new-mnemonic --json, assert mnemonic contains exactly 12 words, address starts with 'r'",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "wallet address — Derive XRPL address from key material",
+      "description": "As a user, I want to derive the XRPL address from a seed, mnemonic, or private key so I can verify what address a given key controls.",
+      "acceptanceCriteria": [
+        "Create src/commands/wallet/address.ts registered under wallet command group",
+        "Accepts exactly one of: --seed <seed>, --mnemonic <phrase>, --private-key <hex>",
+        "--key-type secp256k1|ed25519 required when --private-key is used; inferred from seed otherwise",
+        "Prints the classic XRPL address (r...)",
+        "--json outputs {address, publicKey, keyType}",
+        "Exits 1 with error to stderr if no key material provided or multiple provided simultaneously",
+        "Aliases: xrpl wallet a, xrpl wallet addr",
+        "E2E test: run wallet new --json, capture seed, run wallet address --seed <seed>, assert address matches",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "wallet private-key — Derive private key from seed or mnemonic",
+      "description": "As a user, I want to extract the raw private key from a seed or mnemonic for use in other tools.",
+      "acceptanceCriteria": [
+        "Create src/commands/wallet/private-key.ts registered under wallet command group",
+        "Accepts --seed <seed> or --mnemonic <phrase>",
+        "--derivation-path supported when using --mnemonic",
+        "--key-type secp256k1|ed25519",
+        "Prints private key as hex string (ED-prefixed for ed25519, 00-prefixed for secp256k1 per xrpl.js convention)",
+        "--json outputs {privateKey, keyType}",
+        "Alias: xrpl wallet pk",
+        "E2E test: run wallet new --json, capture seed, run wallet private-key --seed <seed>, assert privateKey is a non-empty hex string",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "wallet public-key — Derive public key from key material",
+      "description": "As a user, I want to derive the public key from a seed, mnemonic, or private key.",
+      "acceptanceCriteria": [
+        "Create src/commands/wallet/public-key.ts registered under wallet command group",
+        "Accepts --seed <seed>, --mnemonic <phrase>, or --private-key <hex>",
+        "--key-type secp256k1|ed25519",
+        "Prints compressed public key as hex string",
+        "--json outputs {publicKey, keyType}",
+        "Alias: xrpl wallet pubkey",
+        "E2E test: run wallet new --json, capture seed and publicKey, run wallet public-key --seed <seed>, assert outputs match",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "wallet import — Import key material into encrypted keystore",
+      "description": "As a user, I want to save an existing key into the encrypted local keystore so I can reference it by address in future commands.",
+      "acceptanceCriteria": [
+        "Create src/commands/wallet/import.ts registered under wallet command group",
+        "xrpl wallet import <seed|mnemonic|private-key> accepts key material as positional arg or stdin when arg is '-'",
+        "--key-type required when input is a raw hex private key",
+        "--password <pw> skips interactive prompt and prints warning 'Warning: passing passwords via flag is insecure' to stderr",
+        "--keystore <dir> overrides default ~/.xrpl/keystore/; XRPL_KEYSTORE env var also respected (flag takes priority)",
+        "Writes <address>.json to keystore dir using encryptKeystore from src/utils/keystore.ts",
+        "Errors with exit 1 if file already exists unless --force is passed",
+        "Prints: Imported account <address> to <filepath>",
+        "Alias: xrpl wallet i",
+        "E2E test: import a known seed with --password and --keystore pointing to a temp dir, assert <address>.json exists and contains correct address field",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "wallet list — List keystored accounts",
+      "description": "As a user, I want to see all accounts I've saved in the keystore.",
+      "acceptanceCriteria": [
+        "Create src/commands/wallet/list.ts registered under wallet command group",
+        "Reads all *.json files from keystore directory",
+        "Prints one address per line",
+        "--json outputs a JSON array of address strings",
+        "--keystore <dir> / XRPL_KEYSTORE env var respected",
+        "Prints '(empty)' when no keystores exist",
+        "Alias: xrpl wallet ls",
+        "E2E test: import two wallets to a temp keystore dir, run wallet list --keystore <dir>, assert both addresses appear in output",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "wallet remove — Remove a wallet from the keystore",
+      "description": "As a user, I want to delete a keystore entry so I can clean up accounts I no longer use.",
+      "acceptanceCriteria": [
+        "Create src/commands/wallet/remove.ts registered under wallet command group",
+        "xrpl wallet remove <address> deletes <address>.json from keystore directory",
+        "Exits 1 with clear error message if address not found in keystore",
+        "--keystore <dir> / XRPL_KEYSTORE respected",
+        "Prints: Removed <address>",
+        "Alias: xrpl wallet rm",
+        "E2E test: import a wallet, run wallet remove <address> --keystore <dir>, assert file no longer exists, assert wallet list no longer shows address",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "wallet decrypt-keystore — Decrypt a keystore file to retrieve seed",
+      "description": "As a user, I want to decrypt a keystore file to retrieve the raw seed or private key for export.",
+      "acceptanceCriteria": [
+        "Create src/commands/wallet/decrypt-keystore.ts registered under wallet command group",
+        "xrpl wallet decrypt-keystore <address> looks up <address>.json in keystore directory",
+        "--file <path> accepts explicit file path instead of address lookup",
+        "--password <pw> skips interactive prompt (with insecure warning to stderr)",
+        "Prints the family seed by default",
+        "--show-private-key additionally prints the private key hex",
+        "--json outputs {address, seed, privateKey, keyType}",
+        "--keystore <dir> / XRPL_KEYSTORE respected",
+        "Exits 1 with 'Error: wrong password or corrupt keystore' on decryption failure",
+        "Alias: xrpl wallet dk",
+        "E2E test: import a wallet with known seed, run decrypt-keystore with correct password, assert seed matches",
+        "E2E test: run decrypt-keystore with wrong password, assert exit code 1",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 10,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "wallet change-password — Re-encrypt keystore with new password",
+      "description": "As a user, I want to re-encrypt a keystore file with a new password.",
+      "acceptanceCriteria": [
+        "Create src/commands/wallet/change-password.ts registered under wallet command group",
+        "xrpl wallet change-password <address> looks up keystore file",
+        "--password <current> and --new-password <new> flags for scripting (both print insecure warning to stderr)",
+        "Decrypts with old password, re-encrypts with new password, writes to <file>.tmp then renames to <file> atomically",
+        "--keystore <dir> / XRPL_KEYSTORE respected",
+        "Prints: Password changed for <address>",
+        "Exits 1 with clear error on wrong current password",
+        "Alias: xrpl wallet cp",
+        "E2E test: import wallet, change-password, decrypt-keystore with new password, assert seed unchanged",
+        "E2E test: change-password with wrong current password, assert exit code 1",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 11,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "wallet sign — Sign a message or XRPL transaction blob",
+      "description": "As a user, I want to sign data with a wallet so I can produce verifiable signatures or sign XRPL transactions offline.",
+      "acceptanceCriteria": [
+        "Create src/commands/wallet/sign.ts registered under wallet command group",
+        "--message <string> mode: UTF-8 encodes the string then signs; --from-hex treats value as already hex",
+        "--message mode prints signature as hex",
+        "--tx <path-or-inline-json> mode: parses transaction JSON, signs it using xrpl.Wallet, prints tx_blob and hash on separate labelled lines",
+        "--tx mode with --json outputs {tx_blob, hash}",
+        "Key material: --seed <seed>, --mnemonic <phrase>, or --account <address> (loads from keystore, requires --password)",
+        "--key-type secp256k1|ed25519 when using --seed or --mnemonic",
+        "Exits 1 if neither --message nor --tx is provided",
+        "Alias: xrpl wallet s",
+        "E2E test (message): sign 'hello' with a known seed, assert signature is a non-empty hex string, run again and assert same signature (deterministic)",
+        "E2E test (tx): sign a minimal Payment tx JSON with a known seed, assert tx_blob is a non-empty hex string that starts with '12'",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 12,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "wallet verify — Verify a message or transaction signature",
+      "description": "As a user, I want to verify that a signature was produced by the private key corresponding to a given public key or address.",
+      "acceptanceCriteria": [
+        "Create src/commands/wallet/verify.ts registered under wallet command group",
+        "--message <msg> --signature <hex> --public-key <hex> mode: verifies message signature",
+        "--from-hex flag for hex-encoded messages in --message mode",
+        "--tx <tx_blob_hex> mode: decodes blob with xrpl.decode(), extracts SigningPubKey and TxnSignature, verifies",
+        "Exits 0 and prints '✓ Valid signature' on success",
+        "Exits 1 and prints '✗ Invalid signature' on failure (not an unhandled error)",
+        "Alias: xrpl wallet v",
+        "E2E test: sign a message, verify it with matching public key → assert exit 0 and output contains 'Valid'",
+        "E2E test: verify with tampered signature (flip one hex char) → assert exit 1 and output contains 'Invalid'",
+        "E2E test: sign a tx, verify the tx_blob → assert exit 0",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 13,
+      "passes": true,
+      "notes": ""
+    }
+  ]
+}

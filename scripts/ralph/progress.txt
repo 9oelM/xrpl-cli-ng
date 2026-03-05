@@ -22,6 +22,15 @@ Started: Thu Mar  5 04:55:38 AM Universal 2026
   - change-password.ts uses `promptPassword('Current password: ')` and `promptPassword('New password: ')` — the utility's optional prompt param handles this
 ---
 
+## 2026-03-05 - US-003
+- Removed local `promptPasswordWithConfirmation` function and `createInterface` import from wallet/new.ts and wallet/new-mnemonic.ts
+- Added `import { promptPasswordWithConfirmation } from '../../utils/prompt.js'` to both files
+- Files changed: src/commands/wallet/new.ts, src/commands/wallet/new-mnemonic.ts
+- **Learnings for future iterations:**
+  - Both files had identical local implementations of promptPasswordWithConfirmation; the shared utility drop-in works with no callers needing changes
+  - All 9 E2E tests in tests/e2e/wallet/new.test.ts passed without modification
+---
+
 ## 2026-03-05 - US-001
 - Implemented src/utils/prompt.ts with promptPassword and promptPasswordWithConfirmation
 - promptPassword uses raw mode (setRawMode) when isTTY, falling back to readline otherwise

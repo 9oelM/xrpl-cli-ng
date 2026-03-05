@@ -1,0 +1,18 @@
+# Ralph Progress Log
+Started: 2026-03-05
+
+## Codebase Patterns
+- CLI commands use `getNodeUrl(cmd)` for node resolution (reads global --node flag)
+- Use `resolveAccount(addressOrAlias, keystoreDir)` with `getKeystoreDir({ keystore: undefined })` for address/alias resolution
+- `withClient(url, fn)` wraps connect/disconnect around XRPL requests
+- E2E tests use `spawnSync(TSX, [CLI, ...args], { timeout: N, encoding: 'utf-8' })` with PATH set to fnm node bin
+- TSX = `node_modules/.bin/tsx`, CLI = `src/index.ts`
+- Use tmp dirs with `mkdtempSync` + `rmSync(dir, { recursive: true })` in try/finally for test isolation
+- `encryptKeystore(seed, password, keyType, address, label?)` in src/utils/keystore.ts handles all keystore writes
+- `getKeystoreDir(options)` resolution: options.keystore → XRPL_KEYSTORE env var → ~/.xrpl/keystore/
+- Alias uniqueness check: scan all *.json in keystoreDir, skip file for target address, exit 1 if label already taken
+- Non-interactive TTY check: `process.stdin.isTTY === false || process.stdout.isTTY === false`
+- Atomic writes: writeFileSync to `<path>.tmp` then renameSync to `<path>`
+- `process.exit(1)` after `process.stderr.write(msg)` — do NOT throw
+- For mnemonic wallets, keystore secret is the mnemonic phrase itself (not a family seed)
+- `--password` flag prints insecure warning to stderr; interactive prompt uses readline, confirms twice
