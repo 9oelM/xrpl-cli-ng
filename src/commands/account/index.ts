@@ -7,6 +7,7 @@ import { trustLinesCommand } from "./trust-lines.js";
 import { channelsCommand } from "./channels.js";
 import { nftsCommand } from "./nfts.js";
 import { setCommand } from "./set.js";
+import { deleteCommand } from "./delete.js";
 
 export const accountCommand = new Command("account").description(
   "Account management commands"
@@ -20,3 +21,4 @@ accountCommand.addCommand(trustLinesCommand);
 accountCommand.addCommand(channelsCommand);
 accountCommand.addCommand(nftsCommand);
 accountCommand.addCommand(setCommand);
+accountCommand.addCommand(deleteCommand);
