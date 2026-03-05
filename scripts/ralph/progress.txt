@@ -1,92 +1,36 @@
-# Ralph Progress Log
-Started: Thu Mar  5 03:21:39 Universal 2026
----
-
-## 2026-03-05 - US-005
-- Added `--paths <json-or-file>` option: parses inline JSON array or reads from `.json` file; adds Paths to tx when non-empty
-- Added `--partial` flag: sets tfPartialPayment (0x00020000); combined with --deliver-min via bitwise OR
-- Added `--no-ripple-direct` flag: sets tfNoRippleDirect (0x00040000); Commander treats `--no-*` as literal flag when no positive `--ripple-direct` exists → attribute is `noRippleDirect`
-- Added `--limit-quality` flag: sets tfLimitQuality (0x00080000)
-- Flags are ORed together (partial | noRippleDirect | limitQuality) replacing prior per-flag Flags spread
-- `--partial --json` output includes `deliveredAmount` from `meta.delivered_amount`
-- Fixed E2E test: XRP-to-XRP partial not allowed (temBAD_SEND_XRP_PARTIAL); used IOU direct issuance for --partial tests instead
-- All 178 tests pass
-- Files changed: `src/commands/payment.ts`, `tests/e2e/payment/payment.test.ts`
-- **Learnings for future iterations:**
-  - XRP-to-XRP partial payments are rejected with temBAD_SEND_XRP_PARTIAL; use IOU for partial payment tests
-  - Empty Paths array (`--paths '[]'`) should be omitted from tx (XRPL ignores/rejects empty paths for XRP)
-  - Commander's `--no-X` treated as literal flag (not negation) when `--X` isn't defined; camelCase attr is `noX`
-  - PaymentFlags exports tfNoRippleDirect, tfPartialPayment, tfLimitQuality from xrpl
-  - `meta.delivered_amount` is always present in Payment tx metadata (string for XRP, object for IOU)
----
-
 ## Codebase Patterns
-- MPTokenIssuanceID is 24 bytes (48 hex chars) = 4-byte big-endian sequence + 20-byte account ID (computed via decodeAccountID from xrpl)
-- For IOU E2E tests, use direct issuance (issuer sends to holder) rather than rippling between two holders — avoids Default Ripple and lsfNoRipple trust line flag complexities
-- MPTokenIssuance ledger entry type has NO MPTokenIssuanceID field; the ID must be computed from the creating tx's Sequence and Account
-- For MPT payments, receiver must create MPTokenAuthorize before receiving MPT; the issuance must have tfMPTCanTransfer (flag 32) set
-- Tests use vitest with `describe`/`it`/`expect` from "vitest"
-- All imports use `.js` extension (ESM module project with `"type": "module"`)
-- Test files live alongside source in `src/` for unit tests; E2E tests in `tests/e2e/`
-- `npm run typecheck` for type checking, `npm test` for all tests
-- Use `BigInt` for XRP drops arithmetic to avoid float precision issues
-
+- Test framework: vitest with ESM imports (use `import ... from './module.js'` with .js extension)
+- TypeScript strict mode with NodeNext moduleResolution — always use .js extensions in imports
+- Existing commands use `createInterface` from readline for password prompts (no masking)
+- To mock process.stdin in tests: use Object.defineProperty with a custom EventEmitter having isTTY/setRawMode/resume/pause/setEncoding mock fns
+- process.exit tests: mock with a fn that throws a sentinel Error, await rejects.toThrow()
+- For sequential async prompts in tests, use nested setTimeout(0) to allow microtasks between data emissions
 ---
 
-## 2026-03-05 - US-004
-- Added `--send-max <amount>` option: sets SendMax field; supports XRP, IOU, MPT via parseAmount/toXrplAmount
-- Added `--deliver-min <amount>` option: sets DeliverMin field and automatically adds `PaymentFlags.tfPartialPayment` to Flags
-- Added E2E test for IOU: fund issuer from faucet, receiver sets TrustSet, issuer directly sends IOU via CLI
-- Added E2E test for MPT: create MPTokenIssuanceCreate with tfMPTCanTransfer, compute ID from Sequence+Account, receiver MPTokenAuthorize, CLI sends MPT
-- Added E2E test for invalid amount: exits 1 with 'invalid amount' in stderr (no network needed)
-- All 9 payment tests + 175 total tests pass
-- Files changed: `src/commands/payment.ts`, `tests/e2e/payment/payment.test.ts`
-- **Learnings for future iterations:**
-  - MPTokenIssuanceID = uint32BE(Sequence) + 20-byte AccountID — use `decodeAccountID` from xrpl + Buffer.concat
-  - MPTokenIssuance ledger type has NO MPTokenIssuanceID field; don't look in NewFields for it
-  - For IOU E2E tests, use direct issuance (issuer sends to holder); rippling tests are fragile due to Default Ripple and lsfNoRipple order-of-creation issues
-  - `tecPATH_DRY` = path found but liquidity is zero (often Default Ripple or lsfNoRipple issue)
-  - To use PaymentFlags.tfPartialPayment with the Flags spread, just use `...(condition ? { Flags: PaymentFlags.tfPartialPayment } : {})`
----
-
-## 2026-03-05 - US-003
-- Added `--destination-tag <n>` option: validates 0–4294967295, sets DestinationTag on Payment tx
-- Added `--memo <text>` repeatable option: hex-encodes text via `Buffer.from(text, 'utf8').toString('hex').toUpperCase()`
-- Added `--memo-type <hex>` and `--memo-format <hex>` options applied to the last memo
-- Updated human-readable output to print `Destination Tag: <n>` when set
-- Updated JSON output to include `destinationTag` and `memos` fields when present
-- Created 2 new E2E tests (destination-tag and memo), all 6 payment tests pass
-- Files changed: `src/commands/payment.ts`, `tests/e2e/payment/payment.test.ts`
-- **Learnings for future iterations:**
-  - Commander.js repeatable options: use `(val, prev) => [...prev, val]` with default `[]` as the collector
-  - `Memo` type from xrpl: `{ Memo: { MemoData, MemoType?, MemoFormat? } }`
-  - For spread optional fields: `...(condition ? { field: value } : {})` keeps TypeScript happy
-  - E2E tests for tx content: query `account transactions --json --limit 5` and `find()` by field value
+# Ralph Progress Log
+Started: Thu Mar  5 04:55:38 AM Universal 2026
 ---
 
 ## 2026-03-05 - US-002
-- Implemented `src/commands/payment.ts` with `xrpl payment` / `xrpl send` alias
-- Supports --to, --amount, --seed/--mnemonic/--account key material, --no-wait, --json, --dry-run
-- Uses client.autofill() + wallet.sign() + client.submitAndWait() / client.submit()
-- dry-run outputs { tx_blob, tx: filledTxObject } without submitting
-- Exits 1 on tec/tef/tem result codes; catches TimeoutError
-- Created E2E tests in `tests/e2e/payment/payment.test.ts` (4 tests, all passing)
-- Files changed: `src/commands/payment.ts`, `src/commands/index.ts`, `src/index.ts`, `tests/e2e/payment/payment.test.ts`
+- Removed local `promptPassword` function definitions from 7 command files
+- Removed unused `createInterface` imports from readline (except delete.ts which still needs it for promptConfirm)
+- Added `import { promptPassword } from '../../utils/prompt.js'` (or `'../utils/prompt.js'` for payment.ts)
+- Files changed: wallet/import.ts, wallet/decrypt-keystore.ts, wallet/sign.ts, wallet/change-password.ts, account/delete.ts, account/set.ts, payment.ts
 - **Learnings for future iterations:**
-  - `client.autofill(tx)` is the instance method on Client (consistent with delete.ts pattern)
-  - `Wallet.generate()` creates ed25519 wallets; `wallet.seed` is accessible for test setup
-  - For dry-run, output the autofilled tx JSON directly as `tx` field (no need to decode tx_blob)
-  - `client.submit()` does not block; use `signed.hash` (from wallet.sign()) as the hash for --no-wait output
-  - E2E tests fund two wallets in beforeAll with 180s timeout; tests run sequentially after
+  - PRD import paths for account/delete.ts and account/set.ts said `'../utils/prompt.js'` but correct path is `'../../utils/prompt.js'`
+  - account/delete.ts keeps `createInterface` import because `promptConfirm` (non-password prompt) still uses it
+  - change-password.ts uses `promptPassword('Current password: ')` and `promptPassword('New password: ')` — the utility's optional prompt param handles this
 ---
 
 ## 2026-03-05 - US-001
-- Implemented `src/utils/amount.ts` with `parseAmount`, `toXrplAmount`, and `formatAmount`
-- Implemented `src/utils/amount.test.ts` with 17 unit tests covering all amount types and error cases
-- Files changed: `src/utils/amount.ts`, `src/utils/amount.test.ts`
+- Implemented src/utils/prompt.ts with promptPassword and promptPasswordWithConfirmation
+- promptPassword uses raw mode (setRawMode) when isTTY, falling back to readline otherwise
+- Masks input with '*', handles backspace (\u007f/\b), Ctrl+C, and Enter
+- promptPasswordWithConfirmation calls process.exit(1) with error on stderr when passwords differ
+- Created src/utils/prompt.test.ts with 4 unit tests covering all behaviors
+- Files changed: src/utils/prompt.ts (new), src/utils/prompt.test.ts (new)
 - **Learnings for future iterations:**
-  - MPT issuance IDs are exactly 48 hex chars (4-byte sequence + 20-byte account = 24 bytes = 48 hex)
-  - IOU format: `value/currency/issuer` (3 parts); MPT format: `value/<48-hex>` (2 parts)
-  - XRP drops suffix: `"1500000drops"` or `"1500000 drops"` (trim before checking digits)
-  - formatAmount XRP uses BigInt arithmetic: whole = drops/1_000_000n, remainder for fractional part
+  - process.stdin.setRawMode! (non-null assertion) needed since TypeScript doesn't narrow after isTTY check
+  - process.exit mock type: use `(_code?: string | number | null): never =>` to match Node.js signature
+  - Nested setTimeout(0) pattern allows microtasks to run between first and second prompt in tests
 ---
