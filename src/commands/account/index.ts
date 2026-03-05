@@ -6,6 +6,7 @@ import { offersCommand } from "./offers.js";
 import { trustLinesCommand } from "./trust-lines.js";
 import { channelsCommand } from "./channels.js";
 import { nftsCommand } from "./nfts.js";
+import { setCommand } from "./set.js";
 
 export const accountCommand = new Command("account").description(
   "Account management commands"
@@ -18,3 +19,4 @@ accountCommand.addCommand(offersCommand);
 accountCommand.addCommand(trustLinesCommand);
 accountCommand.addCommand(channelsCommand);
 accountCommand.addCommand(nftsCommand);
+accountCommand.addCommand(setCommand);
