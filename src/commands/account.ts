@@ -1,5 +1,6 @@
 import { Command } from "commander";
-import { withClient, resolveNodeUrl } from "../utils/client.js";
+import { withClient } from "../utils/client.js";
+import { getNodeUrl } from "../utils/node.js";
 
 export const accountCommand = new Command("account").description(
   "Account management commands"
@@ -8,13 +9,8 @@ export const accountCommand = new Command("account").description(
 accountCommand
   .command("info <address>")
   .description("Get account information")
-  .option(
-    "-n, --node <url>",
-    "XRPL node URL or network name (mainnet|testnet|devnet)",
-    "testnet"
-  )
-  .action(async (address: string, options: { node: string }) => {
-    const url = resolveNodeUrl(options.node);
+  .action(async (address: string, _options: Record<string, unknown>, cmd: Command) => {
+    const url = getNodeUrl(cmd);
     await withClient(url, async (client) => {
       const response = await client.request({
         command: "account_info",
