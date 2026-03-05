@@ -69,6 +69,51 @@ aliasCommand
   });
 
 aliasCommand
+  .command("list")
+  .description("List all wallets with aliases")
+  .option(
+    "--keystore <dir>",
+    "Keystore directory (default: ~/.xrpl/keystore/; XRPL_KEYSTORE env var also accepted)"
+  )
+  .option("--json", "Output as JSON array", false)
+  .action((options: { keystore?: string; json: boolean }) => {
+    const keystoreDir = getKeystoreDir(options);
+
+    let files: string[] = [];
+    try {
+      files = readdirSync(keystoreDir).filter((f) => f.endsWith(".json"));
+    } catch {
+      // directory doesn't exist — no aliases
+    }
+
+    const aliases: { alias: string; address: string }[] = [];
+    for (const file of files) {
+      try {
+        const data = JSON.parse(readFileSync(join(keystoreDir, file), "utf-8")) as Partial<KeystoreFile>;
+        if (data.label && data.address) {
+          aliases.push({ alias: data.label, address: data.address });
+        }
+      } catch {
+        // skip unreadable files
+      }
+    }
+
+    if (options.json) {
+      console.log(JSON.stringify(aliases));
+      return;
+    }
+
+    if (aliases.length === 0) {
+      console.log("(no aliases set)");
+      return;
+    }
+
+    for (const { alias, address } of aliases) {
+      console.log(`${alias}  →  ${address}`);
+    }
+  });
+
+aliasCommand
   .command("remove")
   .description("Remove alias from a keystore entry")
   .argument("<address>", "XRPL address of the wallet")
