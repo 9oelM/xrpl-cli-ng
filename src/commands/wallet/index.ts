@@ -11,6 +11,7 @@ import { decryptKeystoreCommand } from "./decrypt-keystore.js";
 import { changePasswordCommand } from "./change-password.js";
 import { signCommand } from "./sign.js";
 import { verifyCommand } from "./verify.js";
+import { aliasCommand } from "./alias.js";
 
 export const walletCommand = new Command("wallet").description(
   "Wallet management commands"
@@ -28,3 +29,4 @@ walletCommand.addCommand(decryptKeystoreCommand);
 walletCommand.addCommand(changePasswordCommand);
 walletCommand.addCommand(signCommand);
 walletCommand.addCommand(verifyCommand);
+walletCommand.addCommand(aliasCommand);
