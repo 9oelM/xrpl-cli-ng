@@ -1,34 +1,21 @@
 ## Codebase Patterns
-- E2E tests use `spawnSync(TSX, [CLI, ...args])` pattern with 120s timeout per test call
-- `wallet import <seed>` takes key material as positional arg, not `--seed`; use `--password`, `--keystore` flags for keystore control
-- `account trust-lines --json <address>` returns raw array including `no_ripple`, `quality_in`, `quality_out`, `freeze_peer`, `peer_authorized` fields
-- Tests within a describe block run sequentially, so CNY trust line created in test A is visible in test B
-- Currency codes available: CNY, JPY, FRZ, AUT (USD, EUR, GBP, CAD, MXN, XYZ used by existing tests)
-- For --auth tests: enable RequireAuth on a dedicated authIssuer wallet in beforeAll (not inline in the test) to avoid LastLedgerSequence expiry due to setup time
-- Use beforeAll timeout of 240_000ms when funding 3+ wallets + AccountSet setup
+- Wallet resolution pattern: use a `resolveWallet(options)` helper — checks seed → mnemonic → account/keystore, matches trust.ts and payment.ts
+- OfferCreate sequence after submit: available in `response.result.tx_json.Sequence`; also available in `filled.Sequence` after autofill
+- `isoTimeToRippleTime` is exported directly from xrpl.js — use it to convert ISO 8601 to XRPL epoch for `Expiration` field
+- `OfferCreateFlags` is exported from xrpl.js: tfPassive, tfImmediateOrCancel, tfFillOrKill, tfSell
 
 # Ralph Progress Log
-Started: Thu Mar  5 02:15:42 PM Universal 2026
----
-
-## 2026-03-05 - US-002
-- Added 3 new E2E tests: --freeze (FRZ, issuer freezes trust line), --unfreeze (FRZ, issuer unfreezes), --auth (AUT, authIssuer authorizes)
-- Files changed: tests/e2e/trust/trust.test.ts
-- **Learnings for future iterations:**
-  - `--freeze`/`--unfreeze` tests: trustor creates line first, then issuer runs trust set with `--issuer <trustor-address>` (reversed roles) to freeze/unfreeze
-  - `--auth` test: enable RequireAuth on a dedicated wallet in `beforeAll` to avoid LastLedgerSequence issues from inline client setup
-  - Increase `beforeAll` timeout to 240_000ms when funding 3+ wallets plus AccountSet transactions
-  - `peer_authorized` field is only present in trust-lines output when the peer has authorized (not always included)
-  - `AccountSetAsfFlags` should be imported from `xrpl` package
+Started: Thu Mar  5 03:07:41 PM Universal 2026
 ---
 
 ## 2026-03-05 - US-001
-- Added 3 new E2E tests to tests/e2e/trust/trust.test.ts: --account/--keystore/--password (CNY), --clear-no-ripple on-chain effect (CNY), --quality-in/--quality-out (JPY)
-- Files changed: tests/e2e/trust/trust.test.ts
+- Implemented `offer create` (alias `c`) and `offer cancel` (alias `x`) subcommands under `offer` top-level command
+- Files changed: `src/commands/offer.ts` (new), `src/commands/index.ts`, `src/index.ts`
 - **Learnings for future iterations:**
-  - `wallet import` takes key material as first positional arg (not `--seed`)
-  - `account trust-lines --json` returns `quality_in`/`quality_out` as numbers matching the ledger value
-  - For --clear-no-ripple test: set no-ripple first on the same line, then clear it and assert falsy
-  - Imported `mkdtempSync`, `rmSync` from `fs` and `tmpdir` from `os` for temp keystore dir
-  - Import `Client` from xrpl is still needed in beforeAll even if not used directly in new tests
+  - `OfferCreateFlags` and `isoTimeToRippleTime` are both available directly from xrpl.js package
+  - `--immediate-or-cancel` and `--fill-or-kill` are mutually exclusive — checked before network call
+  - Plain output for offer create: `Offer created. Sequence: <N>` (as per PRD acceptance criteria)
+  - JSON output for offer create: `{ hash, result, offerSequence }`; for offer cancel: `{ hash, result }`
+  - offerSequence is taken from `txResult.tx_json.Sequence` in the validated response
+  - Keystore/wallet resolution factored into a `resolveWallet` helper to avoid code duplication
 ---
