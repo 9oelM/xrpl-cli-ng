@@ -1,0 +1,44 @@
+{
+  "project": "xrpl-cli",
+  "branchName": "ralph/trust-set-test-coverage",
+  "description": "trust set — full option test coverage for --account/--keystore/--password, --clear-no-ripple, --quality-in/--quality-out, --freeze/--unfreeze, and --auth",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Tests for --account/--keystore/--password, --clear-no-ripple, --quality-in, --quality-out",
+      "description": "As a developer, I want the simpler missing options covered so keystore-based signing and quality fields are verified on-chain.",
+      "acceptanceCriteria": [
+        "Add test '--account + --keystore + --password': use 'wallet new --save --password pw123 --keystore <tmpdir> --json' to create a keystore entry, then run 'trust set --currency USD --issuer <issuer-address> --limit 1000 --account <address> --keystore <tmpdir> --password pw123 --node testnet', assert exit 0 and stdout contains 'tesSUCCESS'; clean up tmpdir in finally block",
+        "Add test '--clear-no-ripple on-chain effect': first run trust set with --currency CNY --no-ripple on trustor, then run trust set with --currency CNY --clear-no-ripple on the same trust line; query 'account trust-lines --json <trustor-address>', find CNY line and assert no_ripple is false or absent (!line.no_ripple)",
+        "Add test '--quality-in and --quality-out': run trust set --currency JPY --issuer <issuer> --limit 10000 --quality-in 950000000 --quality-out 950000000 --seed <trustor-seed> --node testnet; query 'account trust-lines --json <trustor-address>', find JPY line and assert quality_in === 950000000 and quality_out === 950000000",
+        "All new tests added to tests/e2e/trust/trust.test.ts alongside existing tests",
+        "Use existing trustor and issuer wallets already funded in beforeAll — do not fund new accounts",
+        "Use currency codes CNY, JPY to avoid conflicts with existing tests (USD, EUR, GBP, CAD, MXN, XYZ already used)",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Tests for --freeze, --unfreeze, and --auth",
+      "description": "As a developer, I want issuer-side flag operations tested so freeze/unfreeze and trust line authorization are verified on-chain.",
+      "acceptanceCriteria": [
+        "Add test '--freeze': trustor runs trust set --currency FRZ --issuer <issuer-address> --limit 1000 --seed <trustor-seed> to establish the line; issuer then runs trust set --currency FRZ --issuer <trustor-address> --limit 0 --freeze --seed <issuer-seed>; query 'account trust-lines --json <trustor-address>', find FRZ line and assert freeze_peer === true",
+        "Add test '--unfreeze': issuer runs trust set --currency FRZ --issuer <trustor-address> --limit 0 --unfreeze --seed <issuer-seed>; query trust lines and assert the FRZ line no longer has freeze_peer: true",
+        "Add test '--auth': in test body (using xrpl.js Client directly), issuer submits AccountSet tx with SetFlag: AccountSetAsfFlags.asfRequireAuth (value 2) to enable RequireAuth; trustor creates trust set --currency AUT --issuer <issuer-address> --limit 100 --seed <trustor-seed>; issuer authorizes with trust set --currency AUT --issuer <trustor-address> --limit 0 --auth --seed <issuer-seed>; query 'account trust-lines --json <trustor-address>', find AUT line and assert peer_authorized === true",
+        "All new tests added to tests/e2e/trust/trust.test.ts",
+        "Use existing trustor and issuer wallets from beforeAll",
+        "Use currency codes FRZ and AUT (not already used by other tests)",
+        "Import AccountSetAsfFlags from xrpl package for the --auth test setup",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "project": "xrpl-cli",
+  "branchName": "ralph/trust",
+  "description": "trust set — Submit TrustSet transactions to create, modify, or remove XRPL trust lines from the CLI",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "trust set core command",
+      "description": "As a user, I want to create or update a trust line so I can hold issued tokens from a specific issuer.",
+      "acceptanceCriteria": [
+        "Create src/commands/trust.ts with a trustCommand (new Command('trust')) containing a 'set' subcommand (alias 's')",
+        "Register trustCommand in src/commands/index.ts and src/index.ts",
+        "Required options: --currency <code> (3-char ASCII auto-uppercased, or 40-char hex; exits 1 with descriptive error on invalid format), --issuer <address-or-alias> (resolved via resolveAccount()), --limit <value> (decimal string; '0' removes the trust line)",
+        "Key material — exactly one required: --seed <seed>, --mnemonic <phrase>, --account <address-or-alias> (loads from keystore; --password skips interactive prompt with insecure warning to stderr; --keystore <dir> and XRPL_KEYSTORE env var respected)",
+        "Exits 1 with error if zero or more than one key material option is provided",
+        "Global --node / -n respected via getNodeUrl(cmd)",
+        "Builds TrustSet tx: { TransactionType: 'TrustSet', Account: <signer-address>, LimitAmount: { currency, issuer, value } }",
+        "Calls client.autofill(tx), signs with wallet.sign(), then client.submitAndWait() by default",
+        "Human-readable success output: 'Transaction: <hash>', 'Result:      <result-code>', 'Fee:         <fee-xrp> XRP', 'Ledger:      <ledger-index>'",
+        "--no-wait: calls client.submit() instead; prints only 'Transaction: <hash>'",
+        "--json: outputs { hash, result, fee, ledger } or { hash } with --no-wait",
+        "--dry-run: prints { tx_blob, tx: <autofilled-tx-object> } as JSON to stdout without submitting; exits 0",
+        "Exits 1 on tec*/tef*/tem* result codes with error to stderr",
+        "Catches TimeoutError and exits 1 with 'Error: transaction expired (LastLedgerSequence exceeded)'",
+        "E2E test: fund a testnet account from faucet, run 'trust set --currency USD --issuer <that-address> --limit 1000 --seed <seed>', assert exit 0 and stdout contains 'tesSUCCESS'",
+        "E2E test: --dry-run outputs JSON with TransactionType 'TrustSet' and does not submit (query account trust-lines after and assert no new trust line)",
+        "E2E test: --no-wait exits 0 and stdout contains a 64-char hex hash",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "TrustSet flags and quality options",
+      "description": "As a user, I want to control NoRipple, Freeze, and Auth flags on a trust line so I can configure rippling and compliance behaviour.",
+      "acceptanceCriteria": [
+        "--no-ripple flag: adds TrustSetFlags.tfSetNoRipple (0x00020000) to Flags via bitwise OR",
+        "--clear-no-ripple flag: adds TrustSetFlags.tfClearNoRipple (0x00040000) to Flags",
+        "--freeze flag: adds TrustSetFlags.tfSetFreeze (0x00100000) to Flags",
+        "--unfreeze flag: adds TrustSetFlags.tfClearFreeze (0x00200000) to Flags",
+        "--auth flag: adds TrustSetFlags.tfSetfAuth (0x00010000) to Flags",
+        "Multiple flags combine via bitwise OR into a single Flags field on the tx",
+        "--quality-in <n>: sets QualityIn field (unsigned integer); only added to tx when explicitly provided",
+        "--quality-out <n>: sets QualityOut field (unsigned integer); only added to tx when explicitly provided",
+        "Exits 1 with error to stderr if both --no-ripple and --clear-no-ripple are passed",
+        "Exits 1 with error to stderr if both --freeze and --unfreeze are passed",
+        "E2E test: run 'trust set --currency USD --issuer <addr> --limit 1000 --no-ripple --seed <seed>', then query account_lines via 'account trust-lines --json', assert the trust line entry has no_ripple: true",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

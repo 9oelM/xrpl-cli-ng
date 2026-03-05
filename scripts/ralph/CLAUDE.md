@@ -77,6 +77,19 @@ Only update CLAUDE.md if you have **genuinely reusable knowledge** that would he
 - Keep changes focused and minimal
 - Follow existing code patterns
 
+## Testing Requirements
+
+**Every CLI option and flag must be covered by at least one test.**
+
+When implementing or reviewing a command, go through every `.option(...)` and `.requiredOption(...)` defined on the command and verify each one is exercised in the test file. This includes:
+- Happy-path options (verify on-chain / output effects, not just exit code)
+- Flags that modify transaction behaviour (e.g. `--no-ripple`, `--freeze`) — assert the on-chain effect via a follow-up query
+- Mutually exclusive flag pairs — assert exit 1 with error message
+- Key material variants (`--seed`, `--mnemonic`, `--account`) — at least `--seed` must be tested; `--account`/`--keystore`/`--password` must have at least one test per command
+- Output modes (`--json`, `--no-wait`, `--dry-run`) — each must be tested separately
+
+If an option is not yet tested, add the missing test before marking a story as complete.
+
 ## Browser Testing (If Available)
 
 For any story that changes UI, verify it works in the browser if you have browser testing tools configured (e.g., via MCP):
