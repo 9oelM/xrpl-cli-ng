@@ -103,4 +103,57 @@ describe("payment", () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toMatch(/[0-9A-Fa-f]{64}/);
   });
+
+  it("--destination-tag sets DestinationTag on the submitted tx", async () => {
+    const result = runCLI([
+      "--node", "testnet",
+      "payment",
+      "--to", receiver.address,
+      "--amount", "0.5",
+      "--seed", sender.seed!,
+      "--destination-tag", "12345",
+      "--json",
+    ]);
+    expect(result.status).toBe(0);
+    const out = JSON.parse(result.stdout) as { hash: string; result: string; destinationTag: number };
+    expect(out.result).toBe("tesSUCCESS");
+    expect(out.destinationTag).toBe(12345);
+
+    // Verify the DestinationTag is on the ledger tx
+    const txsResult = runCLI([
+      "--node", "testnet",
+      "account", "transactions", "--json", "--limit", "5", sender.address,
+    ]);
+    expect(txsResult.status).toBe(0);
+    const txsData = JSON.parse(txsResult.stdout) as { transactions: Array<{ tx_json?: { DestinationTag?: number } }> };
+    const recentTx = txsData.transactions.find((t) => t.tx_json?.DestinationTag === 12345);
+    expect(recentTx).toBeDefined();
+  });
+
+  it("--memo attaches a Memos entry to the tx", async () => {
+    const result = runCLI([
+      "--node", "testnet",
+      "payment",
+      "--to", receiver.address,
+      "--amount", "0.5",
+      "--seed", sender.seed!,
+      "--memo", "hello",
+      "--json",
+    ]);
+    expect(result.status).toBe(0);
+    const out = JSON.parse(result.stdout) as { hash: string; result: string; memos: unknown[] };
+    expect(out.result).toBe("tesSUCCESS");
+    expect(Array.isArray(out.memos)).toBe(true);
+    expect(out.memos.length).toBeGreaterThan(0);
+
+    // Verify Memos on the ledger tx
+    const txsResult = runCLI([
+      "--node", "testnet",
+      "account", "transactions", "--json", "--limit", "5", sender.address,
+    ]);
+    expect(txsResult.status).toBe(0);
+    const txsData = JSON.parse(txsResult.stdout) as { transactions: Array<{ tx_json?: { Memos?: unknown[] } }> };
+    const recentTx = txsData.transactions.find((t) => t.tx_json?.Memos && (t.tx_json.Memos as unknown[]).length > 0);
+    expect(recentTx).toBeDefined();
+  });
 });

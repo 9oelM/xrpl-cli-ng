@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { createInterface } from "readline";
 import { Wallet } from "xrpl";
-import type { Payment } from "xrpl";
+import type { Payment, Memo } from "xrpl";
 import { deriveKeypair } from "ripple-keypairs";
 import { withClient } from "../utils/client.js";
 import { getNodeUrl } from "../utils/node.js";
@@ -33,6 +33,10 @@ interface PaymentOptions {
   account?: string;
   password?: string;
   keystore?: string;
+  destinationTag?: string;
+  memo?: string[];
+  memoType?: string;
+  memoFormat?: string;
   noWait: boolean;
   json: boolean;
   dryRun: boolean;
@@ -48,6 +52,10 @@ export const paymentCommand = new Command("payment")
   .option("--account <address-or-alias>", "Account address or alias to load from keystore")
   .option("--password <password>", "Keystore decryption password (insecure, prefer interactive prompt)")
   .option("--keystore <dir>", "Keystore directory (default: ~/.xrpl/keystore/; XRPL_KEYSTORE env var also accepted)")
+  .option("--destination-tag <n>", "Destination tag (unsigned 32-bit integer)")
+  .option("--memo <text>", "Memo text to attach (repeatable)", (val: string, prev: string[]) => [...(prev ?? []), val], [] as string[])
+  .option("--memo-type <hex>", "MemoType hex for the last memo")
+  .option("--memo-format <hex>", "MemoFormat hex for the last memo")
   .option("--no-wait", "Submit without waiting for validation", false)
   .option("--json", "Output as JSON", false)
   .option("--dry-run", "Print signed tx without submitting", false)
@@ -130,12 +138,39 @@ export const paymentCommand = new Command("payment")
     const keystoreDir = getKeystoreDir(options);
     const destination = resolveAccount(options.to, keystoreDir);
 
+    // Validate destination tag
+    let destTag: number | undefined;
+    if (options.destinationTag !== undefined) {
+      const tagNum = Number(options.destinationTag);
+      if (!Number.isInteger(tagNum) || tagNum < 0 || tagNum > 4294967295) {
+        process.stderr.write(`Error: --destination-tag must be an integer between 0 and 4294967295\n`);
+        process.exit(1);
+      }
+      destTag = tagNum;
+    }
+
+    // Build memos
+    let memos: Memo[] | undefined;
+    if (options.memo && options.memo.length > 0) {
+      memos = options.memo.map((text, idx) => {
+        const memoData = Buffer.from(text, "utf8").toString("hex").toUpperCase();
+        const memo: Memo["Memo"] = { MemoData: memoData };
+        if (idx === options.memo!.length - 1) {
+          if (options.memoType) memo.MemoType = options.memoType;
+          if (options.memoFormat) memo.MemoFormat = options.memoFormat;
+        }
+        return { Memo: memo };
+      });
+    }
+
     // Build the Payment transaction
     const tx: Payment = {
       TransactionType: "Payment",
       Account: signerWallet!.address,
       Destination: destination,
       Amount: xrplAmount as Payment["Amount"],
+      ...(destTag !== undefined ? { DestinationTag: destTag } : {}),
+      ...(memos ? { Memos: memos } : {}),
     };
 
     const url = getNodeUrl(cmd);
@@ -191,18 +226,25 @@ export const paymentCommand = new Command("payment")
       if (/^te[cfm]/i.test(resultCode)) {
         process.stderr.write(`Error: transaction failed with ${resultCode}\n`);
         if (options.json) {
-          console.log(JSON.stringify({ hash, result: resultCode, fee: feeXrp, ledger }));
+          const failOut: Record<string, unknown> = { hash, result: resultCode, fee: feeXrp, ledger };
+          if (destTag !== undefined) failOut.destinationTag = destTag;
+          if (memos) failOut.memos = memos;
+          console.log(JSON.stringify(failOut));
         }
         process.exit(1);
       }
 
       if (options.json) {
-        console.log(JSON.stringify({ hash, result: resultCode, fee: feeXrp, ledger }));
+        const out: Record<string, unknown> = { hash, result: resultCode, fee: feeXrp, ledger };
+        if (destTag !== undefined) out.destinationTag = destTag;
+        if (memos) out.memos = memos;
+        console.log(JSON.stringify(out));
       } else {
         console.log(`Transaction: ${hash}`);
         console.log(`Result:      ${resultCode}`);
         console.log(`Fee:         ${feeXrp} XRP`);
         console.log(`Ledger:      ${ledger}`);
+        if (destTag !== undefined) console.log(`Destination Tag: ${destTag}`);
       }
     });
   });
