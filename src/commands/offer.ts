@@ -247,7 +247,9 @@ const offerCreateCommand = new Command("create")
       const hash = txResult.hash ?? signed.hash;
       const offerSequence = txResult.tx_json?.Sequence ?? (filled as { Sequence?: number }).Sequence ?? 0;
 
-      if (/^te[cfm]/i.test(resultCode)) {
+      // tecKILLED is expected for IOC/FOK offers that cannot be filled — treat as success
+      const isKilled = resultCode === "tecKILLED";
+      if (/^te[cfm]/i.test(resultCode) && !isKilled) {
         process.stderr.write(`Error: transaction failed with ${resultCode}\n`);
         if (options.json) {
           console.log(JSON.stringify({ hash, result: resultCode, offerSequence }));
@@ -257,6 +259,8 @@ const offerCreateCommand = new Command("create")
 
       if (options.json) {
         console.log(JSON.stringify({ hash, result: resultCode, offerSequence }));
+      } else if (isKilled) {
+        console.log(`Offer killed (IOC/FOK condition not met). Sequence: ${offerSequence}`);
       } else {
         console.log(`Offer created. Sequence: ${offerSequence}`);
       }
