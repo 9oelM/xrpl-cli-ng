@@ -19,3 +19,13 @@ Started: Thu Mar  5 03:07:41 PM Universal 2026
   - offerSequence is taken from `txResult.tx_json.Sequence` in the validated response
   - Keystore/wallet resolution factored into a `resolveWallet` helper to avoid code duplication
 ---
+
+## 2026-03-05 - US-002
+- All OfferCreate flags (--sell, --passive, --immediate-or-cancel, --fill-or-kill, --expiration, --replace) were already implemented in src/commands/offer.ts as part of US-001
+- Mutual exclusion check (--immediate-or-cancel + --fill-or-kill exits 1) also already in place
+- Typecheck passes; full test suite passes (transient faucet 429 in payment.iou.test.ts unrelated)
+- Files changed: scripts/ralph/prd.json (US-002 passes: true)
+- **Learnings for future iterations:**
+  - When building offer.ts, all flags were implemented upfront — US-002 was effectively a no-op at implementation time
+  - OfferCreate.OfferSequence (not to be confused with the account's Sequence) is used for --replace (atomic cancel+replace)
+---
