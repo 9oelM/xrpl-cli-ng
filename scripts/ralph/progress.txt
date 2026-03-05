@@ -1,3 +1,23 @@
 # Ralph Progress Log
 Started: Thu Mar  5 03:21:39 Universal 2026
 ---
+
+## Codebase Patterns
+- Tests use vitest with `describe`/`it`/`expect` from "vitest"
+- All imports use `.js` extension (ESM module project with `"type": "module"`)
+- Test files live alongside source in `src/` for unit tests; E2E tests in `tests/e2e/`
+- `npm run typecheck` for type checking, `npm test` for all tests
+- Use `BigInt` for XRP drops arithmetic to avoid float precision issues
+
+---
+
+## 2026-03-05 - US-001
+- Implemented `src/utils/amount.ts` with `parseAmount`, `toXrplAmount`, and `formatAmount`
+- Implemented `src/utils/amount.test.ts` with 17 unit tests covering all amount types and error cases
+- Files changed: `src/utils/amount.ts`, `src/utils/amount.test.ts`
+- **Learnings for future iterations:**
+  - MPT issuance IDs are exactly 48 hex chars (4-byte sequence + 20-byte account = 24 bytes = 48 hex)
+  - IOU format: `value/currency/issuer` (3 parts); MPT format: `value/<48-hex>` (2 parts)
+  - XRP drops suffix: `"1500000drops"` or `"1500000 drops"` (trim before checking digits)
+  - formatAmount XRP uses BigInt arithmetic: whole = drops/1_000_000n, remainder for fractional part
+---
