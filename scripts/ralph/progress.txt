@@ -5,6 +5,7 @@
 - Currency validation: 3-char ASCII uppercased OR 40-char hex; throw Error with descriptive message
 - Subcommands use `new Command('parent').addCommand(new Command('sub').alias('s'))` pattern
 - getKeystoreDir(options) + resolveAccount() are used to resolve --issuer and --account
+- Commander.js `--no-X` options set `options.X = false` (not `options.noX`); check `options.X === false` to detect the flag; omit the explicit default to allow distinction (default is `true` when not passed)
 
 # Ralph Progress Log
 Started: Thu Mar  5 05:48:33 AM Universal 2026
@@ -18,4 +19,14 @@ Started: Thu Mar  5 05:48:33 AM Universal 2026
   - Currency validation: /^[A-Z0-9]{3}$/ for 3-char or /^[0-9A-Fa-f]{40}$/ for hex
   - TrustSetFlags exported from trust.ts for US-002 to reuse
   - All 8 E2E tests pass on testnet (tesSUCCESS, dry-run, no-wait, --json, error cases)
+---
+
+## 2026-03-05 - US-002
+- Added --no-ripple, --clear-no-ripple, --freeze, --unfreeze, --auth flags and --quality-in/--quality-out options to `trust set`
+- Applied flags via bitwise OR into Flags field on TrustSet tx; QualityIn/QualityOut added when explicitly provided
+- Added mutual exclusivity validation for --no-ripple/--clear-no-ripple and --freeze/--unfreeze
+- Files changed: src/commands/trust.ts, tests/e2e/trust/trust.test.ts
+- **Learnings for future iterations:**
+  - Commander.js treats `--no-X` specially: property name is `X` (not `noX`), set to `false` when flag present, `true` by default when not present. Must check `options.X === false` to detect the flag. Do NOT provide an explicit `false` default or you can't distinguish from "not provided".
+  - `--clear-no-ripple` works fine with camelCase as `clearNoRipple` since it doesn't start with `no-` from Commander's perspective
 ---
