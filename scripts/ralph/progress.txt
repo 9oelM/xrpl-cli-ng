@@ -11,6 +11,22 @@ Started: Thu Mar  5 03:21:39 Universal 2026
 
 ---
 
+## 2026-03-05 - US-002
+- Implemented `src/commands/payment.ts` with `xrpl payment` / `xrpl send` alias
+- Supports --to, --amount, --seed/--mnemonic/--account key material, --no-wait, --json, --dry-run
+- Uses client.autofill() + wallet.sign() + client.submitAndWait() / client.submit()
+- dry-run outputs { tx_blob, tx: filledTxObject } without submitting
+- Exits 1 on tec/tef/tem result codes; catches TimeoutError
+- Created E2E tests in `tests/e2e/payment/payment.test.ts` (4 tests, all passing)
+- Files changed: `src/commands/payment.ts`, `src/commands/index.ts`, `src/index.ts`, `tests/e2e/payment/payment.test.ts`
+- **Learnings for future iterations:**
+  - `client.autofill(tx)` is the instance method on Client (consistent with delete.ts pattern)
+  - `Wallet.generate()` creates ed25519 wallets; `wallet.seed` is accessible for test setup
+  - For dry-run, output the autofilled tx JSON directly as `tx` field (no need to decode tx_blob)
+  - `client.submit()` does not block; use `signed.hash` (from wallet.sign()) as the hash for --no-wait output
+  - E2E tests fund two wallets in beforeAll with 180s timeout; tests run sequentially after
+---
+
 ## 2026-03-05 - US-001
 - Implemented `src/utils/amount.ts` with `parseAmount`, `toXrplAmount`, and `formatAmount`
 - Implemented `src/utils/amount.test.ts` with 17 unit tests covering all amount types and error cases
