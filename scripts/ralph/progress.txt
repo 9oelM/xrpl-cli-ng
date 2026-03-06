@@ -1,3 +1,19 @@
+## 2026-03-06 - US-005
+- Implemented `xrpl channel list <address>` subcommand in `src/commands/channel.ts`
+- Uses `account_channels` RPC with pagination (marker-based loop, limit 400)
+- Optional `--destination <address>` filter passed as `destination_account` to RPC
+- Human-readable output: channel ID, amount (XRP), balance (XRP), destination, settle-delay, expiration (ISO8601 or "none"), cancel-after (ISO8601 or "none"), public-key-hex
+- `--json` outputs raw JSON array of channel objects
+- Epoch conversion helper `xrplEpochToIso`: `new Date((epoch + 946684800) * 1000).toISOString()`
+- Created `tests/e2e/channel/channel.list.test.ts` — 4 testnet tests all pass
+- Files changed: src/commands/channel.ts, tests/e2e/channel/channel.list.test.ts
+- **Learnings for future iterations:**
+  - `channel list` is a pure read command — no key material needed, just address + optional --destination
+  - `account_channels` response includes `marker` for pagination; loop until `marker` is undefined
+  - To handle TypeScript `client.request()` typing with custom query params, cast the request as `any` and cast the result type explicitly
+  - `Wallet.generate()` can be used in tests to create an address without funding (useful for negative filter tests)
+---
+
 ## 2026-03-06 - US-004
 - Implemented `xrpl channel claim` subcommand in `src/commands/channel.ts`
 - Added `PaymentChannelClaim` type import; added `channelClaimCommand` with `--channel`, `--amount`, `--balance`, `--signature`, `--public-key`, `--close`, `--renew`, standard key material, and standard output options
