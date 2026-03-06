@@ -725,10 +725,96 @@ const channelClaimCommand = new Command("claim")
     });
   });
 
+interface ChannelEntry {
+  channel_id: string;
+  account: string;
+  destination_account: string;
+  amount: string;
+  balance: string;
+  public_key?: string;
+  public_key_hex?: string;
+  settle_delay: number;
+  expiration?: number;
+  cancel_after?: number;
+  destination_tag?: number;
+  source_tag?: number;
+}
+
+interface ChannelListOptions {
+  destination?: string;
+  json: boolean;
+}
+
+function xrplEpochToIso(epoch: number): string {
+  return new Date((epoch + 946684800) * 1000).toISOString();
+}
+
+const channelListCommand = new Command("list")
+  .description("List open payment channels for an account")
+  .argument("<address>", "Account address to query channels for")
+  .option("--destination <address>", "Filter channels by destination account")
+  .option("--json", "Output as JSON array", false)
+  .action(async (address: string, options: ChannelListOptions, cmd: Command) => {
+    const url = getNodeUrl(cmd);
+
+    await withClient(url, async (client) => {
+      const allChannels: ChannelEntry[] = [];
+      let marker: unknown = undefined;
+
+      do {
+        // Build request with optional fields
+        const req: {
+          command: "account_channels";
+          account: string;
+          destination_account?: string;
+          limit: number;
+          marker?: unknown;
+        } = { command: "account_channels", account: address, limit: 400 };
+
+        if (options.destination) req.destination_account = options.destination;
+        if (marker !== undefined) req.marker = marker;
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const res = await client.request(req as any);
+        const result = res.result as { channels: ChannelEntry[]; marker?: unknown };
+        allChannels.push(...result.channels);
+        marker = result.marker;
+      } while (marker !== undefined);
+
+      if (options.json) {
+        console.log(JSON.stringify(allChannels));
+        return;
+      }
+
+      if (allChannels.length === 0) {
+        console.log("No channels found.");
+        return;
+      }
+
+      for (const ch of allChannels) {
+        const amountXrp = (Number(ch.amount) / 1_000_000).toFixed(6);
+        const balanceXrp = (Number(ch.balance) / 1_000_000).toFixed(6);
+        const expiration = ch.expiration !== undefined ? xrplEpochToIso(ch.expiration) : "none";
+        const cancelAfter = ch.cancel_after !== undefined ? xrplEpochToIso(ch.cancel_after) : "none";
+
+        console.log(`Channel ID:   ${ch.channel_id}`);
+        console.log(`Amount:       ${amountXrp} XRP`);
+        console.log(`Balance:      ${balanceXrp} XRP`);
+        console.log(`Destination:  ${ch.destination_account}`);
+        console.log(`Settle Delay: ${ch.settle_delay} seconds`);
+        console.log(`Expiration:   ${expiration}`);
+        console.log(`Cancel After: ${cancelAfter}`);
+        console.log(`Public Key:   ${ch.public_key_hex ?? ch.public_key ?? "none"}`);
+        console.log("---");
+      }
+    });
+  });
+
 export const channelCommand = new Command("channel")
   .description("Manage XRPL payment channels")
   .addCommand(channelCreateCommand)
   .addCommand(channelFundCommand)
   .addCommand(channelSignCommand)
   .addCommand(channelVerifyCommand)
-  .addCommand(channelClaimCommand);
+  .addCommand(channelClaimCommand)
+  .addCommand(channelListCommand);
