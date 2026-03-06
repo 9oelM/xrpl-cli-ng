@@ -6,6 +6,7 @@ Started: Fri Mar  6 10:24:14 AM Universal 2026
 - Brokered NFT accept: use fresh/clean accounts for brokered-mode sellers; reusing accounts with prior NFT history can cause `tecOBJECT_NOT_FOUND` due to NFTokenPage state. Use a dedicated wallet (e.g., `broker` who has no prior NFT transactions) as the brokered seller.
 - `--offer` repeatable option pattern in Commander.js: `.option("--offer <hex>", "desc", (val, prev: string[]) => prev.concat([val]), [] as string[])` — validation must check `options.offer.length === 0` since the default is `[]` not `undefined`.
 - `nft_buy_offers` RPC returns `rpcOBJECT_NOT_FOUND` when there are NO buy offers (not just when the NFT doesn't exist); always wrap in try/catch when querying.
+- For read-only query commands (`nft offer list`), use `Promise.allSettled` to fetch both sell and buy offers in parallel — treat rejected (not found) as empty array.
 - `NFTokenCreateOfferFlags.tfSellNFToken = 1` is exported from xrpl.js; use for sell offer flag
 - XRPL epoch offset: `XRPL_EPOCH_OFFSET = 946684800` (Unix seconds from Jan 1, 1900 to Jan 1, 2000)
 - NFTokenOfferID is in `CreatedNode.LedgerIndex` (not `NewFields`) in AffectedNodes metadata
@@ -75,4 +76,21 @@ Started: Fri Mar  6 10:24:14 AM Universal 2026
   - `NFTokenCancelOffer.NFTokenOffers` field is a string array (repeatable --offer on CLI)
   - Commander.js repeatable option: `(val, prev: string[]) => prev.concat([val])` with default `[] as string[]`; check `.length === 0` for "missing" validation
   - The `tecOBJECT_NOT_FOUND` in brokered mode can also mean "NFT not in seller's page" — verify using fresh accounts avoids this
+---
+
+## 2026-03-06 - US-005
+- Implemented `xrpl nft offer list <nft-id>` subcommand in `src/commands/nft.ts`
+- Added `nftOfferListCommand` with `.argument("<nft-id>")` pattern; registered in `nftOfferCommand`
+- Fetches `nft_sell_offers` and `nft_buy_offers` RPCs in parallel via `Promise.allSettled`; treats rejected results as empty arrays
+- Human-readable output: two sections "Sell Offers" / "Buy Offers" with ID, Amount, Owner, Expiration, Destination per offer
+- `--json` outputs `{ sellOffers, buyOffers }` using raw ledger offer objects
+- Amount formatting: drops→XRP decimal for string amounts; `value CURRENCY/issuer` for IOU amounts
+- Expiration formatting: undefined→"none"; integer→ISO8601 using `xrplTime + XRPL_EPOCH_OFFSET`; destination→address or "any"
+- Files changed: `src/commands/nft.ts`, `tests/e2e/nft/nft.offer.list.test.ts` (new)
+- All 3 E2E tests pass on testnet; typecheck passes
+- **Learnings for future iterations:**
+  - `Promise.allSettled` is the correct pattern for parallel read queries where either RPC may 404
+  - Commander.js `.argument()` + `.action(async (arg, options, cmd) => {...})` — positional arg comes before options
+  - `client.request({command: "nft_sell_offers", nft_id: ...})` requires a type cast since xrpl.js types may not expose these as named request types — use `as Parameters<typeof client.request>[0]`
+  - Test structure: single `beforeAll` that mints NFT, creates sell and buy offers; all three tests reuse the same IDs
 ---
