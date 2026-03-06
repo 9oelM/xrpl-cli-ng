@@ -1,37 +1,24 @@
 ## Codebase Patterns
-- Shared CLI runner: `tests/helpers/cli.ts` exports `runCLI(args, extraEnv?)` — all E2E tests import from here
-- Runtime PATH resolution: `path.dirname(process.execPath) + path.delimiter + process.env.PATH` works in fnm (local) and setup-node (CI)
-- Some test files use `resolve` from `path` for `mkdtempSync(resolve(tmpdir(), ...))` — keep that import even after removing CLI/TSX/E2E_PATH boilerplate
+- PaymentChannel ledger entry type in AffectedNodes metadata is "PayChannel" NOT "PaymentChannel"
+- xrpl.js `isCreatedNode(n)` helper from "xrpl" is the correct way to narrow Node union type
+- Use `TransactionMetadataBase` (not `TransactionMetadata`) for generic channel/offer transactions
+- resolveWallet pattern is duplicated per command file (no shared util yet) — follow the same shape
+- XRPL epoch conversion: Math.floor(new Date(iso).getTime()/1000) - 946684800
+---
 
 # Ralph Progress Log
-Started: Fri Mar  6 05:45:09 AM Universal 2026
+Started: Fri Mar  6 07:58:31 AM Universal 2026
 ---
 
 ## 2026-03-06 - US-001
-- Created `tests/helpers/cli.ts` with shared `runCLI(args, extraEnv?)` using runtime PATH from `path.dirname(process.execPath)`
-- Updated all 35 E2E test files to import `runCLI` from the shared helper, removing per-file boilerplate
-- Fixed `account/set.test.ts` which used `exec`/`execAsync` with inline TSX/CLI/E2E_PATH — converted to `runCLI`
-- Fixed `wallet/import.test.ts` which had an inline `spawnSync` call — converted to `runCLI` with extraEnv
+- Implemented `xrpl channel create` subcommand in `src/commands/channel.ts`
+- Registered `channelCommand` in `src/commands/index.ts` and `src/index.ts`
+- Created `tests/e2e/channel/channel.validation.test.ts` (6 no-network tests, all pass)
+- Created `tests/e2e/channel/channel.create.test.ts` (7 testnet tests, all pass)
+- Files changed: src/commands/channel.ts, src/commands/index.ts, src/index.ts, tests/e2e/channel/channel.validation.test.ts, tests/e2e/channel/channel.create.test.ts
 - **Learnings for future iterations:**
-  - Some files use `resolve` from `path` for `mkdtempSync` — must keep that import even when removing CLI runner boilerplate
-  - `account/set.test.ts` had an unusual `exec`+`promisify` pattern in `beforeAll`; converted to synchronous `runCLI`
-  - Typecheck passes with no issues after the refactor
----
-
-## 2026-03-06 - US-002
-- Created `.github/workflows/typecheck.yml` triggering on push and pull_request
-- Workflow named 'Typecheck', job named 'typecheck', uses actions/checkout@v4 + actions/setup-node@v4 (node 22, npm cache)
-- Runs `npm ci` then `npm run typecheck`
-- **Learnings for future iterations:**
-  - GitHub Actions workflows go in `.github/workflows/` — directory must be created if it doesn't exist
-  - `on: [push, pull_request]` covers all branches by default
----
-
-## 2026-03-06 - US-003
-- Created `.github/workflows/test.yml` triggering on push and pull_request
-- Workflow named 'Test', job named 'test', `timeout-minutes: 20` set at job level
-- Uses actions/checkout@v4 + actions/setup-node@v4 (node 22, npm cache), runs `npm ci` then `npm test`
-- **Learnings for future iterations:**
-  - `timeout-minutes` is a job-level field in GitHub Actions (not step-level)
-  - 20 minutes covers 30 faucet retries × 5s each plus test execution time
+  - CRITICAL: The XRPL ledger entry type for a payment channel in `AffectedNodes` metadata is `"PayChannel"`, NOT `"PaymentChannel"`. Using the wrong string causes channelId extraction to silently return null.
+  - Use xrpl.js `isCreatedNode(n)` (imported from "xrpl") to properly narrow the Node discriminated union — do not try to access `n.CreatedNode?.prop` directly
+  - `TransactionMetadataBase` is the correct type to import for generic tx metadata (not `TransactionMetadata` which is a complex conditional type)
+  - The `--no-wait` option follows the memory pattern: no default arg, `options.wait` is the property name, `if (!options.wait)` is the check
 ---
