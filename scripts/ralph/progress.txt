@@ -10,6 +10,18 @@ Started: Fri Mar  6 04:30:16 AM Universal 2026
 - For `account info --json` the output is the `account_data` object with `Balance` as a string in drops
 - For `account trust-lines --json` the output is an array with `{ account, currency, balance, limit }` — `balance` is positive from the holder's perspective
 
+## 2026-03-06 - US-003
+- Added on-chain trust-line verification to 'creates USD trust line' test (queries account trust-lines, asserts USD + issuer address present)
+- Added on-chain trust-line verification to 'alias s' test (asserts EUR + issuer address present)
+- Added on-chain trust-line verification to '--account/--keystore/--password' test (asserts CNY + issuer address present)
+- Added new '--mnemonic key material creates a trust line' test with fresh bip39 mnemonic, funds wallet from trustor, verifies MNE trust line on-chain
+- Files changed: tests/e2e/trust/trust.core.test.ts
+- **Learnings for future iterations:**
+  - `account trust-lines --json <address>` returns array with `{ account: string, currency: string, balance: string, limit: string, ... }` — `account` is the issuer/counterparty address
+  - Mnemonic wallets must be funded in beforeAll from the faucet-funded wallet (not directly from faucet) using `client.autofill` + `wallet.sign` + `client.submitAndWait`
+  - Use `Wallet.fromMnemonic(mnemonic, { mnemonicEncoding: "bip39", derivationPath: "m/44'/144'/0'/0/0" })` to derive address for funding
+---
+
 ## 2026-03-06 - US-002
 - Fixed `--no-ripple-direct` Commander.js naming bug: removed explicit `false` default, changed interface property `noRippleDirect` → `rippleDirect`, changed check to `!options.rippleDirect`
 - Added `--no-ripple-direct` dry-run test asserting `(Flags & 0x00010000) !== 0` (tfNoRippleDirect = 65536)
