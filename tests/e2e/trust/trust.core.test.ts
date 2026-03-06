@@ -3,7 +3,10 @@ import { spawnSync } from "child_process";
 import { resolve } from "path";
 import { mkdtempSync, rmSync } from "fs";
 import { tmpdir } from "os";
-import { Client, Wallet } from "xrpl";
+import { Client, Wallet, xrpToDrops } from "xrpl";
+import type { Payment as XrplPayment } from "xrpl";
+import { generateMnemonic } from "@scure/bip39";
+import { wordlist } from "@scure/bip39/wordlists/english";
 import { fundFromFaucet, TESTNET_URL } from "../../helpers/testnet.js";
 
 const CLI = resolve(process.cwd(), "src/index.ts");
@@ -20,6 +23,8 @@ function runCLI(args: string[], extraEnv: Record<string, string> = {}) {
 
 let trustor: Wallet;
 let issuer: Wallet;
+let testMnemonic: string;
+let mnemonicWalletAddress: string;
 
 beforeAll(async () => {
   const client = new Client(TESTNET_URL);
@@ -27,6 +32,22 @@ beforeAll(async () => {
   try {
     trustor = await fundFromFaucet(client);
     issuer = await fundFromFaucet(client);
+
+    // Generate a fresh random mnemonic and fund the derived wallet from trustor
+    testMnemonic = generateMnemonic(wordlist);
+    const mnemonicWallet = Wallet.fromMnemonic(testMnemonic, {
+      mnemonicEncoding: "bip39",
+      derivationPath: "m/44'/144'/0'/0/0",
+    });
+    mnemonicWalletAddress = mnemonicWallet.address;
+
+    const fundTx = await client.autofill({
+      TransactionType: "Payment",
+      Account: trustor.address,
+      Amount: xrpToDrops(15),
+      Destination: mnemonicWalletAddress,
+    } as XrplPayment);
+    await client.submitAndWait(trustor.sign(fundTx).tx_blob);
   } finally {
     await client.disconnect();
   }
@@ -44,6 +65,12 @@ describe("trust set core", () => {
     ]);
     expect(result.status, `stdout: ${result.stdout} stderr: ${result.stderr}`).toBe(0);
     expect(result.stdout).toContain("tesSUCCESS");
+
+    const linesResult = runCLI(["--node", "testnet", "account", "trust-lines", "--json", trustor.address]);
+    expect(linesResult.status).toBe(0);
+    const lines = JSON.parse(linesResult.stdout) as Array<{ account: string; currency: string }>;
+    const usdLine = lines.find((l) => l.currency === "USD" && l.account === issuer.address);
+    expect(usdLine).toBeDefined();
   });
 
   it("alias 's' works", () => {
@@ -57,6 +84,12 @@ describe("trust set core", () => {
     ]);
     expect(result.status, `stdout: ${result.stdout} stderr: ${result.stderr}`).toBe(0);
     expect(result.stdout).toContain("tesSUCCESS");
+
+    const linesResult = runCLI(["--node", "testnet", "account", "trust-lines", "--json", trustor.address]);
+    expect(linesResult.status).toBe(0);
+    const lines = JSON.parse(linesResult.stdout) as Array<{ account: string; currency: string }>;
+    const eurLine = lines.find((l) => l.currency === "EUR" && l.account === issuer.address);
+    expect(eurLine).toBeDefined();
   });
 
   it("--dry-run outputs JSON with TransactionType TrustSet and does not submit", () => {
@@ -168,6 +201,12 @@ describe("trust set core", () => {
       ]);
       expect(result.status, `stdout: ${result.stdout} stderr: ${result.stderr}`).toBe(0);
       expect(result.stdout).toContain("tesSUCCESS");
+
+      const linesResult = runCLI(["--node", "testnet", "account", "trust-lines", "--json", trustor.address]);
+      expect(linesResult.status).toBe(0);
+      const lines = JSON.parse(linesResult.stdout) as Array<{ account: string; currency: string }>;
+      const cnyLine = lines.find((l) => l.currency === "CNY" && l.account === issuer.address);
+      expect(cnyLine).toBeDefined();
     } finally {
       rmSync(tmpDir, { recursive: true, force: true });
     }
@@ -206,6 +245,25 @@ describe("trust set core", () => {
     const line = lines.find((l) => l.currency === "SGD");
     expect(line).toBeDefined();
     expect(line?.no_ripple).toBeFalsy();
+  });
+
+  it("--mnemonic key material creates a trust line", () => {
+    const result = runCLI([
+      "--node", "testnet",
+      "trust", "set",
+      "--currency", "MNE",
+      "--issuer", issuer.address,
+      "--limit", "100",
+      "--mnemonic", testMnemonic,
+    ]);
+    expect(result.status, `stdout: ${result.stdout} stderr: ${result.stderr}`).toBe(0);
+    expect(result.stdout).toContain("tesSUCCESS");
+
+    const linesResult = runCLI(["--node", "testnet", "account", "trust-lines", "--json", mnemonicWalletAddress]);
+    expect(linesResult.status).toBe(0);
+    const lines = JSON.parse(linesResult.stdout) as Array<{ account: string; currency: string }>;
+    const mneLine = lines.find((l) => l.currency === "MNE" && l.account === issuer.address);
+    expect(mneLine).toBeDefined();
   });
 
   it("--quality-in and --quality-out set quality values on trust line", () => {
