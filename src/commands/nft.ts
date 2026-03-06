@@ -943,11 +943,105 @@ const nftOfferCancelCommand = new Command("cancel")
     });
   });
 
+// ---------- nft offer list ----------
+
+interface RawOffer {
+  nft_offer_index: string;
+  flags: number;
+  owner: string;
+  amount: string | { value: string; currency: string; issuer: string };
+  expiration?: number;
+  destination?: string;
+}
+
+function formatOfferAmount(amount: string | { value: string; currency: string; issuer: string }): string {
+  if (typeof amount === "string") {
+    return `${(Number(amount) / 1_000_000).toFixed(6)} XRP`;
+  }
+  return `${amount.value} ${amount.currency}/${amount.issuer}`;
+}
+
+function formatOfferExpiration(exp?: number): string {
+  if (exp === undefined || exp === null) return "none";
+  return new Date((exp + XRPL_EPOCH_OFFSET) * 1000).toISOString();
+}
+
+interface NftOfferListOptions {
+  json: boolean;
+}
+
+const nftOfferListCommand = new Command("list")
+  .description("List buy and sell offers for an NFT")
+  .argument("<nft-id>", "64-char NFTokenID")
+  .option("--json", "Output as JSON", false)
+  .action(async (nftId: string, options: NftOfferListOptions, cmd: Command) => {
+    if (!/^[0-9A-Fa-f]{64}$/.test(nftId)) {
+      process.stderr.write("Error: <nft-id> must be a 64-character hex NFTokenID\n");
+      process.exit(1);
+    }
+
+    const url = getNodeUrl(cmd);
+
+    await withClient(url, async (client) => {
+      const [sellSettled, buySettled] = await Promise.allSettled([
+        client.request({ command: "nft_sell_offers", nft_id: nftId.toUpperCase() } as Parameters<typeof client.request>[0]),
+        client.request({ command: "nft_buy_offers", nft_id: nftId.toUpperCase() } as Parameters<typeof client.request>[0]),
+      ]);
+
+      const sellOffers: RawOffer[] =
+        sellSettled.status === "fulfilled"
+          ? ((sellSettled.value.result as { offers?: RawOffer[] }).offers ?? [])
+          : [];
+
+      const buyOffers: RawOffer[] =
+        buySettled.status === "fulfilled"
+          ? ((buySettled.value.result as { offers?: RawOffer[] }).offers ?? [])
+          : [];
+
+      if (options.json) {
+        console.log(JSON.stringify({ sellOffers, buyOffers }));
+        return;
+      }
+
+      // Human-readable output
+      console.log("Sell Offers");
+      console.log("-----------");
+      if (sellOffers.length === 0) {
+        console.log("  (none)");
+      } else {
+        for (const offer of sellOffers) {
+          console.log(`  ID:          ${offer.nft_offer_index}`);
+          console.log(`  Amount:      ${formatOfferAmount(offer.amount)}`);
+          console.log(`  Owner:       ${offer.owner}`);
+          console.log(`  Expiration:  ${formatOfferExpiration(offer.expiration)}`);
+          console.log(`  Destination: ${offer.destination ?? "any"}`);
+          console.log("");
+        }
+      }
+
+      console.log("Buy Offers");
+      console.log("----------");
+      if (buyOffers.length === 0) {
+        console.log("  (none)");
+      } else {
+        for (const offer of buyOffers) {
+          console.log(`  ID:          ${offer.nft_offer_index}`);
+          console.log(`  Amount:      ${formatOfferAmount(offer.amount)}`);
+          console.log(`  Owner:       ${offer.owner}`);
+          console.log(`  Expiration:  ${formatOfferExpiration(offer.expiration)}`);
+          console.log(`  Destination: ${offer.destination ?? "any"}`);
+          console.log("");
+        }
+      }
+    });
+  });
+
 const nftOfferCommand = new Command("offer")
   .description("Manage NFT offers")
   .addCommand(nftOfferCreateCommand)
   .addCommand(nftOfferAcceptCommand)
-  .addCommand(nftOfferCancelCommand);
+  .addCommand(nftOfferCancelCommand)
+  .addCommand(nftOfferListCommand);
 
 export const nftCommand = new Command("nft")
   .description("Manage NFTs on the XRP Ledger")
