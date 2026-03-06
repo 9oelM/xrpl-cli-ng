@@ -10,6 +10,20 @@ Started: Fri Mar  6 04:30:16 AM Universal 2026
 - For `account info --json` the output is the `account_data` object with `Balance` as a string in drops
 - For `account trust-lines --json` the output is an array with `{ account, currency, balance, limit }` — `balance` is positive from the holder's perspective
 
+## 2026-03-06 - US-006
+- Added offer cancel --json test: pre-creates offer via xrpl.js, cancels with --json, asserts hash (64-char hex) and result 'tesSUCCESS'
+- Added offer cancel --dry-run test: pre-creates offer, runs dry-run, asserts TransactionType === 'OfferCancel' and tx_blob present; verifies offer count unchanged
+- Added offer cancel --no-wait test: pre-creates offer, cancels with --no-wait, asserts exit 0 and 64-char hex stdout
+- Added --fill-or-kill test: asserts exit 0 (tecKILLED is non-fatal) and offer count does not grow
+- Added --mnemonic test: generates fresh mnemonic, funds wallet + sets up trust line in beforeAll (via xrpl.js), runs offer create with --mnemonic, asserts exit 0 + "Sequence:" in stdout
+- Added --account/--keystore/--password test: temp keystore dir, wallet import, offer create with --account/--keystore/--password, asserts exit 0
+- Files changed: tests/e2e/offer/offer.core.test.ts, tests/e2e/offer/offer.flags.test.ts
+- **Learnings for future iterations:**
+  - For mnemonic wallet offer tests, set up trust line in beforeAll using `mnemonicWallet.sign(...)` (Wallet.fromMnemonic returns a full Wallet object with signing capability)
+  - FOK and IOC offers both yield tecKILLED when they can't be filled — the CLI treats this as non-fatal (exit 0) which is the correct behavior
+  - offer cancel --dry-run returns `{ tx_blob, tx }` (same shape as offer create --dry-run); tx.TransactionType === 'OfferCancel'
+---
+
 ## 2026-03-06 - US-005
 - Created tests/e2e/account/account.set.flags.test.ts with its own beforeAll funding one wallet + mnemonic wallet
 - Added --set-flag defaultRipple test: submits AccountSet SetFlag=8, sleeps 10s, queries account info --json, asserts (Flags & 0x00800000) !== 0
