@@ -50,7 +50,7 @@
         "Tests pass"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "VaultSet cannot change public/private status \u2014 that is immutable after creation. AssetsMaximum cannot be lowered below current holdings (ledger enforces, not CLI)."
     },
     {

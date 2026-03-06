@@ -26,3 +26,15 @@ Started: Fri Mar  6 04:35:57 PM Universal 2026
   - devnet faucet gives ~1000 XRP — enough for many vault creates (each costs 0.2 XRP fee + 2 XRP reserve)
   - Vault network tests can reuse a single wallet for all tests since each VaultCreate produces a unique VaultID
 ---
+
+## 2026-03-06 - US-002
+- Created tests/e2e/vault/vault.set.network.test.ts with 6 devnet E2E tests
+- Validation tests were already present in vault.create.validation.test.ts (lines 110-151)
+- Implementation (vaultSetCommand) was already complete in src/commands/vault.ts from US-001
+- Tests: update --data, update --assets-maximum, --json, --dry-run, --no-wait, --account/--keystore/--password
+- Files changed: tests/e2e/vault/vault.set.network.test.ts, scripts/ralph/prd.json
+- **Learnings for future iterations:**
+  - vault set, deposit, withdraw, delete, clawback implementations were all scaffolded in US-001 — future stories only need test files
+  - Each test creates its own vault using a helper function (createVault), then calls vault set on it — clean test isolation
+  - The createVault() helper pattern: run CLI, parse Vault ID from stdout with regex, throw on failure
+---
