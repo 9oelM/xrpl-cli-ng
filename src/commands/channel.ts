@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
-import { Wallet, isCreatedNode } from "xrpl";
+import { Wallet, isCreatedNode, signPaymentChannelClaim, verifyPaymentChannelClaim } from "xrpl";
 import type { PaymentChannelCreate, PaymentChannelFund, TransactionMetadataBase } from "xrpl";
 import { deriveKeypair } from "ripple-keypairs";
 import { withClient } from "../utils/client.js";
@@ -423,7 +423,120 @@ const channelFundCommand = new Command("fund")
     });
   });
 
+interface ChannelSignOptions {
+  channel: string;
+  amount: string;
+  seed?: string;
+  mnemonic?: string;
+  account?: string;
+  password?: string;
+  keystore?: string;
+  json: boolean;
+}
+
+const channelSignCommand = new Command("sign")
+  .description("Sign an off-chain payment channel claim (offline)")
+  .requiredOption("--channel <hex>", "64-character payment channel ID")
+  .requiredOption("--amount <xrp>", "Amount of XRP to authorize (decimal, e.g. 5)")
+  .option("--seed <seed>", "Family seed for signing")
+  .option("--mnemonic <phrase>", "BIP39 mnemonic for signing")
+  .option("--account <address-or-alias>", "Account address or alias to load from keystore")
+  .option("--password <password>", "Keystore decryption password (insecure, prefer interactive prompt)")
+  .option("--keystore <dir>", "Keystore directory (default: ~/.xrpl/keystore/; XRPL_KEYSTORE env var also accepted)")
+  .option("--json", "Output as JSON", false)
+  .action(async (options: ChannelSignOptions) => {
+    // Validate key material
+    const keyMaterialCount = [options.seed, options.mnemonic, options.account].filter(Boolean).length;
+    if (keyMaterialCount === 0) {
+      process.stderr.write("Error: provide key material via --seed, --mnemonic, or --account\n");
+      process.exit(1);
+    }
+    if (keyMaterialCount > 1) {
+      process.stderr.write("Error: provide only one of --seed, --mnemonic, or --account\n");
+      process.exit(1);
+    }
+
+    // Validate channel ID format
+    if (!/^[0-9A-Fa-f]{64}$/.test(options.channel)) {
+      process.stderr.write("Error: --channel must be a 64-character hex string\n");
+      process.exit(1);
+    }
+
+    // Validate amount is a non-negative decimal
+    const amountNum = Number(options.amount);
+    if (isNaN(amountNum) || amountNum < 0 || options.amount.trim() === "") {
+      process.stderr.write("Error: --amount must be a non-negative XRP decimal (e.g. 5)\n");
+      process.exit(1);
+    }
+
+    // Resolve wallet to get private key
+    const signerWallet = await resolveWallet(options);
+
+    const signature = signPaymentChannelClaim(
+      options.channel.toUpperCase(),
+      options.amount,
+      signerWallet.privateKey
+    );
+
+    if (options.json) {
+      console.log(JSON.stringify({ signature }));
+    } else {
+      console.log(signature);
+    }
+  });
+
+interface ChannelVerifyOptions {
+  channel: string;
+  amount: string;
+  signature: string;
+  publicKey: string;
+  json: boolean;
+}
+
+const channelVerifyCommand = new Command("verify")
+  .description("Verify an off-chain payment channel claim signature (offline)")
+  .requiredOption("--channel <hex>", "64-character payment channel ID")
+  .requiredOption("--amount <xrp>", "Amount of XRP in the claim (decimal, e.g. 5)")
+  .requiredOption("--signature <hex>", "Hex-encoded signature to verify")
+  .requiredOption("--public-key <hex>", "Hex-encoded public key of the signer")
+  .option("--json", "Output as JSON", false)
+  .action((options: ChannelVerifyOptions) => {
+    // Validate channel ID format
+    if (!/^[0-9A-Fa-f]{64}$/.test(options.channel)) {
+      process.stderr.write("Error: --channel must be a 64-character hex string\n");
+      process.exit(1);
+    }
+
+    // Validate amount
+    const amountNum = Number(options.amount);
+    if (isNaN(amountNum) || amountNum < 0 || options.amount.trim() === "") {
+      process.stderr.write("Error: --amount must be a non-negative XRP decimal (e.g. 5)\n");
+      process.exit(1);
+    }
+
+    let valid: boolean;
+    try {
+      valid = verifyPaymentChannelClaim(
+        options.channel.toUpperCase(),
+        options.amount,
+        options.signature,
+        options.publicKey
+      );
+    } catch {
+      // Invalid signature encoding — treat as invalid
+      valid = false;
+    }
+
+    if (options.json) {
+      console.log(JSON.stringify({ valid }));
+    } else {
+      console.log(valid ? "valid" : "invalid");
+    }
+  });
+
 export const channelCommand = new Command("channel")
   .description("Manage XRPL payment channels")
   .addCommand(channelCreateCommand)
-  .addCommand(channelFundCommand);
+  .addCommand(channelFundCommand)
+  .addCommand(channelSignCommand)
+  .addCommand(channelVerifyCommand);
