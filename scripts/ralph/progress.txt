@@ -1,4 +1,5 @@
 ## Codebase Patterns
+- OracleSet requires `AssetClass` when creating a new oracle (omitting it causes temMALFORMED); it's only optional on updates
 - Oracle PriceDataSeries: each element is `{ PriceData: { BaseAsset, QuoteAsset, AssetPrice?, Scale? } }` — xrpl.js requires this double-wrap
 - xrpl.js OracleSet: AssetPrice accepts `number | string`; string must be valid hex. Passing as a JS number is safest for typical oracle values
 - xrpl.js validates AssetPrice and Scale must both be present OR both absent in each PriceData object
@@ -22,4 +23,15 @@ Started: Fri Mar  6 11:22:04 AM Universal 2026
   - `--price` format: `BASE/QUOTE[:PRICE[:SCALE]]`; omitting price deletes the pair on update
   - `oracle get` uses `ledger_entry` RPC with `oracle: { account, oracle_document_id }`
   - Provider and AssetClass are stored as hex on-chain; use `hexToUtf8` to decode for display
+---
+
+## 2026-03-06 - US-002
+- Created `tests/e2e/oracle/oracle.delete.test.ts` (4 tests: create-delete-verify, --json, --dry-run, --no-wait)
+- Created `tests/e2e/oracle/oracle.get.test.ts` (4 tests: human-readable output, --json, not-found error, --node)
+- All 8 new tests pass; oracle delete and get commands were already implemented in src/commands/oracle.ts from US-001
+- Files changed: tests/e2e/oracle/oracle.delete.test.ts, tests/e2e/oracle/oracle.get.test.ts, scripts/ralph/prd.json
+- **Learnings for future iterations:**
+  - OracleSet requires `AssetClass` when creating a new oracle; omitting it causes `temMALFORMED`
+  - `oracle get --json` returns `response.result` which has shape `{ node: { LedgerEntryType, OracleDocumentID, PriceDataSeries, ... }, ledger_current_index, ... }`
+  - Non-existent oracle get correctly exits 1 with error message from xrpl.js exception
 ---
