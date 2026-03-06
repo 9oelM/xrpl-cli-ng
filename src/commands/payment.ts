@@ -31,7 +31,7 @@ interface PaymentOptions {
   deliverMin?: string;
   paths?: string;
   partial: boolean;
-  noRippleDirect: boolean;
+  rippleDirect: boolean;
   limitQuality: boolean;
   noWait: boolean;
   json: boolean;
@@ -56,7 +56,7 @@ export const paymentCommand = new Command("payment")
   .option("--deliver-min <amount>", "DeliverMin field; automatically adds tfPartialPayment flag")
   .option("--paths <json-or-file>", "Payment paths as JSON array or path to a .json file")
   .option("--partial", "Set tfPartialPayment flag", false)
-  .option("--no-ripple-direct", "Set tfNoRippleDirect flag (value 0x00040000)", false)
+  .option("--no-ripple-direct", "Set tfNoRippleDirect flag (value 0x00010000)")
   .option("--limit-quality", "Set tfLimitQuality flag (value 0x00080000)", false)
   .option("--no-wait", "Submit without waiting for validation", false)
   .option("--json", "Output as JSON", false)
@@ -204,7 +204,7 @@ export const paymentCommand = new Command("payment")
     // Compute combined payment flags
     let combinedFlags = 0;
     if (options.partial || xrplDeliverMin !== undefined) combinedFlags |= PaymentFlags.tfPartialPayment;
-    if (options.noRippleDirect) combinedFlags |= PaymentFlags.tfNoRippleDirect;
+    if (!options.rippleDirect) combinedFlags |= PaymentFlags.tfNoRippleDirect;
     if (options.limitQuality) combinedFlags |= PaymentFlags.tfLimitQuality;
 
     // Build the Payment transaction

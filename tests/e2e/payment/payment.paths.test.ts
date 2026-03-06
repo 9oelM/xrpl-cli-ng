@@ -81,7 +81,7 @@ describe("path payment flags", () => {
     expect(out.deliveredAmount).toBeDefined();
   });
 
-  it("--partial --deliver-min --send-max IOU payment (direct issuance) exits 0", () => {
+  it("--partial --deliver-min --send-max IOU payment asserts deliveredAmount >= deliver-min", () => {
     const result = runCLI([
       "--node", "testnet",
       "payment",
@@ -91,8 +91,22 @@ describe("path payment flags", () => {
       "--deliver-min", `1/USD/${flagIssuer.address}`,
       "--partial",
       "--seed", flagIssuer.seed!,
+      "--json",
     ]);
     expect(result.status, `stdout: ${result.stdout} stderr: ${result.stderr}`).toBe(0);
-    expect(result.stdout).toContain("tesSUCCESS");
+    const out = JSON.parse(result.stdout) as {
+      hash: string;
+      result: string;
+      deliveredAmount: string | { value: string; currency: string; issuer: string };
+    };
+    expect(out.result).toBe("tesSUCCESS");
+    expect(out.deliveredAmount).toBeDefined();
+    // deliveredAmount may be a string (XRP drops) or object (IOU)
+    const deliveredValue =
+      typeof out.deliveredAmount === "string"
+        ? Number(out.deliveredAmount)
+        : Number((out.deliveredAmount as { value: string }).value);
+    expect(deliveredValue).toBeGreaterThan(0);
+    expect(deliveredValue).toBeGreaterThanOrEqual(1); // >= deliver-min of 1 USD
   });
 });

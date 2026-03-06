@@ -252,6 +252,40 @@ describe("payment core", () => {
     }
   });
 
+  it("--no-ripple-direct sets tfNoRippleDirect bit in dry-run tx Flags", () => {
+    const result = runCLI([
+      "--node", "testnet",
+      "payment",
+      "--to", receiver.address,
+      "--amount", "0.1",
+      "--seed", sender.seed!,
+      "--no-ripple-direct",
+      "--dry-run",
+    ]);
+    expect(result.status, `stdout: ${result.stdout} stderr: ${result.stderr}`).toBe(0);
+    const out = JSON.parse(result.stdout) as { tx_blob: string; tx: { Flags?: number } };
+    expect(out.tx.Flags).toBeDefined();
+    // tfNoRippleDirect = 0x00010000 = 65536
+    expect((out.tx.Flags! & 0x00010000)).not.toBe(0);
+  });
+
+  it("--limit-quality sets tfLimitQuality bit in dry-run tx Flags", () => {
+    const result = runCLI([
+      "--node", "testnet",
+      "payment",
+      "--to", receiver.address,
+      "--amount", "0.1",
+      "--seed", sender.seed!,
+      "--limit-quality",
+      "--dry-run",
+    ]);
+    expect(result.status, `stdout: ${result.stdout} stderr: ${result.stderr}`).toBe(0);
+    const out = JSON.parse(result.stdout) as { tx_blob: string; tx: { Flags?: number } };
+    expect(out.tx.Flags).toBeDefined();
+    // tfLimitQuality = 0x00040000 = 262144
+    expect((out.tx.Flags! & 0x00040000)).not.toBe(0);
+  });
+
   it("--amount with invalid format exits 1 and stderr contains 'invalid amount'", () => {
     const result = runCLI([
       "--node", "testnet",
