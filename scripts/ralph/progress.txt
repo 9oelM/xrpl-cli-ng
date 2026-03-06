@@ -10,6 +10,19 @@ Started: Fri Mar  6 04:30:16 AM Universal 2026
 - For `account info --json` the output is the `account_data` object with `Balance` as a string in drops
 - For `account trust-lines --json` the output is an array with `{ account, currency, balance, limit }` — `balance` is positive from the holder's perspective
 
+## 2026-03-06 - US-004
+- Created tests/e2e/account/account.set.fields.test.ts with its own beforeAll funding one wallet via fundFromFaucet
+- Added --email-hash test: submits 32-char hex EmailHash, sleeps 10s, queries account info --json, asserts EmailHash matches
+- Added --transfer-rate test: submits 1005000000, sleeps 10s, queries account info --json, asserts TransferRate === 1005000000
+- Added --tick-size test: submits 5, sleeps 10s, queries account info --json, asserts TickSize === 5
+- Files changed: tests/e2e/account/account.set.fields.test.ts (new)
+- **Learnings for future iterations:**
+  - `account set` uses `client.submit()` (not `submitAndWait`), so tests must sleep ~10s before querying on-chain state
+  - `account info --json` outputs the raw `account_data` object — fields like `EmailHash`, `TransferRate`, `TickSize` are top-level properties
+  - EmailHash must be exactly 32 hex chars (16 bytes, MD5 size); use uppercase for comparison safety
+  - Tests within a describe block run sequentially in vitest — sequential submit + sleep + verify works safely on a single wallet
+---
+
 ## 2026-03-06 - US-003
 - Added on-chain trust-line verification to 'creates USD trust line' test (queries account trust-lines, asserts USD + issuer address present)
 - Added on-chain trust-line verification to 'alias s' test (asserts EUR + issuer address present)
