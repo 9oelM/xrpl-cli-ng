@@ -1,49 +1,141 @@
 {
   "project": "xrpl-cli",
-  "branchName": "ralph/deposit-preauth",
-  "description": "Deposit preauth commands — authorize and revoke deposit preauthorization by account or credential on XRPL accounts",
+  "branchName": "ralph/vault",
+  "description": "Vault Commands - Create, manage, deposit, withdraw, and delete single-asset vaults on XRPL (devnet only \u2014 SingleAssetVault amendment not on testnet)",
   "userStories": [
     {
       "id": "US-001",
-      "title": "deposit-preauth set command",
-      "description": "As an account owner, I want to grant or revoke deposit preauthorization from the CLI so I can control who can send payments to my account when Deposit Authorization is enabled.",
+      "title": "vault create command",
+      "description": "As a CLI user, I want to create a single-asset vault so that I can pool assets and issue shares to depositors.",
       "acceptanceCriteria": [
-        "Read DepositPreauth docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/depositpreauth.md before implementing",
-        "Create src/commands/deposit-preauth.ts and register it in src/commands/index.ts and src/index.ts",
-        "xrpl deposit-preauth with exactly one of: --authorize <address>, --unauthorize <address>, --authorize-credential <issuer>, --unauthorize-credential <issuer>",
-        "--credential-type <string> (plain string, auto hex-encoded via convertStringToHex) — required when using --authorize-credential or --unauthorize-credential",
-        "--credential-type-hex <hex> (raw hex) — mutually exclusive with --credential-type",
-        "Standard key material options: --seed, --mnemonic, --account/--keystore/--password",
-        "Standard output options: --node, --json, --dry-run, --no-wait",
-        "CLI exits with error if none of the four main flags are provided",
-        "CLI exits with error if more than one of the four main flags are provided",
-        "CLI exits with error if both --credential-type and --credential-type-hex are provided",
-        "CLI exits with error if --credential-type or --credential-type-hex is used without --authorize-credential or --unauthorize-credential",
-        "CLI exits with error if --authorize-credential or --unauthorize-credential is used without --credential-type or --credential-type-hex",
-        "tests/e2e/deposit-preauth/deposit-preauth.validation.test.ts: no main flag, multiple main flags, credential-type without credential flag, both credential-type flags, credential flag without credential-type (no network)",
-        "tests/e2e/deposit-preauth/deposit-preauth.set.test.ts: authorize account, unauthorize account, authorize by credential, unauthorize by credential; --json, --dry-run",
-        "Typecheck passes"
+        "Implement src/commands/vault.ts with vaultCommand registered in src/commands/index.ts and src/index.ts",
+        "`xrpl vault create --asset <asset>` submits VaultCreate tx; --asset uses standard amount format to identify asset type (e.g. `0` for XRP, `0/USD/rIssuer` for IOU)",
+        "`--assets-maximum <n>` optional UInt64 string sets AssetsMaximum cap",
+        "`--data <hex>` optional arbitrary metadata (max 256 bytes hex)",
+        "`--mpt-metadata <hex>` optional MPTokenMetadata for vault shares (max 1024 bytes hex)",
+        "`--domain-id <hash>` optional 64-char hex DomainID for private vault",
+        "`--private` flag sets tfVaultPrivate; validation error if used without --domain-id",
+        "`--non-transferable` flag sets tfVaultShareNonTransferable",
+        "On success, output `Vault ID: <hash>` extracted from CreatedNode where LedgerEntryType === 'Vault' in tx metadata",
+        "`--json` outputs {\"result\":\"success\",\"vaultId\":\"<hash>\",\"tx\":\"<hash>\"}",
+        "`--dry-run` prints unsigned tx JSON and exits without submitting",
+        "`--no-wait` submits without waiting for validation",
+        "Supports --seed, --mnemonic, --account/--keystore/--password key material",
+        "Validation tests (no network): missing --asset exits with error, --private without --domain-id exits with error, invalid --domain-id format exits with error",
+        "E2E tests on devnet (wss://s.devnet.rippletest.net:51233): XRP vault creation, --assets-maximum, --json, --dry-run, --no-wait",
+        "Typecheck passes",
+        "Tests pass"
       ],
       "priority": 1,
       "passes": true,
-      "notes": ""
+      "notes": "VaultCreate fee is elevated (0.2 XRP = 200000 drops) \u2014 set Fee explicitly or verify autofill covers it. Extract VaultID from CreatedNode.LedgerIndex where LedgerEntryType === 'Vault'. E2E tests MUST use devnet, not testnet."
     },
     {
       "id": "US-002",
-      "title": "deposit-preauth list command",
-      "description": "As an account owner, I want to query the list of existing deposit preauthorizations so I can verify who is authorized to send payments.",
+      "title": "vault set command",
+      "description": "As a CLI user, I want to update a vault I own so that I can change its metadata, asset cap, or domain.",
       "acceptanceCriteria": [
-        "xrpl deposit-preauth list <address> subcommand using account_objects RPC with type: 'deposit_preauth'",
-        "Default output: each preauth on its own line — 'Account: <address>' for account-based, 'Credential: <issuer> / <credential-type-decoded>' for credential-based",
-        "Shows 'No deposit preauthorizations.' if the account has none",
-        "--json outputs raw JSON",
-        "--node supported",
-        "tests/e2e/deposit-preauth/deposit-preauth.list.test.ts: authorize an account, verify it appears in list; authorize a credential, verify it appears; unauthorize and verify removal; --json",
-        "Typecheck passes"
+        "`xrpl vault set --vault-id <hash>` submits VaultSet tx",
+        "--vault-id required; validated as 64-char hex; error if missing or malformed",
+        "`--data <hex>` updates metadata (max 256 bytes)",
+        "`--assets-maximum <n>` updates the asset cap",
+        "`--domain-id <hash>` updates the domain (required when updating a private vault)",
+        "At least one of --data, --assets-maximum, --domain-id must be provided; error otherwise",
+        "On success, outputs `Vault ID: <hash>` and `Tx: <hash>`",
+        "`--json`, `--dry-run`, `--no-wait` supported",
+        "Supports --seed, --mnemonic, --account/--keystore/--password",
+        "Validation tests (no network): missing --vault-id, invalid --vault-id, no update fields provided",
+        "E2E tests on devnet: update --data on a vault created in beforeAll, update --assets-maximum, --json, --dry-run",
+        "Typecheck passes",
+        "Tests pass"
       ],
       "priority": 2,
-      "passes": true,
-      "notes": ""
+      "passes": false,
+      "notes": "VaultSet cannot change public/private status \u2014 that is immutable after creation. AssetsMaximum cannot be lowered below current holdings (ledger enforces, not CLI)."
+    },
+    {
+      "id": "US-003",
+      "title": "vault deposit command",
+      "description": "As a CLI user, I want to deposit assets into a vault so that I receive vault shares in return.",
+      "acceptanceCriteria": [
+        "`xrpl vault deposit --vault-id <hash> --amount <amount>` submits VaultDeposit tx",
+        "--vault-id required; 64-char hex",
+        "--amount required; uses standard format (e.g. `10` for XRP, `10/USD/rIssuer` for IOU, `10/mpt_issuance_id` for MPT)",
+        "On success, outputs `Vault ID: <hash>` and `Tx: <hash>`",
+        "`--json`, `--dry-run`, `--no-wait` supported",
+        "Supports --seed, --mnemonic, --account/--keystore/--password",
+        "Validation tests (no network): missing --vault-id, missing --amount, invalid --vault-id format",
+        "E2E tests on devnet: XRP deposit into vault created in beforeAll, --json, --dry-run, --no-wait",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "No transfer fees apply to VaultDeposit. For public vaults any funded account can deposit. Deposit test should create vault in beforeAll then deposit in each test case."
+    },
+    {
+      "id": "US-004",
+      "title": "vault withdraw command",
+      "description": "As a CLI user, I want to withdraw assets from a vault by redeeming my shares so that I can recover my deposited funds.",
+      "acceptanceCriteria": [
+        "`xrpl vault withdraw --vault-id <hash> --amount <amount>` submits VaultWithdraw tx",
+        "--vault-id required; 64-char hex",
+        "--amount required; can specify asset quantity (burns shares to deliver amount) or share quantity (redeems shares for assets) \u2014 both use standard amount format",
+        "`--destination <address>` optionally sends redeemed assets to a different account",
+        "`--destination-tag <n>` optional UInt32 tag; error if used without --destination",
+        "On success, outputs `Vault ID: <hash>` and `Tx: <hash>`",
+        "`--json`, `--dry-run`, `--no-wait` supported",
+        "Supports --seed, --mnemonic, --account/--keystore/--password",
+        "Validation tests (no network): missing --vault-id, missing --amount, --destination-tag without --destination",
+        "E2E tests on devnet: deposit then withdraw XRP, --destination, --json, --dry-run, --no-wait",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "VaultWithdraw does not respect PermissionedDomain rules \u2014 any shareholder can withdraw regardless. No transfer fees apply."
+    },
+    {
+      "id": "US-005",
+      "title": "vault delete command",
+      "description": "As a CLI user, I want to delete an empty vault I own so that I can remove it from the ledger and reclaim the reserve.",
+      "acceptanceCriteria": [
+        "`xrpl vault delete --vault-id <hash>` submits VaultDelete tx",
+        "--vault-id required; 64-char hex; error if missing or malformed",
+        "On success, outputs `Deleted vault: <hash>` and `Tx: <hash>`",
+        "`--json` outputs {\"result\":\"success\",\"vaultId\":\"<hash>\",\"tx\":\"<hash>\"}",
+        "`--dry-run`, `--no-wait` supported",
+        "Supports --seed, --mnemonic, --account/--keystore/--password",
+        "Validation tests (no network): missing --vault-id, invalid --vault-id format",
+        "E2E tests on devnet: create vault then delete it, verify gone via ledger_entry RPC, --json, --dry-run, --no-wait",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "Vault must be completely empty before deletion \u2014 tecHAS_OBLIGATIONS if not. E2E delete test should use a fresh vault with no deposits."
+    },
+    {
+      "id": "US-006",
+      "title": "vault clawback command",
+      "description": "As a token issuer, I want to claw back assets from a vault holder so that I can recover funds when regulatory or compliance requirements demand it.",
+      "acceptanceCriteria": [
+        "`xrpl vault clawback --vault-id <hash> --holder <address>` submits VaultClawback tx",
+        "--vault-id required; 64-char hex",
+        "--holder required; valid r-address of account whose shares to claw back; error if missing or invalid format",
+        "`--amount <amount>` optional; if omitted, claws back all available funds; uses standard amount format",
+        "Help text explicitly notes VaultClawback cannot claw back XRP",
+        "On success, outputs `Vault ID: <hash>`, `Holder:   <address>`, `Tx: <hash>`",
+        "`--json`, `--dry-run`, `--no-wait` supported",
+        "Supports --seed, --mnemonic, --account/--keystore/--password",
+        "Validation tests (no network): missing --vault-id, missing --holder, invalid --holder address format",
+        "E2E tests on devnet: IOU vault \u2014 issuer creates vault, holder deposits, issuer claws back; partial clawback with --amount; --json; --dry-run",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "Only the token/MPT issuer can call VaultClawback \u2014 not for XRP vaults. The issuer must have enabled clawback on the asset. E2E setup: issuer creates IOU vault, holder deposits, issuer claws back holder's shares."
     }
   ]
 }

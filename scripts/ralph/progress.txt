@@ -1,36 +1,28 @@
-# Ralph Progress Log
 ## Codebase Patterns
-- `resolveWallet` helper is duplicated per command file (not shared util) — copy from credential.ts
-- `AuthorizeCredential` from xrpl.js wraps each entry: `{ Credential: { Issuer, CredentialType } }`
-- For `deposit-preauth set`, `AuthorizeCredentials`/`UnauthorizeCredentials` each take exactly one entry array
-- Enable DepositAuth with `AccountSet` `SetFlag: 9` (asfDepositAuth) in beforeAll for preauth tests
-- Credential-based preauth requires funded issuer address on testnet
+- Vault commands MUST use devnet (wss://s.devnet.rippletest.net:51233) — SingleAssetVault amendment not on testnet
+- Devnet faucet: https://faucet.devnet.rippletest.net/accounts — helper at tests/helpers/devnet.ts
+- VaultCreate requires Fee = 200000 drops minimum (0.2 XRP) — set explicitly after autofill
+- VaultID is extracted from CreatedNode.LedgerIndex where LedgerEntryType === 'Vault' in tx metadata
+- All 6 vault subcommands (create/set/deposit/withdraw/delete/clawback) live in src/commands/vault.ts
+- Asset parsing for vault commands: reuse parseAmount from utils/amount.ts, map xrp→{currency:'XRP'}, iou→{currency,issuer}, mpt→{mpt_issuance_id}
+- For vault network tests: one faucet call in beforeAll, reuse same wallet seed for all tests (vaults are per-wallet independent)
 
-Started: Fri Mar  6 11:22:04 AM Universal 2026
+# Ralph Progress Log
+Started: Fri Mar  6 04:35:57 PM Universal 2026
 ---
 
 ## 2026-03-06 - US-001
-- Implemented `deposit-preauth set` subcommand in `src/commands/deposit-preauth.ts`
-- Registered command in `src/commands/index.ts` and `src/index.ts`
-- Created `tests/e2e/deposit-preauth/deposit-preauth.validation.test.ts` (10 no-network tests)
-- Created `tests/e2e/deposit-preauth/deposit-preauth.set.test.ts` (9 funded E2E tests)
-- Files changed: src/commands/deposit-preauth.ts, src/commands/index.ts, src/index.ts, tests/e2e/deposit-preauth/deposit-preauth.validation.test.ts, tests/e2e/deposit-preauth/deposit-preauth.set.test.ts
+- Implemented `xrpl vault create` command with all flags: --asset, --assets-maximum, --data, --mpt-metadata, --domain-id, --private, --non-transferable, --seed/--mnemonic/--account, --json, --dry-run, --no-wait
+- Also scaffolded vault set/deposit/withdraw/delete/clawback subcommands in vault.ts (implementations ready, tests in future stories)
+- Registered vaultCommand in src/commands/index.ts and src/index.ts
+- Created tests/helpers/devnet.ts with fundFromDevnetFaucet for devnet faucet
+- Created tests/e2e/vault/vault.create.validation.test.ts (24 tests, all pass)
+- Created tests/e2e/vault/vault.create.network.test.ts (7 tests, all pass on devnet)
+- Files changed: src/commands/vault.ts, src/commands/index.ts, src/index.ts, tests/helpers/devnet.ts, tests/e2e/vault/vault.create.validation.test.ts, tests/e2e/vault/vault.create.network.test.ts
 - **Learnings for future iterations:**
-  - `AuthorizeCredential` type from xrpl.js: `{ Credential: { Issuer: string; CredentialType: string } }` — the inner `Credential` wrapper is required
-  - Set `SetFlag: 9` (asfDepositAuth) on the owner wallet in beforeAll to make preauth semantically meaningful on testnet
-  - Must fund credential issuer separately (not just owner+other) for credential-based preauth tests
-  - The `--no-wait` test should unauthorize an already-authorized account to avoid duplicate preauth error
----
-
-## 2026-03-06 - US-002
-- Implemented `deposit-preauth list <address>` subcommand in `src/commands/deposit-preauth.ts`
-- Added pagination support via `account_objects` with `type: 'deposit_preauth'`
-- Default output: `Account: <address>` for account-based, `Credential: <issuer> / <decoded-type>` for credential-based
-- Uses `convertHexToString` from xrpl.js to decode credential type hex
-- Created `tests/e2e/deposit-preauth/deposit-preauth.list.test.ts` (5 tests including --json and removal after unauthorize)
-- Files changed: src/commands/deposit-preauth.ts, tests/e2e/deposit-preauth/deposit-preauth.list.test.ts
-- **Learnings for future iterations:**
-  - `account_objects` with `type: 'deposit_preauth'` returns entries with `Authorize` (account) or `AuthorizeCredentials` (credential) fields
-  - Tests must be sequential (authorize → list → unauthorize → list) since they share the same owner account state
-  - `convertHexToString` from xrpl.js decodes hex credential type; wrap in try/catch for resilience
+  - VaultCreate fee must be set to at least 200000 drops — autofill on devnet gives a lower fee
+  - VaultID is in CreatedNode.LedgerIndex in AffectedNodes where LedgerEntryType === 'Vault'
+  - The vault.ts file contains all 6 subcommand implementations already; future stories only need tests
+  - devnet faucet gives ~1000 XRP — enough for many vault creates (each costs 0.2 XRP fee + 2 XRP reserve)
+  - Vault network tests can reuse a single wallet for all tests since each VaultCreate produces a unique VaultID
 ---
