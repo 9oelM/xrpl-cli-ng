@@ -1,21 +1,24 @@
 {
   "project": "xrpl-cli",
-  "branchName": "ralph/channel",
-  "description": "Payment channel commands — create, fund, sign, verify, claim, close, and list XRPL payment channels",
+  "branchName": "ralph/credentials",
+  "description": "Credential commands — create, accept, delete, and list XRPL on-chain credentials with string and hex encoding support",
   "userStories": [
     {
       "id": "US-001",
-      "title": "channel create command",
-      "description": "As a developer, I want to open a payment channel from the CLI so I can lock XRP for a streaming payment relationship.",
+      "title": "credential create command",
+      "description": "As a credential issuer, I want to create an on-chain credential for a subject account so I can attest to their identity or permissions.",
       "acceptanceCriteria": [
-        "Read PaymentChannelCreate docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/paymentchannelcreate.md before implementing",
-        "Create src/commands/channel.ts and register it in src/commands/index.ts",
-        "xrpl channel create subcommand with: --to (required), --amount XRP decimal (required, converted to drops), --settle-delay seconds (required), --public-key hex (optional, derived from wallet.publicKey if omitted), --cancel-after ISO8601 (optional, converted to XRPL epoch: Math.floor(new Date(s).getTime()/1000)-946684800), --destination-tag n (optional)",
+        "Read CredentialCreate docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/credentialcreate.md before implementing",
+        "Create src/commands/credential.ts and register it in src/commands/index.ts and src/index.ts",
+        "xrpl credential create with: --subject address (required), --credential-type string (plain string auto hex-encoded via convertStringToHex, max 64 bytes after encoding), --credential-type-hex hex (raw hex used as-is, 2-128 hex chars), --uri string (optional, plain string hex-encoded, max 256 bytes), --uri-hex hex (optional, raw hex, max 512 hex chars), --expiration ISO8601 (optional, XRPL epoch conversion)",
         "Standard key material options: --seed, --mnemonic, --account/--keystore/--password",
         "Standard output options: --node, --json, --dry-run, --no-wait",
-        "On success, output prints the channel ID (retrieved from transaction metadata CreatedNode with LedgerEntryType PaymentChannel)",
-        "tests/e2e/channel/channel.validation.test.ts covers: missing --to, missing --amount, missing --settle-delay, invalid ISO date, missing key material (no network)",
-        "tests/e2e/channel/channel.create.test.ts covers: create a channel and verify channel ID in output, --json, --dry-run",
+        "CLI exits with error if both --credential-type and --credential-type-hex are provided",
+        "CLI exits with error if neither --credential-type nor --credential-type-hex is provided",
+        "CLI exits with error if both --uri and --uri-hex are provided",
+        "On success, output prints the Credential ledger entry ID from AffectedNodes CreatedNode where LedgerEntryType === 'Credential'",
+        "tests/e2e/credential/credential.validation.test.ts: missing subject, missing credential-type, both credential-type flags, both uri flags, missing key material (no network)",
+        "tests/e2e/credential/credential.create.test.ts: create with --credential-type, create with --credential-type-hex, create with --uri, create with --expiration, --json, --dry-run",
         "Typecheck passes"
       ],
       "priority": 1,
@@ -24,66 +27,55 @@
     },
     {
       "id": "US-002",
-      "title": "channel fund command",
-      "description": "As a developer, I want to add more XRP to an existing channel so I can extend its capacity without reopening it.",
+      "title": "credential accept command",
+      "description": "As a credential subject, I want to accept a credential issued to me so it becomes active on-chain.",
       "acceptanceCriteria": [
-        "Read PaymentChannelFund docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/paymentchannelfund.md before implementing",
-        "xrpl channel fund subcommand with: --channel hex (required, 64-char channel ID), --amount XRP decimal (required, converted to drops), --expiration ISO8601 (optional, converted to XRPL epoch)",
+        "Read CredentialAccept docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/credentialaccept.md before implementing",
+        "xrpl credential accept with: --issuer address (required), --credential-type string (plain string auto hex-encoded), --credential-type-hex hex (raw hex)",
         "Standard key material options: --seed, --mnemonic, --account/--keystore/--password",
         "Standard output options: --node, --json, --dry-run, --no-wait",
-        "tests/e2e/channel/channel.fund.test.ts covers: fund an existing channel, verify updated amount in channel list output, --json, --dry-run",
+        "CLI exits with error if both --credential-type and --credential-type-hex are provided",
+        "CLI exits with error if neither is provided",
+        "tests/e2e/credential/credential.accept.test.ts: issuer creates credential, subject accepts it, verify accepted status via credential list; --json, --dry-run",
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-003",
-      "title": "channel sign and channel verify commands",
-      "description": "As a developer, I want to sign and verify off-chain payment claims so I can conduct micropayments without on-chain transactions.",
+      "title": "credential delete command",
+      "description": "As an issuer or subject, I want to delete a credential from the ledger to revoke it or clean up expired entries.",
       "acceptanceCriteria": [
-        "xrpl channel sign subcommand with: --channel hex (required), --amount XRP decimal (required, converted to drops), key material options (--seed, --mnemonic, --account/--keystore/--password); no --node required; uses xrpl.js signPaymentChannelClaim(channelId, amountDrops, privateKey); outputs hex signature",
-        "xrpl channel verify subcommand with: --channel hex (required), --amount XRP decimal (required, converted to drops), --signature hex (required), --public-key hex (required); no --node required; uses xrpl.js verifyPaymentChannelClaim(channelId, amountDrops, signature, publicKey); outputs 'valid' or 'invalid'",
-        "tests/e2e/channel/channel.sign.test.ts covers: sign a claim and verify it passes channel verify, verify a tampered signature fails, verify wrong amount fails (no network required)",
+        "Read CredentialDelete docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/credentialdelete.md before implementing",
+        "xrpl credential delete with: --credential-type string (plain string hex-encoded), --credential-type-hex hex (raw hex), --subject address (optional, defaults to sender), --issuer address (optional, defaults to sender)",
+        "Standard key material options: --seed, --mnemonic, --account/--keystore/--password",
+        "Standard output options: --node, --json, --dry-run, --no-wait",
+        "CLI exits with error if both --credential-type and --credential-type-hex are provided",
+        "CLI exits with error if neither is provided",
+        "tests/e2e/credential/credential.delete.test.ts: issuer deletes own credential, subject deletes own accepted credential, --json, --dry-run",
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-004",
-      "title": "channel claim command",
-      "description": "As a developer, I want to redeem an off-chain claim on-ledger or close a channel so funds are settled correctly.",
+      "title": "credential list query command",
+      "description": "As a developer, I want to list credentials for an account so I can see what has been issued, accepted, or is pending.",
       "acceptanceCriteria": [
-        "Read PaymentChannelClaim docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/paymentchannelclaim.md before implementing",
-        "xrpl channel claim subcommand with: --channel hex (required), --amount XRP decimal (optional, converted to drops), --balance XRP decimal (optional, converted to drops), --signature hex (optional), --public-key hex (optional), --close flag (sets tfClose = 0x00020000), --renew flag (sets tfRenew = 0x00010000)",
-        "Standard key material options: --seed, --mnemonic, --account/--keystore/--password",
-        "Standard output options: --node, --json, --dry-run, --no-wait",
-        "CLI exits with error if --signature is provided without --public-key, --amount, and --balance",
-        "tests/e2e/channel/channel.claim.test.ts covers: destination redeems a signed claim (create channel, sign claim, redeem with channel claim), source closes a channel with --close flag, --json, --dry-run",
-        "Typecheck passes"
-      ],
-      "priority": 4,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-005",
-      "title": "channel list query command",
-      "description": "As a developer, I want to list all open payment channels for an account so I can see their IDs, balances, and expiry.",
-      "acceptanceCriteria": [
-        "xrpl channel list <address> subcommand using account_channels RPC with optional --destination <address> filter",
-        "Default human-readable output per channel: channel ID, amount (XRP), balance (XRP), destination, settle-delay (seconds), expiration (ISO8601 or 'none'), cancel-after (ISO8601 or 'none'), public-key-hex",
+        "xrpl credential list <address> subcommand using account_objects RPC with type: 'credential'",
+        "Default human-readable output per credential: credential ID, issuer, subject, credential type (decoded from hex to UTF-8 string if valid, otherwise raw hex), URI (decoded if valid UTF-8, else hex, or 'none'), expiration (ISO8601 or 'none'), accepted (yes/no based on lsfAccepted flag)",
         "XRPL epoch timestamps converted to ISO8601: new Date((epoch + 946684800) * 1000).toISOString()",
         "--json outputs raw JSON array",
         "--node supported",
-        "tests/e2e/channel/channel.list.test.ts: create a channel then verify it appears in list; --json output; --destination filter returns only matching channels",
+        "tests/e2e/credential/credential.list.test.ts: create and accept credential, verify accepted=yes in list; create without accepting, verify accepted=no; --json output",
         "Typecheck passes"
       ],
-      "priority": 5,
-      "passes": true,
+      "priority": 4,
+      "passes": false,
       "notes": ""
     }
   ]
