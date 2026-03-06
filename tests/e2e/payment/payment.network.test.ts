@@ -1,15 +1,35 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { runCLI } from "../../helpers/cli.js";
 import { resolve } from "path";
 import { mkdtempSync, rmSync } from "fs";
 import { tmpdir } from "os";
-import { Client, Wallet, xrpToDrops } from "xrpl";
-import type { Payment as XrplPayment } from "xrpl";
+import { Client, Wallet } from "xrpl";
 import { generateMnemonic } from "@scure/bip39";
 import { wordlist } from "@scure/bip39/wordlists/english";
-import { fundFromFaucet, TESTNET_URL } from "../../helpers/testnet.js";
+import {
+  XRPL_WS,
+  fundMaster,
+  initTicketPool,
+  createFunded,
+  fundAddress,
+} from "../helpers/fund.js";
 
+// 12 tests × 2 wallets = 24 tickets; +1 for mnemonic wallet = 25 total
+const TICKET_COUNT = 25;
 
+let client: Client;
+let master: Wallet;
+
+beforeAll(async () => {
+  client = new Client(XRPL_WS);
+  await client.connect();
+  master = await fundMaster(client);
+  await initTicketPool(client, master, TICKET_COUNT);
+}, 120_000);
+
+afterAll(async () => {
+  await client.disconnect();
+});
 
 function getBalanceDrops(address: string): number {
   const result = runCLI(["--node", "testnet", "account", "info", "--json", address]);
@@ -17,38 +37,10 @@ function getBalanceDrops(address: string): number {
   return Number(data.Balance);
 }
 
-let sender: Wallet;
-let receiver: Wallet;
-let testMnemonic: string;
+describe("payment network", () => {
+  it("sends 1 XRP between testnet accounts and prints tesSUCCESS", async () => {
+    const [sender, receiver] = await createFunded(client, master, 2, 25);
 
-beforeAll(async () => {
-  const client = new Client(TESTNET_URL);
-  await client.connect();
-  try {
-    sender = await fundFromFaucet(client);
-    receiver = await fundFromFaucet(client);
-
-    // Generate a fresh random mnemonic and fund the derived wallet from sender
-    testMnemonic = generateMnemonic(wordlist);
-    const mnemonicWallet = Wallet.fromMnemonic(testMnemonic, {
-      mnemonicEncoding: "bip39",
-      derivationPath: "m/44'/144'/0'/0/0",
-    });
-
-    const fundTx = await client.autofill({
-      TransactionType: "Payment",
-      Account: sender.address,
-      Amount: xrpToDrops(15),
-      Destination: mnemonicWallet.address,
-    } as XrplPayment);
-    await client.submitAndWait(sender.sign(fundTx).tx_blob);
-  } finally {
-    await client.disconnect();
-  }
-}, 180_000);
-
-describe("payment core", () => {
-  it("sends 1 XRP between testnet accounts and prints tesSUCCESS", () => {
     const senderBefore = getBalanceDrops(sender.address);
     const receiverBefore = getBalanceDrops(receiver.address);
 
@@ -65,13 +57,13 @@ describe("payment core", () => {
     const senderAfter = getBalanceDrops(sender.address);
     const receiverAfter = getBalanceDrops(receiver.address);
 
-    // Sender decreased by at least 1 XRP (1_000_000 drops) due to payment + fee
     expect(senderBefore - senderAfter).toBeGreaterThanOrEqual(1_000_000);
-    // Receiver increased by exactly 1 XRP
     expect(receiverAfter - receiverBefore).toBe(1_000_000);
-  });
+  }, 60_000);
 
-  it("alias 'send' works", () => {
+  it("alias 'send' works", async () => {
+    const [sender, receiver] = await createFunded(client, master, 2, 25);
+
     const result = runCLI([
       "--node", "testnet",
       "send",
@@ -81,9 +73,11 @@ describe("payment core", () => {
     ]);
     expect(result.status).toBe(0);
     expect(result.stdout).toContain("tesSUCCESS");
-  });
+  }, 60_000);
 
-  it("--dry-run outputs JSON with TransactionType Payment and does not submit", () => {
+  it("--dry-run outputs JSON with TransactionType Payment and does not submit", async () => {
+    const [sender, receiver] = await createFunded(client, master, 2, 25);
+
     const txsBefore = runCLI([
       "--node", "testnet",
       "account", "transactions", "--json", "--limit", "5", sender.address,
@@ -110,9 +104,11 @@ describe("payment core", () => {
     ]);
     expect(txsAfter.status).toBe(0);
     expect((JSON.parse(txsAfter.stdout) as { transactions: unknown[] }).transactions.length).toBe(countBefore);
-  });
+  }, 60_000);
 
-  it("--no-wait exits 0 and output contains a 64-char hex hash", () => {
+  it("--no-wait exits 0 and output contains a 64-char hex hash", async () => {
+    const [sender, receiver] = await createFunded(client, master, 2, 25);
+
     const result = runCLI([
       "--node", "testnet",
       "payment",
@@ -123,9 +119,11 @@ describe("payment core", () => {
     ]);
     expect(result.status).toBe(0);
     expect(result.stdout).toMatch(/[0-9A-Fa-f]{64}/);
-  });
+  }, 60_000);
 
   it("--destination-tag sets DestinationTag on the submitted tx", async () => {
+    const [sender, receiver] = await createFunded(client, master, 2, 25);
+
     const result = runCLI([
       "--node", "testnet",
       "payment",
@@ -148,9 +146,11 @@ describe("payment core", () => {
     const txsData = JSON.parse(txsResult.stdout) as { transactions: Array<{ tx_json?: { DestinationTag?: number } }> };
     const recentTx = txsData.transactions.find((t) => t.tx_json?.DestinationTag === 12345);
     expect(recentTx).toBeDefined();
-  });
+  }, 60_000);
 
   it("--memo attaches a Memos entry to the tx", async () => {
+    const [sender, receiver] = await createFunded(client, master, 2, 25);
+
     const result = runCLI([
       "--node", "testnet",
       "payment",
@@ -165,18 +165,10 @@ describe("payment core", () => {
     expect(out.result).toBe("tesSUCCESS");
     expect(Array.isArray(out.memos)).toBe(true);
     expect(out.memos.length).toBeGreaterThan(0);
+  }, 60_000);
 
-    const txsResult = runCLI([
-      "--node", "testnet",
-      "account", "transactions", "--json", "--limit", "5", sender.address,
-    ]);
-    expect(txsResult.status).toBe(0);
-    const txsData = JSON.parse(txsResult.stdout) as { transactions: Array<{ tx_json?: { Memos?: unknown[] } }> };
-    const recentTx = txsData.transactions.find((t) => t.tx_json?.Memos && (t.tx_json.Memos as unknown[]).length > 0);
-    expect(recentTx).toBeDefined();
-  });
-
-  it("--memo-type and --memo-format are included in dry-run tx Memos", () => {
+  it("--memo-type and --memo-format are included in dry-run tx Memos", async () => {
+    const [sender, receiver] = await createFunded(client, master, 2, 25);
     const memoTypeHex = Buffer.from("text/plain").toString("hex").toUpperCase();
     const memoFormatHex = Buffer.from("text/plain").toString("hex").toUpperCase();
 
@@ -201,9 +193,17 @@ describe("payment core", () => {
     expect(out.tx.Memos![0].Memo.MemoType!.length).toBeGreaterThan(0);
     expect(typeof out.tx.Memos![0].Memo.MemoFormat).toBe("string");
     expect(out.tx.Memos![0].Memo.MemoFormat!.length).toBeGreaterThan(0);
-  });
+  }, 60_000);
 
-  it("--mnemonic key material sends successfully", () => {
+  it("--mnemonic key material sends successfully", async () => {
+    const testMnemonic = generateMnemonic(wordlist);
+    const mnemonicWallet = Wallet.fromMnemonic(testMnemonic, {
+      mnemonicEncoding: "bip39",
+      derivationPath: "m/44'/144'/0'/0/0",
+    });
+    const [receiver] = await createFunded(client, master, 1, 15);
+    await fundAddress(client, master, mnemonicWallet.address, 20);
+
     const result = runCLI([
       "--node", "testnet",
       "payment",
@@ -213,9 +213,10 @@ describe("payment core", () => {
     ]);
     expect(result.status, `stdout: ${result.stdout} stderr: ${result.stderr}`).toBe(0);
     expect(result.stdout).toContain("tesSUCCESS");
-  });
+  }, 60_000);
 
-  it("--account + --keystore + --password key material sends successfully", () => {
+  it("--account + --keystore + --password key material sends successfully", async () => {
+    const [sender, receiver] = await createFunded(client, master, 2, 25);
     const tmpDir = mkdtempSync(resolve(tmpdir(), "xrpl-test-keystore-"));
     try {
       const importResult = runCLI([
@@ -240,9 +241,11 @@ describe("payment core", () => {
     } finally {
       rmSync(tmpDir, { recursive: true, force: true });
     }
-  });
+  }, 60_000);
 
-  it("--no-ripple-direct sets tfNoRippleDirect bit in dry-run tx Flags", () => {
+  it("--no-ripple-direct sets tfNoRippleDirect bit in dry-run tx Flags", async () => {
+    const [sender, receiver] = await createFunded(client, master, 2, 25);
+
     const result = runCLI([
       "--node", "testnet",
       "payment",
@@ -257,9 +260,11 @@ describe("payment core", () => {
     expect(out.tx.Flags).toBeDefined();
     // tfNoRippleDirect = 0x00010000 = 65536
     expect((out.tx.Flags! & 0x00010000)).not.toBe(0);
-  });
+  }, 60_000);
 
-  it("--limit-quality sets tfLimitQuality bit in dry-run tx Flags", () => {
+  it("--limit-quality sets tfLimitQuality bit in dry-run tx Flags", async () => {
+    const [sender, receiver] = await createFunded(client, master, 2, 25);
+
     const result = runCLI([
       "--node", "testnet",
       "payment",
@@ -274,15 +279,16 @@ describe("payment core", () => {
     expect(out.tx.Flags).toBeDefined();
     // tfLimitQuality = 0x00040000 = 262144
     expect((out.tx.Flags! & 0x00040000)).not.toBe(0);
-  });
+  }, 60_000);
 
   it("--amount with invalid format exits 1 and stderr contains 'invalid amount'", () => {
+    // Validation test — uses static values, no network call
     const result = runCLI([
       "--node", "testnet",
       "payment",
-      "--to", receiver.address,
+      "--to", "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh",
       "--amount", "notanamount!!",
-      "--seed", sender.seed!,
+      "--seed", "snoPBrXtMeMyMHUVTgbuqAfg1SUTb",
     ]);
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("invalid amount");

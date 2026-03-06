@@ -135,6 +135,31 @@ export async function createFunded(
   return wallets;
 }
 
+/**
+ * Fund a specific wallet address using a ticket from the pool.
+ * Use this when you need to fund a known wallet (e.g. mnemonic-derived).
+ */
+export async function fundAddress(
+  client: Client,
+  master: Wallet,
+  targetAddress: string,
+  amountXrp = 10,
+): Promise<void> {
+  const ticket = nextTicket();
+  const tx = await client.autofill({
+    TransactionType: "Payment",
+    Account: master.address,
+    Amount: xrpToDrops(amountXrp),
+    Destination: targetAddress,
+    Sequence: 0,
+    TicketSequence: ticket,
+  } as XrplPayment & { TicketSequence: number });
+  tx.Sequence = 0;
+  (tx as typeof tx & { TicketSequence: number }).TicketSequence = ticket;
+  const signed = master.sign(tx);
+  await client.submitAndWait(signed.tx_blob);
+}
+
 async function waitForAccount(
   client: Client,
   address: string,
