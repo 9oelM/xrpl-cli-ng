@@ -1,8 +1,10 @@
 import { Command } from "commander";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
-import { Wallet, NFTokenMintFlags, convertStringToHex, getNFTokenID } from "xrpl";
-import type { NFTokenMint, NFTokenBurn, NFTokenModify, TransactionMetadata } from "xrpl";
+import { Wallet, NFTokenMintFlags, NFTokenCreateOfferFlags, convertStringToHex, getNFTokenID } from "xrpl";
+import type { NFTokenMint, NFTokenBurn, NFTokenModify, NFTokenCreateOffer, TransactionMetadata } from "xrpl";
+import { parseAmount, toXrplAmount } from "../utils/amount.js";
+import type { ParsedAmount } from "../utils/amount.js";
 import { deriveKeypair } from "ripple-keypairs";
 import { withClient } from "../utils/client.js";
 import { getNodeUrl } from "../utils/node.js";
@@ -516,8 +518,189 @@ const nftModifyCommand = new Command("modify")
     });
   });
 
+// ---------- nft offer create ----------
+
+const XRPL_EPOCH_OFFSET = 946684800; // seconds from Unix epoch to XRPL epoch (Jan 1, 2000)
+
+interface NftOfferCreateOptions extends BaseNftOptions {
+  nft: string;
+  amount: string;
+  sell: boolean;
+  owner?: string;
+  expiration?: string;
+  destination?: string;
+}
+
+type OfferSubmitResult = SubmitResult & {
+  meta?: SubmitResult["meta"] & {
+    AffectedNodes?: Array<{
+      CreatedNode?: {
+        LedgerEntryType?: string;
+        LedgerIndex?: string;
+        NewFields?: Record<string, unknown>;
+      };
+    }>;
+  };
+};
+
+const nftOfferCreateCommand = new Command("create")
+  .description("Create a buy or sell offer for an NFT")
+  .requiredOption("--nft <hex>", "64-char NFTokenID")
+  .requiredOption("--amount <amount>", "Offer amount (XRP decimal or value/CURRENCY/issuer; '0' valid for XRP sell giveaways)")
+  .option("--sell", "Create a sell offer (absence = buy offer)", false)
+  .option("--owner <address>", "NFT owner address (required for buy offers)")
+  .option("--expiration <ISO8601>", "Offer expiration (ISO 8601 datetime)")
+  .option("--destination <address>", "Only this account may accept the offer")
+  .option("--seed <seed>", "Family seed for signing")
+  .option("--mnemonic <phrase>", "BIP39 mnemonic for signing")
+  .option("--account <address-or-alias>", "Account address or alias to load from keystore")
+  .option("--password <password>", "Keystore decryption password (insecure, prefer interactive prompt)")
+  .option("--keystore <dir>", "Keystore directory (default: ~/.xrpl/keystore/; XRPL_KEYSTORE env var also accepted)")
+  .option("--no-wait", "Submit without waiting for validation")
+  .option("--json", "Output as JSON", false)
+  .option("--dry-run", "Print signed tx without submitting", false)
+  .action(async (options: NftOfferCreateOptions, cmd: Command) => {
+    // Validate NFTokenID
+    if (!/^[0-9A-Fa-f]{64}$/.test(options.nft)) {
+      process.stderr.write("Error: --nft must be a 64-character hex NFTokenID\n");
+      process.exit(1);
+    }
+
+    // Validate amount
+    let parsedAmount: ParsedAmount;
+    try {
+      parsedAmount = parseAmount(options.amount);
+    } catch (e: unknown) {
+      process.stderr.write(`Error: ${(e as Error).message}\n`);
+      process.exit(1);
+    }
+
+    // Buy offer requires --owner
+    if (!options.sell && !options.owner) {
+      process.stderr.write("Error: --owner is required for buy offers\n");
+      process.exit(1);
+    }
+
+    // Validate expiration
+    let xrplExpiration: number | undefined;
+    if (options.expiration !== undefined) {
+      const unixMs = Date.parse(options.expiration);
+      if (isNaN(unixMs)) {
+        process.stderr.write("Error: --expiration must be a valid ISO 8601 date\n");
+        process.exit(1);
+      }
+      xrplExpiration = Math.floor(unixMs / 1000) - XRPL_EPOCH_OFFSET;
+      if (xrplExpiration <= 0) {
+        process.stderr.write("Error: --expiration must be a future date\n");
+        process.exit(1);
+      }
+    }
+
+    // Validate key material
+    const keyMaterialCount = [options.seed, options.mnemonic, options.account].filter(Boolean).length;
+    if (keyMaterialCount === 0) {
+      process.stderr.write("Error: provide key material via --seed, --mnemonic, or --account\n");
+      process.exit(1);
+    }
+    if (keyMaterialCount > 1) {
+      process.stderr.write("Error: provide only one of --seed, --mnemonic, or --account\n");
+      process.exit(1);
+    }
+
+    const signerWallet = await resolveWallet(options);
+
+    const tx: NFTokenCreateOffer = {
+      TransactionType: "NFTokenCreateOffer",
+      Account: signerWallet.address,
+      NFTokenID: options.nft.toUpperCase(),
+      Amount: toXrplAmount(parsedAmount) as NFTokenCreateOffer["Amount"],
+      ...(options.sell ? { Flags: NFTokenCreateOfferFlags.tfSellNFToken } : {}),
+      ...(options.owner !== undefined ? { Owner: options.owner } : {}),
+      ...(xrplExpiration !== undefined ? { Expiration: xrplExpiration } : {}),
+      ...(options.destination !== undefined ? { Destination: options.destination } : {}),
+    };
+
+    const url = getNodeUrl(cmd);
+
+    await withClient(url, async (client) => {
+      const filled = await client.autofill(tx);
+
+      if (options.dryRun) {
+        const signed = signerWallet.sign(filled);
+        console.log(JSON.stringify({ tx_blob: signed.tx_blob, tx: filled }));
+        return;
+      }
+
+      const signed = signerWallet.sign(filled);
+
+      if (!options.wait) {
+        await client.submit(signed.tx_blob);
+        if (options.json) {
+          console.log(JSON.stringify({ hash: signed.hash }));
+        } else {
+          console.log(`Transaction: ${signed.hash}`);
+        }
+        return;
+      }
+
+      let response;
+      try {
+        response = await client.submitAndWait(signed.tx_blob);
+      } catch (e: unknown) {
+        const err = e as Error;
+        if (err.constructor.name === "TimeoutError" || err.message?.includes("LastLedgerSequence")) {
+          process.stderr.write("Error: transaction expired (LastLedgerSequence exceeded)\n");
+          process.exit(1);
+        }
+        throw e;
+      }
+
+      const txResult = response.result as OfferSubmitResult;
+      const resultCode = txResult.meta?.TransactionResult ?? "unknown";
+      const hash = txResult.hash ?? signed.hash;
+      const feeDrops = txResult.tx_json?.Fee ?? "0";
+      const feeXrp = (Number(feeDrops) / 1_000_000).toFixed(6);
+      const ledger = txResult.ledger_index;
+
+      if (/^te[cfm]/i.test(resultCode)) {
+        process.stderr.write(`Error: transaction failed with ${resultCode}\n`);
+        if (options.json) {
+          console.log(JSON.stringify({ hash, result: resultCode, fee: feeXrp, ledger }));
+        }
+        process.exit(1);
+      }
+
+      // Extract NFTokenOfferID from AffectedNodes
+      let offerId: string | undefined;
+      const affectedNodes = txResult.meta?.AffectedNodes ?? [];
+      for (const node of affectedNodes) {
+        if (node.CreatedNode?.LedgerEntryType === "NFTokenOffer") {
+          offerId = node.CreatedNode.LedgerIndex;
+          break;
+        }
+      }
+
+      if (options.json) {
+        console.log(JSON.stringify({ hash, result: resultCode, fee: feeXrp, ledger, offerId }));
+      } else {
+        console.log(`Transaction: ${hash}`);
+        console.log(`Result:      ${resultCode}`);
+        console.log(`Fee:         ${feeXrp} XRP`);
+        console.log(`Ledger:      ${ledger}`);
+        if (offerId) {
+          console.log(`OfferID:     ${offerId}`);
+        }
+      }
+    });
+  });
+
+const nftOfferCommand = new Command("offer")
+  .description("Manage NFT offers")
+  .addCommand(nftOfferCreateCommand);
+
 export const nftCommand = new Command("nft")
   .description("Manage NFTs on the XRP Ledger")
   .addCommand(nftMintCommand)
   .addCommand(nftBurnCommand)
-  .addCommand(nftModifyCommand);
+  .addCommand(nftModifyCommand)
+  .addCommand(nftOfferCommand);

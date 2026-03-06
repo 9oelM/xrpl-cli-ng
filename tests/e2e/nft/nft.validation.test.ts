@@ -102,6 +102,77 @@ describe("nft burn validation (no network)", () => {
   });
 });
 
+describe("nft offer create validation (no network)", () => {
+  it("missing --nft exits 1 with error", () => {
+    const result = runCLI([
+      "nft", "offer", "create",
+      "--amount", "10",
+      "--sell",
+      "--seed", DUMMY_SEED,
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(/required option|missing|nft/i);
+  });
+
+  it("missing --amount exits 1 with error", () => {
+    const result = runCLI([
+      "nft", "offer", "create",
+      "--nft", DUMMY_NFT_ID,
+      "--sell",
+      "--seed", DUMMY_SEED,
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(/required option|missing|amount/i);
+  });
+
+  it("buy offer without --owner exits 1 with error", () => {
+    const result = runCLI([
+      "nft", "offer", "create",
+      "--nft", DUMMY_NFT_ID,
+      "--amount", "10",
+      "--seed", DUMMY_SEED,
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("--owner is required for buy offers");
+  });
+
+  it("invalid --amount exits 1 with error", () => {
+    const result = runCLI([
+      "nft", "offer", "create",
+      "--nft", DUMMY_NFT_ID,
+      "--amount", "not-a-number",
+      "--sell",
+      "--seed", DUMMY_SEED,
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Error:");
+  });
+
+  it("missing key material exits 1", () => {
+    const result = runCLI([
+      "nft", "offer", "create",
+      "--nft", DUMMY_NFT_ID,
+      "--amount", "10",
+      "--sell",
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Error:");
+  });
+
+  it("multiple key material options exits 1", () => {
+    const result = runCLI([
+      "nft", "offer", "create",
+      "--nft", DUMMY_NFT_ID,
+      "--amount", "10",
+      "--sell",
+      "--seed", DUMMY_SEED,
+      "--mnemonic", "test test test test test test test test test test test junk",
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Error:");
+  });
+});
+
 describe("nft modify validation (no network)", () => {
   it("missing --nft exits 1 with error", () => {
     const result = runCLI([
