@@ -33,3 +33,13 @@ Started: Fri Mar  6 10:24:13 AM Universal 2026
   - Creating multiple checks in beforeAll: use runCLI with --json to extract checkId synchronously; one check per consuming test
   - --deliver-min with XRP check: receiver gets SendMax amount (up to the max), at least deliverMin; works fine with XRP checks
 ---
+
+## 2026-03-06 - US-003
+- Created `tests/e2e/check/check.cancel.test.ts` (5 E2E tests on testnet)
+- Implementation was already in `src/commands/check.ts` from US-001
+- Tests: sender cancels own check, --json, --dry-run, --no-wait, receiver cancels check sent to them
+- Files changed: tests/e2e/check/check.cancel.test.ts
+- **Learnings for future iterations:**
+  - Cancel test follows same pattern as cash test: create checks in beforeAll (one per consuming test), use DUMMY_CHECK_ID for --dry-run
+  - Receiver can cancel a check sent to them — created a fresh check inline for that test since it can't share beforeAll checks
+---
