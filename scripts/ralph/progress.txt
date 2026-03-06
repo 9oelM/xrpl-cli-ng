@@ -10,6 +10,18 @@
 Started: Fri Mar  6 07:58:31 AM Universal 2026
 ---
 
+## 2026-03-06 - US-002
+- Implemented `xrpl channel fund` subcommand in `src/commands/channel.ts`
+- Added `PaymentChannelFund` type import from xrpl; added `channelFundCommand` and registered it in `channelCommand`
+- Added 6 fund validation tests to `tests/e2e/channel/channel.validation.test.ts` (no network)
+- Created `tests/e2e/channel/channel.fund.test.ts` (5 testnet tests: happy path with account_channels verification, --json, --dry-run, --expiration dry-run, --no-wait)
+- Files changed: src/commands/channel.ts, tests/e2e/channel/channel.validation.test.ts, tests/e2e/channel/channel.fund.test.ts
+- **Learnings for future iterations:**
+  - For fund tests, verify updated channel amount using `account_channels` RPC directly (channel list command not yet implemented) — query `res.result.channels.find(c => c.channel_id === channelId)` and check `channel.amount`
+  - Channel ID must be uppercased when sent in tx (`.toUpperCase()`) — the CLI does this internally
+  - PaymentChannelFund requires Channel, Amount (drops), and optional Expiration (XRPL epoch) — no flags for modify behavior
+---
+
 ## 2026-03-06 - US-001
 - Implemented `xrpl channel create` subcommand in `src/commands/channel.ts`
 - Registered `channelCommand` in `src/commands/index.ts` and `src/index.ts`
