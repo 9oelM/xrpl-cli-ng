@@ -3,6 +3,9 @@ Started: Fri Mar  6 10:24:14 AM Universal 2026
 ---
 
 ## Codebase Patterns
+- Brokered NFT accept: use fresh/clean accounts for brokered-mode sellers; reusing accounts with prior NFT history can cause `tecOBJECT_NOT_FOUND` due to NFTokenPage state. Use a dedicated wallet (e.g., `broker` who has no prior NFT transactions) as the brokered seller.
+- `--offer` repeatable option pattern in Commander.js: `.option("--offer <hex>", "desc", (val, prev: string[]) => prev.concat([val]), [] as string[])` — validation must check `options.offer.length === 0` since the default is `[]` not `undefined`.
+- `nft_buy_offers` RPC returns `rpcOBJECT_NOT_FOUND` when there are NO buy offers (not just when the NFT doesn't exist); always wrap in try/catch when querying.
 - `NFTokenCreateOfferFlags.tfSellNFToken = 1` is exported from xrpl.js; use for sell offer flag
 - XRPL epoch offset: `XRPL_EPOCH_OFFSET = 946684800` (Unix seconds from Jan 1, 1900 to Jan 1, 2000)
 - NFTokenOfferID is in `CreatedNode.LedgerIndex` (not `NewFields`) in AffectedNodes metadata
@@ -56,4 +59,20 @@ Started: Fri Mar  6 10:24:14 AM Universal 2026
   - XRPL_EPOCH_OFFSET = 946684800 for ISO8601 → XRPL epoch conversion
   - Buy offers: `Owner` field required = account that currently holds the NFT (not the offer maker)
   - `'0'` amount is valid for XRP sell giveaway offers; `parseAmount('0')` returns `{type:'xrp', drops:'0'}`
+---
+
+## 2026-03-06 - US-004
+- Implemented `xrpl nft offer accept` and `xrpl nft offer cancel` subcommands in `src/commands/nft.ts`
+- Added `NFTokenAcceptOffer` and `NFTokenCancelOffer` type imports from xrpl.js
+- `nft offer accept`: --sell-offer, --buy-offer, --broker-fee options; validates at least one offer provided; validates --broker-fee requires both offers
+- `nft offer cancel`: --offer (repeatable) option; validates at least one offer provided
+- Registered both in `nftOfferCommand` alongside existing `create`
+- Files changed: `src/commands/nft.ts`, `tests/e2e/nft/nft.validation.test.ts`, `tests/e2e/nft/nft.offer.accept.test.ts` (new), `tests/e2e/nft/nft.offer.cancel.test.ts` (new)
+- All 29 validation tests pass, all 66 NFT E2E tests pass on testnet
+- **Learnings for future iterations:**
+  - Brokered mode accept with broker fee fails when seller account has prior NFT transaction history; fix: use a fresh/clean wallet as the brokered seller (e.g., `broker` wallet which has no prior NFT txns)
+  - `nft_buy_offers` RPC throws exception (not empty array) when no buy offers exist — wrap in try/catch
+  - `NFTokenCancelOffer.NFTokenOffers` field is a string array (repeatable --offer on CLI)
+  - Commander.js repeatable option: `(val, prev: string[]) => prev.concat([val])` with default `[] as string[]`; check `.length === 0` for "missing" validation
+  - The `tecOBJECT_NOT_FOUND` in brokered mode can also mean "NFT not in seller's page" — verify using fresh accounts avoids this
 ---
