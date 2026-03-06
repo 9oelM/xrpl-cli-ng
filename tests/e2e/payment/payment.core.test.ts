@@ -1,7 +1,12 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { spawnSync } from "child_process";
 import { resolve } from "path";
-import { Client, Wallet } from "xrpl";
+import { mkdtempSync, rmSync } from "fs";
+import { tmpdir } from "os";
+import { Client, Wallet, xrpToDrops } from "xrpl";
+import type { Payment as XrplPayment } from "xrpl";
+import { generateMnemonic } from "@scure/bip39";
+import { wordlist } from "@scure/bip39/wordlists/english";
 import { fundFromFaucet, TESTNET_URL } from "../../helpers/testnet.js";
 
 const CLI = resolve(process.cwd(), "src/index.ts");
@@ -16,8 +21,15 @@ function runCLI(args: string[], extraEnv: Record<string, string> = {}) {
   });
 }
 
+function getBalanceDrops(address: string): number {
+  const result = runCLI(["--node", "testnet", "account", "info", "--json", address]);
+  const data = JSON.parse(result.stdout) as { Balance: string };
+  return Number(data.Balance);
+}
+
 let sender: Wallet;
 let receiver: Wallet;
+let testMnemonic: string;
 
 beforeAll(async () => {
   const client = new Client(TESTNET_URL);
@@ -25,6 +37,21 @@ beforeAll(async () => {
   try {
     sender = await fundFromFaucet(client);
     receiver = await fundFromFaucet(client);
+
+    // Generate a fresh random mnemonic and fund the derived wallet from sender
+    testMnemonic = generateMnemonic(wordlist);
+    const mnemonicWallet = Wallet.fromMnemonic(testMnemonic, {
+      mnemonicEncoding: "bip39",
+      derivationPath: "m/44'/144'/0'/0/0",
+    });
+
+    const fundTx = await client.autofill({
+      TransactionType: "Payment",
+      Account: sender.address,
+      Amount: xrpToDrops(15),
+      Destination: mnemonicWallet.address,
+    } as XrplPayment);
+    await client.submitAndWait(sender.sign(fundTx).tx_blob);
   } finally {
     await client.disconnect();
   }
@@ -32,6 +59,9 @@ beforeAll(async () => {
 
 describe("payment core", () => {
   it("sends 1 XRP between testnet accounts and prints tesSUCCESS", () => {
+    const senderBefore = getBalanceDrops(sender.address);
+    const receiverBefore = getBalanceDrops(receiver.address);
+
     const result = runCLI([
       "--node", "testnet",
       "payment",
@@ -41,6 +71,14 @@ describe("payment core", () => {
     ]);
     expect(result.status).toBe(0);
     expect(result.stdout).toContain("tesSUCCESS");
+
+    const senderAfter = getBalanceDrops(sender.address);
+    const receiverAfter = getBalanceDrops(receiver.address);
+
+    // Sender decreased by at least 1 XRP (1_000_000 drops) due to payment + fee
+    expect(senderBefore - senderAfter).toBeGreaterThanOrEqual(1_000_000);
+    // Receiver increased by exactly 1 XRP
+    expect(receiverAfter - receiverBefore).toBe(1_000_000);
   });
 
   it("alias 'send' works", () => {
@@ -146,6 +184,72 @@ describe("payment core", () => {
     const txsData = JSON.parse(txsResult.stdout) as { transactions: Array<{ tx_json?: { Memos?: unknown[] } }> };
     const recentTx = txsData.transactions.find((t) => t.tx_json?.Memos && (t.tx_json.Memos as unknown[]).length > 0);
     expect(recentTx).toBeDefined();
+  });
+
+  it("--memo-type and --memo-format are included in dry-run tx Memos", () => {
+    const memoTypeHex = Buffer.from("text/plain").toString("hex").toUpperCase();
+    const memoFormatHex = Buffer.from("text/plain").toString("hex").toUpperCase();
+
+    const result = runCLI([
+      "--node", "testnet",
+      "payment",
+      "--to", receiver.address,
+      "--amount", "0.1",
+      "--seed", sender.seed!,
+      "--memo", "hello",
+      "--memo-type", memoTypeHex,
+      "--memo-format", memoFormatHex,
+      "--dry-run",
+    ]);
+    expect(result.status).toBe(0);
+    const out = JSON.parse(result.stdout) as {
+      tx: { Memos?: Array<{ Memo: { MemoData?: string; MemoType?: string; MemoFormat?: string } }> };
+      tx_blob: string;
+    };
+    expect(Array.isArray(out.tx.Memos)).toBe(true);
+    expect(typeof out.tx.Memos![0].Memo.MemoType).toBe("string");
+    expect(out.tx.Memos![0].Memo.MemoType!.length).toBeGreaterThan(0);
+    expect(typeof out.tx.Memos![0].Memo.MemoFormat).toBe("string");
+    expect(out.tx.Memos![0].Memo.MemoFormat!.length).toBeGreaterThan(0);
+  });
+
+  it("--mnemonic key material sends successfully", () => {
+    const result = runCLI([
+      "--node", "testnet",
+      "payment",
+      "--to", receiver.address,
+      "--amount", "0.5",
+      "--mnemonic", testMnemonic,
+    ]);
+    expect(result.status, `stdout: ${result.stdout} stderr: ${result.stderr}`).toBe(0);
+    expect(result.stdout).toContain("tesSUCCESS");
+  });
+
+  it("--account + --keystore + --password key material sends successfully", () => {
+    const tmpDir = mkdtempSync(resolve(tmpdir(), "xrpl-test-keystore-"));
+    try {
+      const importResult = runCLI([
+        "wallet", "import",
+        sender.seed!,
+        "--password", "pw123",
+        "--keystore", tmpDir,
+      ]);
+      expect(importResult.status, `stdout: ${importResult.stdout} stderr: ${importResult.stderr}`).toBe(0);
+
+      const result = runCLI([
+        "--node", "testnet",
+        "payment",
+        "--to", receiver.address,
+        "--amount", "0.5",
+        "--account", sender.address,
+        "--keystore", tmpDir,
+        "--password", "pw123",
+      ]);
+      expect(result.status, `stdout: ${result.stdout} stderr: ${result.stderr}`).toBe(0);
+      expect(result.stdout).toContain("tesSUCCESS");
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 
   it("--amount with invalid format exits 1 and stderr contains 'invalid amount'", () => {

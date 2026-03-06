@@ -47,7 +47,7 @@ beforeAll(async () => {
 }, 180_000);
 
 describe("iou payment", () => {
-  it("sends IOU payment (direct issuance) and gets tesSUCCESS", () => {
+  it("sends IOU payment (direct issuance) and gets tesSUCCESS; verifies trust-line balance", () => {
     const result = runCLI([
       "--node", "testnet",
       "payment",
@@ -57,5 +57,22 @@ describe("iou payment", () => {
     ]);
     expect(result.status, `stdout: ${result.stdout} stderr: ${result.stderr}`).toBe(0);
     expect(result.stdout).toContain("tesSUCCESS");
+
+    // Verify the trust line balance reflects the received amount
+    const tlResult = runCLI([
+      "--node", "testnet",
+      "account", "trust-lines", "--json", iouReceiver.address,
+    ]);
+    expect(tlResult.status, `stdout: ${tlResult.stdout} stderr: ${tlResult.stderr}`).toBe(0);
+    const lines = JSON.parse(tlResult.stdout) as Array<{
+      account: string;
+      currency: string;
+      balance: string;
+    }>;
+    const usdLine = lines.find(
+      (l) => l.currency === "USD" && l.account === iouIssuer.address
+    );
+    expect(usdLine).toBeDefined();
+    expect(Number(usdLine!.balance)).toBe(10);
   });
 });
