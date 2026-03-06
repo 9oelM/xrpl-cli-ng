@@ -620,8 +620,81 @@ const credentialDeleteCommand = new Command("delete")
     });
   });
 
+interface CredentialEntry {
+  LedgerIndex: string;
+  Issuer: string;
+  Subject: string;
+  CredentialType: string;
+  URI?: string;
+  Expiration?: number;
+  Flags?: number;
+}
+
+/** Decode a hex string to UTF-8; return raw hex if it contains replacement characters. */
+function tryDecodeHex(hex: string): string {
+  const decoded = Buffer.from(hex, "hex").toString("utf-8");
+  if (decoded.includes("\uFFFD")) return hex;
+  return decoded;
+}
+
+/** Convert XRPL epoch to ISO8601 string. */
+function xrplEpochToISO(epoch: number): string {
+  return new Date((epoch + 946684800) * 1000).toISOString();
+}
+
+const LSF_ACCEPTED = 0x00010000;
+
+interface CredentialListOptions {
+  json: boolean;
+  node?: string;
+}
+
+const credentialListCommand = new Command("list")
+  .description("List credentials for an account")
+  .argument("<address>", "Account address to query credentials for")
+  .option("--json", "Output as JSON array", false)
+  .action(async (address: string, options: CredentialListOptions, cmd: Command) => {
+    const url = getNodeUrl(cmd);
+
+    await withClient(url, async (client) => {
+      const res = await client.request({
+        command: "account_objects",
+        account: address,
+        type: "credential",
+        ledger_index: "validated",
+      });
+
+      const credentials = res.result.account_objects as unknown as CredentialEntry[];
+
+      if (options.json) {
+        console.log(JSON.stringify(credentials));
+        return;
+      }
+
+      if (credentials.length === 0) {
+        console.log("No credentials found.");
+        return;
+      }
+
+      for (const cred of credentials) {
+        const credType = tryDecodeHex(cred.CredentialType);
+        const uri = cred.URI ? tryDecodeHex(cred.URI) : "none";
+        const expiration = cred.Expiration !== undefined ? xrplEpochToISO(cred.Expiration) : "none";
+        const accepted = (cred.Flags ?? 0) & LSF_ACCEPTED ? "yes" : "no";
+        console.log(`Credential ID: ${cred.LedgerIndex}`);
+        console.log(`  Issuer:          ${cred.Issuer}`);
+        console.log(`  Subject:         ${cred.Subject}`);
+        console.log(`  Credential Type: ${credType}`);
+        console.log(`  URI:             ${uri}`);
+        console.log(`  Expiration:      ${expiration}`);
+        console.log(`  Accepted:        ${accepted}`);
+      }
+    });
+  });
+
 export const credentialCommand = new Command("credential")
   .description("Manage XRPL on-chain credentials")
   .addCommand(credentialCreateCommand)
   .addCommand(credentialAcceptCommand)
-  .addCommand(credentialDeleteCommand);
+  .addCommand(credentialDeleteCommand)
+  .addCommand(credentialListCommand);
