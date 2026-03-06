@@ -2,7 +2,7 @@ import { Command } from "commander";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { Wallet, isoTimeToRippleTime } from "xrpl";
-import type { EscrowCreate } from "xrpl";
+import type { EscrowCreate, EscrowFinish } from "xrpl";
 import { deriveKeypair } from "ripple-keypairs";
 import { withClient } from "../utils/client.js";
 import { getNodeUrl } from "../utils/node.js";
@@ -266,6 +266,152 @@ const escrowCreateCommand = new Command("create")
     });
   });
 
+interface EscrowFinishOptions {
+  owner: string;
+  sequence: string;
+  condition?: string;
+  fulfillment?: string;
+  seed?: string;
+  mnemonic?: string;
+  account?: string;
+  password?: string;
+  keystore?: string;
+  wait: boolean;
+  json: boolean;
+  dryRun: boolean;
+}
+
+const escrowFinishCommand = new Command("finish")
+  .alias("f")
+  .description("Release funds from an escrow")
+  .requiredOption("--owner <address>", "Address of the account that created the escrow")
+  .requiredOption("--sequence <n>", "Sequence number of the EscrowCreate transaction")
+  .option("--condition <hex>", "PREIMAGE-SHA-256 condition hex blob (must pair with --fulfillment)")
+  .option("--fulfillment <hex>", "Matching crypto-condition fulfillment hex blob (must pair with --condition)")
+  .option("--seed <seed>", "Family seed for signing")
+  .option("--mnemonic <phrase>", "BIP39 mnemonic for signing")
+  .option("--account <address-or-alias>", "Account address or alias to load from keystore")
+  .option("--password <password>", "Keystore decryption password (insecure, prefer interactive prompt)")
+  .option("--keystore <dir>", "Keystore directory (default: ~/.xrpl/keystore/; XRPL_KEYSTORE env var also accepted)")
+  .option("--no-wait", "Submit without waiting for validation")
+  .option("--json", "Output as JSON", false)
+  .option("--dry-run", "Print signed tx without submitting", false)
+  .action(async (options: EscrowFinishOptions, cmd: Command) => {
+    // --condition and --fulfillment must be provided together
+    const hasCondition = options.condition !== undefined;
+    const hasFulfillment = options.fulfillment !== undefined;
+    if (hasCondition !== hasFulfillment) {
+      process.stderr.write("Error: --condition and --fulfillment must be provided together\n");
+      process.exit(1);
+    }
+
+    // Validate key material
+    const keyMaterialCount = [options.seed, options.mnemonic, options.account].filter(Boolean).length;
+    if (keyMaterialCount === 0) {
+      process.stderr.write("Error: provide key material via --seed, --mnemonic, or --account\n");
+      process.exit(1);
+    }
+    if (keyMaterialCount > 1) {
+      process.stderr.write("Error: provide only one of --seed, --mnemonic, or --account\n");
+      process.exit(1);
+    }
+
+    // Parse sequence number
+    const seqNum = Number(options.sequence);
+    if (!Number.isInteger(seqNum) || seqNum < 0) {
+      process.stderr.write("Error: --sequence must be a non-negative integer\n");
+      process.exit(1);
+    }
+
+    const signerWallet = await resolveWallet(options);
+    const keystoreDir = getKeystoreDir(options);
+    const owner = resolveAccount(options.owner, keystoreDir);
+
+    const tx: EscrowFinish = {
+      TransactionType: "EscrowFinish",
+      Account: signerWallet.address,
+      Owner: owner,
+      OfferSequence: seqNum,
+      ...(options.condition !== undefined ? { Condition: options.condition } : {}),
+      ...(options.fulfillment !== undefined ? { Fulfillment: options.fulfillment } : {}),
+    };
+
+    const url = getNodeUrl(cmd);
+
+    await withClient(url, async (client) => {
+      const filled = await client.autofill(tx);
+
+      // When fulfillment is provided, compute the minimum fee and use it if it exceeds autofill's fee
+      if (options.fulfillment !== undefined) {
+        const fulfillmentBytes = options.fulfillment.length / 2;
+        const calculatedFee = Math.ceil((fulfillmentBytes + 15) / 16) * 10 + 330;
+        const autofillFee = Number(filled.Fee ?? "0");
+        filled.Fee = String(Math.max(calculatedFee, autofillFee));
+      }
+
+      if (options.dryRun) {
+        const signed = signerWallet.sign(filled);
+        console.log(JSON.stringify({ tx_blob: signed.tx_blob, tx: filled }));
+        return;
+      }
+
+      const signed = signerWallet.sign(filled);
+
+      if (!options.wait) {
+        await client.submit(signed.tx_blob);
+        if (options.json) {
+          console.log(JSON.stringify({ hash: signed.hash }));
+        } else {
+          console.log(`Transaction: ${signed.hash}`);
+        }
+        return;
+      }
+
+      let response;
+      try {
+        response = await client.submitAndWait(signed.tx_blob);
+      } catch (e: unknown) {
+        const err = e as Error;
+        if (err.constructor.name === "TimeoutError" || err.message?.includes("LastLedgerSequence")) {
+          process.stderr.write("Error: transaction expired (LastLedgerSequence exceeded)\n");
+          process.exit(1);
+        }
+        throw e;
+      }
+
+      const txResult = response.result as {
+        hash?: string;
+        ledger_index?: number;
+        meta?: { TransactionResult?: string };
+        tx_json?: { Fee?: string };
+      };
+
+      const resultCode = txResult.meta?.TransactionResult ?? "unknown";
+      const hash = txResult.hash ?? signed.hash;
+      const feeDrops = txResult.tx_json?.Fee ?? "0";
+      const feeXrp = (Number(feeDrops) / 1_000_000).toFixed(6);
+      const ledger = txResult.ledger_index;
+
+      if (/^te[cfm]/i.test(resultCode)) {
+        process.stderr.write(`Error: transaction failed with ${resultCode}\n`);
+        if (options.json) {
+          console.log(JSON.stringify({ hash, result: resultCode, fee: feeXrp, ledger }));
+        }
+        process.exit(1);
+      }
+
+      if (options.json) {
+        console.log(JSON.stringify({ hash, result: resultCode, fee: feeXrp, ledger }));
+      } else {
+        console.log(`Transaction: ${hash}`);
+        console.log(`Result:      ${resultCode}`);
+        console.log(`Fee:         ${feeXrp} XRP`);
+        console.log(`Ledger:      ${ledger}`);
+      }
+    });
+  });
+
 export const escrowCommand = new Command("escrow")
   .description("Manage XRPL escrows")
-  .addCommand(escrowCreateCommand);
+  .addCommand(escrowCreateCommand)
+  .addCommand(escrowFinishCommand);
