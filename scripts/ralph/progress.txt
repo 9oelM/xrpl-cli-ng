@@ -3,6 +3,11 @@ Started: Fri Mar  6 10:24:14 AM Universal 2026
 ---
 
 ## Codebase Patterns
+- `NFTokenCreateOfferFlags.tfSellNFToken = 1` is exported from xrpl.js; use for sell offer flag
+- XRPL epoch offset: `XRPL_EPOCH_OFFSET = 946684800` (Unix seconds from Jan 1, 1900 to Jan 1, 2000)
+- NFTokenOfferID is in `CreatedNode.LedgerIndex` (not `NewFields`) in AffectedNodes metadata
+- For two-wallet E2E tests, call `fundFromFaucet` twice in `Promise.all` — `distributeToWallets` has a broken dynamic import (`autofill` is not a function)
+- Buy offers: `--owner` required (owner = NFT holder); Sell offers: sender must hold the NFT, no `--owner`
 - NFT commands go in `src/commands/nft.ts` with subcommand structure (like offer.ts)
 - Use `getNFTokenID(meta as TransactionMetadata)` from xrpl.js to extract NFTokenID; fallback scan AffectedNodes for CreatedNode with LedgerEntryType NFTokenPage
 - `convertStringToHex` from xrpl.js converts plain URI strings to hex for NFTokenMint.URI
@@ -36,4 +41,19 @@ Started: Fri Mar  6 10:24:14 AM Universal 2026
   - `convertHexToString` from xrpl.js is useful in tests to decode URI hex back to plain string for assertion
   - `--dry-run` with a zeroed NFTokenID (`"0".repeat(64)`) works for dry-run tests without real NFT IDs
   - NFTokenModify testnet transactions confirm in ~2-8s
+---
+
+## 2026-03-06 - US-003
+- Implemented `xrpl nft offer create` subcommand in `src/commands/nft.ts`
+- Added `nftOfferCommand` group with `create` subcommand; registered in `nftCommand`
+- Added `NFTokenCreateOfferFlags` and `NFTokenCreateOffer` type imports from xrpl.js
+- Reused `parseAmount`/`toXrplAmount` from `src/utils/amount.js`
+- Files changed: `src/commands/nft.ts`, `tests/e2e/nft/nft.validation.test.ts`, `tests/e2e/nft/nft.offer.create.test.ts` (new)
+- All 20 validation tests pass (no network), all 7 E2E offer create tests pass on testnet
+- **Learnings for future iterations:**
+  - NFTokenOfferID is stored in `CreatedNode.LedgerIndex` in AffectedNodes — not in `NewFields`
+  - `distributeToWallets` is broken (dynamic import `autofill` not a function); use `Promise.all([fundFromFaucet(client), fundFromFaucet(client)])` for multiple wallets
+  - XRPL_EPOCH_OFFSET = 946684800 for ISO8601 → XRPL epoch conversion
+  - Buy offers: `Owner` field required = account that currently holds the NFT (not the offer maker)
+  - `'0'` amount is valid for XRP sell giveaway offers; `parseAmount('0')` returns `{type:'xrp', drops:'0'}`
 ---
