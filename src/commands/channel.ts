@@ -2,7 +2,7 @@ import { Command } from "commander";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { Wallet, isCreatedNode, signPaymentChannelClaim, verifyPaymentChannelClaim } from "xrpl";
-import type { PaymentChannelCreate, PaymentChannelFund, TransactionMetadataBase } from "xrpl";
+import type { PaymentChannelCreate, PaymentChannelFund, PaymentChannelClaim, TransactionMetadataBase } from "xrpl";
 import { deriveKeypair } from "ripple-keypairs";
 import { withClient } from "../utils/client.js";
 import { getNodeUrl } from "../utils/node.js";
@@ -534,9 +534,201 @@ const channelVerifyCommand = new Command("verify")
     }
   });
 
+interface ChannelClaimOptions {
+  channel: string;
+  amount?: string;
+  balance?: string;
+  signature?: string;
+  publicKey?: string;
+  close: boolean;
+  renew: boolean;
+  seed?: string;
+  mnemonic?: string;
+  account?: string;
+  password?: string;
+  keystore?: string;
+  wait: boolean;
+  json: boolean;
+  dryRun: boolean;
+}
+
+const channelClaimCommand = new Command("claim")
+  .description("Redeem a signed payment channel claim or close a channel")
+  .requiredOption("--channel <hex>", "64-character payment channel ID")
+  .option("--amount <xrp>", "Amount of XRP authorized by the signature (decimal, converted to drops)")
+  .option("--balance <xrp>", "Total XRP delivered by this claim (decimal, converted to drops)")
+  .option("--signature <hex>", "Hex-encoded claim signature")
+  .option("--public-key <hex>", "Hex-encoded public key of the channel source")
+  .option("--close", "Request channel closure (sets tfClose flag)", false)
+  .option("--renew", "Clear channel expiration (sets tfRenew flag, source only)", false)
+  .option("--seed <seed>", "Family seed for signing")
+  .option("--mnemonic <phrase>", "BIP39 mnemonic for signing")
+  .option("--account <address-or-alias>", "Account address or alias to load from keystore")
+  .option("--password <password>", "Keystore decryption password (insecure, prefer interactive prompt)")
+  .option("--keystore <dir>", "Keystore directory (default: ~/.xrpl/keystore/; XRPL_KEYSTORE env var also accepted)")
+  .option("--no-wait", "Submit without waiting for validation")
+  .option("--json", "Output as JSON", false)
+  .option("--dry-run", "Print signed tx without submitting", false)
+  .action(async (options: ChannelClaimOptions, cmd: Command) => {
+    // Validate key material
+    const keyMaterialCount = [options.seed, options.mnemonic, options.account].filter(Boolean).length;
+    if (keyMaterialCount === 0) {
+      process.stderr.write("Error: provide key material via --seed, --mnemonic, or --account\n");
+      process.exit(1);
+    }
+    if (keyMaterialCount > 1) {
+      process.stderr.write("Error: provide only one of --seed, --mnemonic, or --account\n");
+      process.exit(1);
+    }
+
+    // Validate channel ID format
+    if (!/^[0-9A-Fa-f]{64}$/.test(options.channel)) {
+      process.stderr.write("Error: --channel must be a 64-character hex string\n");
+      process.exit(1);
+    }
+
+    // Validate signature requires public-key, amount, and balance
+    if (options.signature !== undefined) {
+      if (options.publicKey === undefined) {
+        process.stderr.write("Error: --signature requires --public-key\n");
+        process.exit(1);
+      }
+      if (options.amount === undefined) {
+        process.stderr.write("Error: --signature requires --amount\n");
+        process.exit(1);
+      }
+      if (options.balance === undefined) {
+        process.stderr.write("Error: --signature requires --balance\n");
+        process.exit(1);
+      }
+    }
+
+    // Parse amount (XRP only)
+    let amountDrops: string | undefined;
+    if (options.amount !== undefined) {
+      try {
+        const parsed = parseAmount(options.amount);
+        if (parsed.type !== "xrp") {
+          process.stderr.write("Error: --amount must be an XRP amount (e.g. 5 or 5000000drops)\n");
+          process.exit(1);
+        }
+        amountDrops = parsed.drops;
+      } catch (e: unknown) {
+        process.stderr.write(`Error: ${(e as Error).message}\n`);
+        process.exit(1);
+      }
+    }
+
+    // Parse balance (XRP only)
+    let balanceDrops: string | undefined;
+    if (options.balance !== undefined) {
+      try {
+        const parsed = parseAmount(options.balance);
+        if (parsed.type !== "xrp") {
+          process.stderr.write("Error: --balance must be an XRP amount (e.g. 5 or 5000000drops)\n");
+          process.exit(1);
+        }
+        balanceDrops = parsed.drops;
+      } catch (e: unknown) {
+        process.stderr.write(`Error: ${(e as Error).message}\n`);
+        process.exit(1);
+      }
+    }
+
+    // Build flags
+    const tfClose = 0x00020000;
+    const tfRenew = 0x00010000;
+    let flags = 0;
+    if (options.close) flags |= tfClose;
+    if (options.renew) flags |= tfRenew;
+
+    // Resolve wallet
+    const signerWallet = await resolveWallet(options);
+
+    // Build transaction
+    const tx: PaymentChannelClaim = {
+      TransactionType: "PaymentChannelClaim",
+      Account: signerWallet.address,
+      Channel: options.channel.toUpperCase(),
+      ...(amountDrops !== undefined ? { Amount: amountDrops } : {}),
+      ...(balanceDrops !== undefined ? { Balance: balanceDrops } : {}),
+      ...(options.signature !== undefined ? { Signature: options.signature.toUpperCase() } : {}),
+      ...(options.publicKey !== undefined ? { PublicKey: options.publicKey.toUpperCase() } : {}),
+      ...(flags !== 0 ? { Flags: flags } : {}),
+    };
+
+    const url = getNodeUrl(cmd);
+
+    await withClient(url, async (client) => {
+      const filled = await client.autofill(tx);
+
+      if (options.dryRun) {
+        const signed = signerWallet.sign(filled);
+        console.log(JSON.stringify({ tx_blob: signed.tx_blob, tx: filled }));
+        return;
+      }
+
+      const signed = signerWallet.sign(filled);
+
+      if (!options.wait) {
+        await client.submit(signed.tx_blob);
+        if (options.json) {
+          console.log(JSON.stringify({ hash: signed.hash }));
+        } else {
+          console.log(`Transaction: ${signed.hash}`);
+        }
+        return;
+      }
+
+      let response;
+      try {
+        response = await client.submitAndWait(signed.tx_blob);
+      } catch (e: unknown) {
+        const err = e as Error;
+        if (err.constructor.name === "TimeoutError" || err.message?.includes("LastLedgerSequence")) {
+          process.stderr.write("Error: transaction expired (LastLedgerSequence exceeded)\n");
+          process.exit(1);
+        }
+        throw e;
+      }
+
+      const txResult = response.result as {
+        hash?: string;
+        ledger_index?: number;
+        meta?: TransactionMetadataBase | string;
+        tx_json?: { Fee?: string };
+      };
+
+      const meta = txResult.meta;
+      const resultCode = (meta && typeof meta !== "string" ? meta.TransactionResult : undefined) ?? "unknown";
+      const hash = txResult.hash ?? signed.hash;
+      const feeDrops = txResult.tx_json?.Fee ?? "0";
+      const feeXrp = (Number(feeDrops) / 1_000_000).toFixed(6);
+      const ledger = txResult.ledger_index;
+
+      if (/^te[cfm]/i.test(resultCode)) {
+        process.stderr.write(`Error: transaction failed with ${resultCode}\n`);
+        if (options.json) {
+          console.log(JSON.stringify({ hash, result: resultCode, fee: feeXrp, ledger }));
+        }
+        process.exit(1);
+      }
+
+      if (options.json) {
+        console.log(JSON.stringify({ hash, result: resultCode, fee: feeXrp, ledger }));
+      } else {
+        console.log(`Transaction: ${hash}`);
+        console.log(`Result:      ${resultCode}`);
+        console.log(`Fee:         ${feeXrp} XRP`);
+        console.log(`Ledger:      ${ledger}`);
+      }
+    });
+  });
+
 export const channelCommand = new Command("channel")
   .description("Manage XRPL payment channels")
   .addCommand(channelCreateCommand)
   .addCommand(channelFundCommand)
   .addCommand(channelSignCommand)
-  .addCommand(channelVerifyCommand);
+  .addCommand(channelVerifyCommand)
+  .addCommand(channelClaimCommand);
