@@ -1,4 +1,7 @@
 ## Codebase Patterns
+- account_objects with type 'escrow' returns escrows where the queried account is EITHER the source OR the destination — do not assume "no escrows" for an account that is the destination of an existing escrow
+- Escrow ledger objects do NOT store the original EscrowCreate sequence; fetch the creating tx via `client.request({ command: "tx", transaction: escrow.PreviousTxnID })` and read `tx_json.Sequence`
+- XRPL epoch → ISO8601: `new Date((rippleEpoch + 946684800) * 1000).toISOString()`
 - EscrowCreate with CancelAfter: xrpl.js requires Condition OR FinishAfter even when CancelAfter is set. CancelAfter alone is rejected with ValidationError. Always pair CancelAfter with FinishAfter (and ensure CancelAfter > FinishAfter per XRPL protocol).
 - temBAD_EXPIRATION error on EscrowCreate: usually means CancelAfter <= FinishAfter (protocol enforces strict ordering).
 - PREIMAGE-SHA-256 fulfillment for 32-byte zero preimage: `A02280200000000000000000000000000000000000000000000000000000000000000000` (72 hex chars = 36 bytes); condition: `A025802066687AADF862BD776C8FC18B8E9F8E20089714856EE233B3902A591D0D5F2925810120`
@@ -53,4 +56,16 @@ Started: Fri Mar  6 07:58:31 AM Universal 2026
   - XRPL protocol: CancelAfter must be strictly greater than FinishAfter (temBAD_EXPIRATION otherwise)
   - Cancel test timing: FinishAfter=+60s, CancelAfter=+90s per create call, wait 100s after all creates
   - After CancelAfter passes, the escrow can be cancelled even if FinishAfter has also passed
+---
+
+## 2026-03-06 - US-004
+- Implemented `xrpl escrow list <address>` subcommand in src/commands/escrow.ts
+- Fetches account_objects with type 'escrow', then fetches each PreviousTxnID tx to retrieve sequence
+- Converts XRPL epoch timestamps to ISO8601; outputs 'none' for absent optional fields
+- Created tests/e2e/escrow/escrow.list.test.ts (2 E2E tests: human-readable list, --json output)
+- Files changed: src/commands/escrow.ts, tests/e2e/escrow/escrow.list.test.ts
+- **Learnings for future iterations:**
+  - account_objects returns escrows for BOTH source and destination accounts; "empty list" tests must use a wallet with no escrow involvement at all
+  - Escrow objects lack a Sequence field; must fetch the PreviousTxnID transaction to get the EscrowCreate sequence
+  - XRPL escrow PreviousTxnID for a live (unfinished/uncancelled) escrow IS the EscrowCreate transaction
 ---
