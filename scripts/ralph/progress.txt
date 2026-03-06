@@ -21,3 +21,16 @@ Started: Fri Mar  6 11:22:04 AM Universal 2026
   - Must fund credential issuer separately (not just owner+other) for credential-based preauth tests
   - The `--no-wait` test should unauthorize an already-authorized account to avoid duplicate preauth error
 ---
+
+## 2026-03-06 - US-002
+- Implemented `deposit-preauth list <address>` subcommand in `src/commands/deposit-preauth.ts`
+- Added pagination support via `account_objects` with `type: 'deposit_preauth'`
+- Default output: `Account: <address>` for account-based, `Credential: <issuer> / <decoded-type>` for credential-based
+- Uses `convertHexToString` from xrpl.js to decode credential type hex
+- Created `tests/e2e/deposit-preauth/deposit-preauth.list.test.ts` (5 tests including --json and removal after unauthorize)
+- Files changed: src/commands/deposit-preauth.ts, tests/e2e/deposit-preauth/deposit-preauth.list.test.ts
+- **Learnings for future iterations:**
+  - `account_objects` with `type: 'deposit_preauth'` returns entries with `Authorize` (account) or `AuthorizeCredentials` (credential) fields
+  - Tests must be sequential (authorize → list → unauthorize → list) since they share the same owner account state
+  - `convertHexToString` from xrpl.js decodes hex credential type; wrap in try/catch for resilience
+---
