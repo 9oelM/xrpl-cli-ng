@@ -1,24 +1,13 @@
 import { Command } from "commander";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
-import { createInterface } from "readline";
-import { Wallet } from "xrpl";
+import { Wallet, isValidClassicAddress } from "xrpl";
 import type { AccountDelete } from "xrpl";
 import { deriveKeypair } from "ripple-keypairs";
 import { withClient } from "../../utils/client.js";
 import { getNodeUrl } from "../../utils/node.js";
 import { decryptKeystore, getKeystoreDir, resolveAccount, type KeystoreFile } from "../../utils/keystore.js";
 import { promptPassword } from "../../utils/prompt.js";
-
-async function promptConfirm(): Promise<boolean> {
-  return new Promise((resolve) => {
-    const rl = createInterface({ input: process.stdin, output: process.stdout });
-    rl.question("Confirm? [y/N] ", (answer) => {
-      rl.close();
-      resolve(answer === "y" || answer === "Y");
-    });
-  });
-}
 
 function walletFromSeed(seed: string): Wallet {
   const { publicKey, privateKey } = deriveKeypair(seed);
@@ -33,13 +22,16 @@ interface DeleteOptions {
   account?: string;
   password?: string;
   keystore?: string;
-  yes: boolean;
+  confirm: boolean;
+  wait: boolean;
   json: boolean;
   dryRun: boolean;
 }
 
 export const deleteCommand = new Command("delete")
-  .description("Delete an account with an AccountDelete transaction (irreversible)")
+  .description(
+    "Delete an account with an AccountDelete transaction (irreversible). Fee: ~2 XRP (owner reserve, non-refundable)"
+  )
   .requiredOption("--destination <address-or-alias>", "Destination address or alias to receive remaining XRP")
   .option("--destination-tag <n>", "Destination tag for the destination account")
   .option("--seed <seed>", "Family seed for signing")
@@ -47,7 +39,8 @@ export const deleteCommand = new Command("delete")
   .option("--account <address-or-alias>", "Account address or alias to load from keystore")
   .option("--password <password>", "Keystore decryption password (insecure, prefer interactive prompt)")
   .option("--keystore <dir>", "Keystore directory (default: ~/.xrpl/keystore/; XRPL_KEYSTORE env var also accepted)")
-  .option("--yes", "Skip interactive confirmation", false)
+  .option("--confirm", "Acknowledge that this permanently deletes your account (required unless --dry-run)", false)
+  .option("--no-wait", "Submit without waiting for validation")
   .option("--json", "Output as JSON", false)
   .option("--dry-run", "Print unsigned tx JSON without submitting", false)
   .action(async (options: DeleteOptions, cmd: Command) => {
@@ -59,6 +52,31 @@ export const deleteCommand = new Command("delete")
     }
     if (keyMaterialCount > 1) {
       process.stderr.write("Error: provide only one of --seed, --mnemonic, or --account\n");
+      process.exit(1);
+    }
+
+    // Resolve destination (alias → address, or pass through if it looks like an address)
+    const keystoreDir = getKeystoreDir(options);
+    let destinationAddress: string;
+    try {
+      destinationAddress = resolveAccount(options.destination, keystoreDir);
+    } catch {
+      // resolveAccount throws when input doesn't match XRPL address format and isn't a known alias
+      process.stderr.write(`Error: invalid destination address: ${options.destination}\n`);
+      process.exit(1);
+    }
+
+    // Extra validation: resolveAccount's regex is looser than actual address validation
+    if (!isValidClassicAddress(destinationAddress)) {
+      process.stderr.write(`Error: invalid destination address: ${destinationAddress}\n`);
+      process.exit(1);
+    }
+
+    // --confirm required unless --dry-run
+    if (!options.dryRun && !options.confirm) {
+      process.stderr.write(
+        "Error: This permanently deletes your account. Pass --confirm to proceed.\n"
+      );
       process.exit(1);
     }
 
@@ -74,7 +92,6 @@ export const deleteCommand = new Command("delete")
       });
     } else {
       // --account: load from keystore
-      const keystoreDir = getKeystoreDir(options);
       const address = resolveAccount(options.account!, keystoreDir);
       const filePath = join(keystoreDir, `${address}.json`);
 
@@ -117,10 +134,6 @@ export const deleteCommand = new Command("delete")
       }
     }
 
-    // Resolve destination
-    const keystoreDir = getKeystoreDir(options);
-    const destinationAddress = resolveAccount(options.destination, keystoreDir);
-
     // Build the AccountDelete transaction
     const tx: AccountDelete = {
       TransactionType: "AccountDelete",
@@ -137,36 +150,54 @@ export const deleteCommand = new Command("delete")
       return;
     }
 
-    // Print irreversibility warning
-    process.stderr.write(
-      "Warning: AccountDelete is irreversible. The account will be removed from the ledger.\n"
-    );
-
-    // Confirm unless --yes
-    if (!options.yes) {
-      const confirmed = await promptConfirm();
-      if (!confirmed) {
-        process.stderr.write("Aborted.\n");
-        process.exit(0);
-      }
-    }
-
     const url = getNodeUrl(cmd);
     await withClient(url, async (client) => {
       const filled = await client.autofill(tx);
       const signed = signerWallet!.sign(filled);
-      await client.submit(signed.tx_blob);
+
+      if (!options.wait) {
+        await client.submit(signed.tx_blob);
+        if (options.json) {
+          console.log(JSON.stringify({ hash: signed.hash }));
+        } else {
+          console.log(`Transaction: ${signed.hash}`);
+        }
+        return;
+      }
+
+      // submitAndWait
+      let response;
+      try {
+        response = await client.submitAndWait(signed.tx_blob);
+      } catch (e: unknown) {
+        const err = e as Error;
+        if (err.constructor.name === "TimeoutError" || err.message?.includes("LastLedgerSequence")) {
+          process.stderr.write("Error: transaction expired (LastLedgerSequence exceeded)\n");
+          process.exit(1);
+        }
+        throw e;
+      }
+
+      const txResult = response.result as {
+        hash?: string;
+        ledger_index?: number;
+        meta?: { TransactionResult?: string };
+        tx_json?: { Fee?: string };
+      };
+
+      const resultCode = txResult.meta?.TransactionResult ?? "unknown";
+      const hash = txResult.hash ?? signed.hash;
+      const feeDrops = txResult.tx_json?.Fee ?? "0";
+      const feeXrp = (Number(feeDrops) / 1_000_000).toFixed(6);
+      const ledger = txResult.ledger_index;
 
       if (options.json) {
-        console.log(
-          JSON.stringify({
-            hash: signed.hash,
-            result: "tesSUCCESS",
-            tx_blob: signed.tx_blob,
-          })
-        );
+        console.log(JSON.stringify({ hash, result: resultCode, fee: feeXrp, ledger }));
       } else {
-        console.log(`Account deleted. Transaction hash: ${signed.hash}`);
+        console.log(`Transaction: ${hash}`);
+        console.log(`Result:      ${resultCode}`);
+        console.log(`Fee:         ${feeXrp} XRP`);
+        console.log(`Ledger:      ${ledger}`);
       }
     });
   });
