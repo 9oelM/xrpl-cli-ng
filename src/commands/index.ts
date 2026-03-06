@@ -3,3 +3,4 @@ export { walletCommand } from "./wallet/index.js";
 export { paymentCommand } from "./payment.js";
 export { trustCommand } from "./trust.js";
 export { offerCommand } from "./offer.js";
+export { escrowCommand } from "./escrow.js";
