@@ -2,7 +2,7 @@ import { Command } from "commander";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { Wallet, isoTimeToRippleTime } from "xrpl";
-import type { EscrowCreate, EscrowFinish, EscrowCancel } from "xrpl";
+import type { EscrowCreate, EscrowFinish, EscrowCancel, LedgerEntry } from "xrpl";
 import { deriveKeypair } from "ripple-keypairs";
 import { withClient } from "../utils/client.js";
 import { getNodeUrl } from "../utils/node.js";
@@ -534,8 +534,80 @@ const escrowCancelCommand = new Command("cancel")
     });
   });
 
+/** Convert XRPL ripple epoch to ISO 8601 string */
+function rippleTimeToIso(epoch: number): string {
+  return new Date((epoch + 946684800) * 1000).toISOString();
+}
+
+interface EscrowListOptions {
+  json: boolean;
+}
+
+const escrowListCommand = new Command("list")
+  .alias("ls")
+  .description("List pending escrows for an account")
+  .argument("<address>", "Account address to query")
+  .option("--json", "Output as JSON array", false)
+  .action(async (address: string, options: EscrowListOptions, cmd: Command) => {
+    const url = getNodeUrl(cmd);
+
+    await withClient(url, async (client) => {
+      const response = await client.request({
+        command: "account_objects",
+        account: address,
+        type: "escrow",
+        limit: 400,
+      });
+
+      type EscrowEntry = LedgerEntry.Escrow & { index: string };
+      const escrows = response.result.account_objects as EscrowEntry[];
+
+      // Fetch each escrow's creating transaction to get the EscrowCreate sequence
+      const results = await Promise.all(
+        escrows.map(async (escrow) => {
+          const txResponse = await client.request({
+            command: "tx",
+            transaction: escrow.PreviousTxnID,
+          });
+          const txResult = txResponse.result as { tx_json?: { Sequence?: number } };
+          const sequence = txResult.tx_json?.Sequence ?? 0;
+
+          return {
+            sequence,
+            amount: (Number(escrow.Amount) / 1_000_000).toFixed(6),
+            destination: escrow.Destination,
+            finishAfter: escrow.FinishAfter !== undefined ? rippleTimeToIso(escrow.FinishAfter) : "none",
+            cancelAfter: escrow.CancelAfter !== undefined ? rippleTimeToIso(escrow.CancelAfter) : "none",
+            condition: escrow.Condition ?? "none",
+          };
+        })
+      );
+
+      if (options.json) {
+        console.log(JSON.stringify(results));
+        return;
+      }
+
+      if (results.length === 0) {
+        console.log("No pending escrows found.");
+        return;
+      }
+
+      for (const e of results) {
+        console.log(`Sequence:    ${e.sequence}`);
+        console.log(`Amount:      ${e.amount} XRP`);
+        console.log(`Destination: ${e.destination}`);
+        console.log(`FinishAfter: ${e.finishAfter}`);
+        console.log(`CancelAfter: ${e.cancelAfter}`);
+        console.log(`Condition:   ${e.condition}`);
+        console.log("---");
+      }
+    });
+  });
+
 export const escrowCommand = new Command("escrow")
   .description("Manage XRPL escrows")
   .addCommand(escrowCreateCommand)
   .addCommand(escrowFinishCommand)
-  .addCommand(escrowCancelCommand);
+  .addCommand(escrowCancelCommand)
+  .addCommand(escrowListCommand);
