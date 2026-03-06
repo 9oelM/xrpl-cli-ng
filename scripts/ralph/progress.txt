@@ -1,37 +1,80 @@
-## Codebase Patterns
-- Shared CLI runner: `tests/helpers/cli.ts` exports `runCLI(args, extraEnv?)` — all E2E tests import from here
-- Runtime PATH resolution: `path.dirname(process.execPath) + path.delimiter + process.env.PATH` works in fnm (local) and setup-node (CI)
-- Some test files use `resolve` from `path` for `mkdtempSync(resolve(tmpdir(), ...))` — keep that import even after removing CLI/TSX/E2E_PATH boilerplate
-
-# Ralph Progress Log
-Started: Fri Mar  6 05:45:09 AM Universal 2026
+## 2026-03-06 - US-005
+- Implemented `xrpl channel list <address>` subcommand in `src/commands/channel.ts`
+- Uses `account_channels` RPC with pagination (marker-based loop, limit 400)
+- Optional `--destination <address>` filter passed as `destination_account` to RPC
+- Human-readable output: channel ID, amount (XRP), balance (XRP), destination, settle-delay, expiration (ISO8601 or "none"), cancel-after (ISO8601 or "none"), public-key-hex
+- `--json` outputs raw JSON array of channel objects
+- Epoch conversion helper `xrplEpochToIso`: `new Date((epoch + 946684800) * 1000).toISOString()`
+- Created `tests/e2e/channel/channel.list.test.ts` — 4 testnet tests all pass
+- Files changed: src/commands/channel.ts, tests/e2e/channel/channel.list.test.ts
+- **Learnings for future iterations:**
+  - `channel list` is a pure read command — no key material needed, just address + optional --destination
+  - `account_channels` response includes `marker` for pagination; loop until `marker` is undefined
+  - To handle TypeScript `client.request()` typing with custom query params, cast the request as `any` and cast the result type explicitly
+  - `Wallet.generate()` can be used in tests to create an address without funding (useful for negative filter tests)
 ---
 
-## 2026-03-06 - US-001
-- Created `tests/helpers/cli.ts` with shared `runCLI(args, extraEnv?)` using runtime PATH from `path.dirname(process.execPath)`
-- Updated all 35 E2E test files to import `runCLI` from the shared helper, removing per-file boilerplate
-- Fixed `account/set.test.ts` which used `exec`/`execAsync` with inline TSX/CLI/E2E_PATH — converted to `runCLI`
-- Fixed `wallet/import.test.ts` which had an inline `spawnSync` call — converted to `runCLI` with extraEnv
+## 2026-03-06 - US-004
+- Implemented `xrpl channel claim` subcommand in `src/commands/channel.ts`
+- Added `PaymentChannelClaim` type import; added `channelClaimCommand` with `--channel`, `--amount`, `--balance`, `--signature`, `--public-key`, `--close`, `--renew`, standard key material, and standard output options
+- Validation: `--signature` requires `--public-key`, `--amount`, and `--balance`; channel must be 64-char hex; key material must be provided exactly once
+- `--close` flag sets tfClose (0x00020000), `--renew` sets tfRenew (0x00010000), combined with bitwise OR
+- Created `tests/e2e/channel/channel.claim.test.ts` — 13 tests (6 testnet, 7 no-network); all pass
+- Files changed: src/commands/channel.ts, tests/e2e/channel/channel.claim.test.ts
 - **Learnings for future iterations:**
-  - Some files use `resolve` from `path` for `mkdtempSync` — must keep that import even when removing CLI runner boilerplate
-  - `account/set.test.ts` had an unusual `exec`+`promisify` pattern in `beforeAll`; converted to synchronous `runCLI`
-  - Typecheck passes with no issues after the refactor
----
-
-## 2026-03-06 - US-002
-- Created `.github/workflows/typecheck.yml` triggering on push and pull_request
-- Workflow named 'Typecheck', job named 'typecheck', uses actions/checkout@v4 + actions/setup-node@v4 (node 22, npm cache)
-- Runs `npm ci` then `npm run typecheck`
-- **Learnings for future iterations:**
-  - GitHub Actions workflows go in `.github/workflows/` — directory must be created if it doesn't exist
-  - `on: [push, pull_request]` covers all branches by default
+  - PaymentChannelClaim `Amount` = total XRP authorized by signature; `Balance` = total XRP delivered in this tx; for a full claim both are set to the same amount
+  - Source can close a channel with settle-delay=0 using --close flag; tesSUCCESS returned immediately
+  - Signature for claim must be uppercased when passed in tx field; use `.toUpperCase()`
+  - PublicKey in PaymentChannelClaim must also be uppercased
+  - `--close` and `--renew` are simple boolean Commander flags (default false), not negation flags — no `--no-X` gotcha applies
 ---
 
 ## 2026-03-06 - US-003
-- Created `.github/workflows/test.yml` triggering on push and pull_request
-- Workflow named 'Test', job named 'test', `timeout-minutes: 20` set at job level
-- Uses actions/checkout@v4 + actions/setup-node@v4 (node 22, npm cache), runs `npm ci` then `npm test`
+- Implemented `xrpl channel sign` and `xrpl channel verify` subcommands in `src/commands/channel.ts`
+- Both are fully offline — no network required, no `--node` flag
+- `channel sign`: resolves wallet to get privateKey, calls `signPaymentChannelClaim(channel, xrpAmount, privateKey)`, outputs hex signature or `{"signature":"..."}` with --json
+- `channel verify`: calls `verifyPaymentChannelClaim(channel, xrpAmount, signature, publicKey)`, outputs "valid"/"invalid" or `{"valid":bool}` with --json; wraps in try/catch to handle malformed signatures gracefully (returns false instead of throwing)
+- Created `tests/e2e/channel/channel.sign.test.ts` — 16 tests, all offline (no testnet needed)
+- Files changed: src/commands/channel.ts, tests/e2e/channel/channel.sign.test.ts
 - **Learnings for future iterations:**
-  - `timeout-minutes` is a job-level field in GitHub Actions (not step-level)
-  - 20 minutes covers 30 faucet retries × 5s each plus test execution time
+  - `signPaymentChannelClaim(channel, xrpAmount, privateKey)` takes XRP amount as decimal string (NOT drops); xrpl.js calls xrpToDrops internally
+  - `verifyPaymentChannelClaim` throws on malformed/invalid hex signatures — always wrap in try/catch and treat exceptions as `valid = false`
+  - These are pure crypto operations — no XRPL network connection needed at all
+---
+
+## Codebase Patterns
+- PaymentChannel ledger entry type in AffectedNodes metadata is "PayChannel" NOT "PaymentChannel"
+- xrpl.js `isCreatedNode(n)` helper from "xrpl" is the correct way to narrow Node union type
+- Use `TransactionMetadataBase` (not `TransactionMetadata`) for generic channel/offer transactions
+- resolveWallet pattern is duplicated per command file (no shared util yet) — follow the same shape
+- XRPL epoch conversion: Math.floor(new Date(iso).getTime()/1000) - 946684800
+---
+
+# Ralph Progress Log
+Started: Fri Mar  6 07:58:31 AM Universal 2026
+---
+
+## 2026-03-06 - US-002
+- Implemented `xrpl channel fund` subcommand in `src/commands/channel.ts`
+- Added `PaymentChannelFund` type import from xrpl; added `channelFundCommand` and registered it in `channelCommand`
+- Added 6 fund validation tests to `tests/e2e/channel/channel.validation.test.ts` (no network)
+- Created `tests/e2e/channel/channel.fund.test.ts` (5 testnet tests: happy path with account_channels verification, --json, --dry-run, --expiration dry-run, --no-wait)
+- Files changed: src/commands/channel.ts, tests/e2e/channel/channel.validation.test.ts, tests/e2e/channel/channel.fund.test.ts
+- **Learnings for future iterations:**
+  - For fund tests, verify updated channel amount using `account_channels` RPC directly (channel list command not yet implemented) — query `res.result.channels.find(c => c.channel_id === channelId)` and check `channel.amount`
+  - Channel ID must be uppercased when sent in tx (`.toUpperCase()`) — the CLI does this internally
+  - PaymentChannelFund requires Channel, Amount (drops), and optional Expiration (XRPL epoch) — no flags for modify behavior
+---
+
+## 2026-03-06 - US-001
+- Implemented `xrpl channel create` subcommand in `src/commands/channel.ts`
+- Registered `channelCommand` in `src/commands/index.ts` and `src/index.ts`
+- Created `tests/e2e/channel/channel.validation.test.ts` (6 no-network tests, all pass)
+- Created `tests/e2e/channel/channel.create.test.ts` (7 testnet tests, all pass)
+- Files changed: src/commands/channel.ts, src/commands/index.ts, src/index.ts, tests/e2e/channel/channel.validation.test.ts, tests/e2e/channel/channel.create.test.ts
+- **Learnings for future iterations:**
+  - CRITICAL: The XRPL ledger entry type for a payment channel in `AffectedNodes` metadata is `"PayChannel"`, NOT `"PaymentChannel"`. Using the wrong string causes channelId extraction to silently return null.
+  - Use xrpl.js `isCreatedNode(n)` (imported from "xrpl") to properly narrow the Node discriminated union — do not try to access `n.CreatedNode?.prop` directly
+  - `TransactionMetadataBase` is the correct type to import for generic tx metadata (not `TransactionMetadata` which is a complex conditional type)
+  - The `--no-wait` option follows the memory pattern: no default arg, `options.wait` is the property name, `if (!options.wait)` is the check
 ---

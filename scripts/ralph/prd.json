@@ -1,18 +1,21 @@
 {
   "project": "xrpl-cli",
-  "branchName": "ralph/github-ci",
-  "description": "GitHub Actions CI — typecheck and E2E test workflows on every push and PR, with runtime Node PATH resolution replacing hardcoded fnm paths",
+  "branchName": "ralph/channel",
+  "description": "Payment channel commands — create, fund, sign, verify, claim, close, and list XRPL payment channels",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Fix hardcoded fnm PATH in test files",
-      "description": "As a developer, I want E2E test files to resolve the Node binary directory at runtime so tests work both locally (fnm) and in CI (setup-node).",
+      "title": "channel create command",
+      "description": "As a developer, I want to open a payment channel from the CLI so I can lock XRP for a streaming payment relationship.",
       "acceptanceCriteria": [
-        "Create tests/helpers/cli.ts that exports a runCLI(args, extraEnv?) function using PATH set to `path.dirname(process.execPath) + path.delimiter + (process.env.PATH ?? '')` — this resolves to the bin dir of the currently running node binary",
-        "Replace every hardcoded `/home/vscode/.fnm/node-versions/v22.22.0/installation/bin` string in all test files with the runtime-resolved path from the shared helper or inline `process.execPath` pattern",
-        "The shared runCLI helper uses TSX = resolve(process.cwd(), 'node_modules/.bin/tsx') and CLI = resolve(process.cwd(), 'src/index.ts')",
-        "All existing test files that define their own runCLI or E2E_PATH are updated to use the shared helper or inline process.execPath",
-        "npm test passes (no 'command not found' or 'spawn' errors)",
+        "Read PaymentChannelCreate docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/paymentchannelcreate.md before implementing",
+        "Create src/commands/channel.ts and register it in src/commands/index.ts",
+        "xrpl channel create subcommand with: --to (required), --amount XRP decimal (required, converted to drops), --settle-delay seconds (required), --public-key hex (optional, derived from wallet.publicKey if omitted), --cancel-after ISO8601 (optional, converted to XRPL epoch: Math.floor(new Date(s).getTime()/1000)-946684800), --destination-tag n (optional)",
+        "Standard key material options: --seed, --mnemonic, --account/--keystore/--password",
+        "Standard output options: --node, --json, --dry-run, --no-wait",
+        "On success, output prints the channel ID (retrieved from transaction metadata CreatedNode with LedgerEntryType PaymentChannel)",
+        "tests/e2e/channel/channel.validation.test.ts covers: missing --to, missing --amount, missing --settle-delay, invalid ISO date, missing key material (no network)",
+        "tests/e2e/channel/channel.create.test.ts covers: create a channel and verify channel ID in output, --json, --dry-run",
         "Typecheck passes"
       ],
       "priority": 1,
@@ -21,15 +24,14 @@
     },
     {
       "id": "US-002",
-      "title": "Typecheck GitHub Actions workflow",
-      "description": "As a developer, I want a CI workflow that runs npm run typecheck on every push and PR so TypeScript errors are caught without running E2E tests.",
+      "title": "channel fund command",
+      "description": "As a developer, I want to add more XRP to an existing channel so I can extend its capacity without reopening it.",
       "acceptanceCriteria": [
-        "Create .github/workflows/typecheck.yml",
-        "Workflow is named 'Typecheck' and has a job named 'typecheck'",
-        "Triggers on push (all branches) and pull_request (all branches): `on: [push, pull_request]`",
-        "Uses actions/checkout@v4",
-        "Uses actions/setup-node@v4 with node-version: '22' and cache: 'npm'",
-        "Runs `npm ci` then `npm run typecheck`",
+        "Read PaymentChannelFund docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/paymentchannelfund.md before implementing",
+        "xrpl channel fund subcommand with: --channel hex (required, 64-char channel ID), --amount XRP decimal (required, converted to drops), --expiration ISO8601 (optional, converted to XRPL epoch)",
+        "Standard key material options: --seed, --mnemonic, --account/--keystore/--password",
+        "Standard output options: --node, --json, --dry-run, --no-wait",
+        "tests/e2e/channel/channel.fund.test.ts covers: fund an existing channel, verify updated amount in channel list output, --json, --dry-run",
         "Typecheck passes"
       ],
       "priority": 2,
@@ -38,19 +40,49 @@
     },
     {
       "id": "US-003",
-      "title": "E2E test GitHub Actions workflow",
-      "description": "As a developer, I want a CI workflow that runs the full test suite on every push and PR so regressions are caught before merge.",
+      "title": "channel sign and channel verify commands",
+      "description": "As a developer, I want to sign and verify off-chain payment claims so I can conduct micropayments without on-chain transactions.",
       "acceptanceCriteria": [
-        "Create .github/workflows/test.yml",
-        "Workflow is named 'Test' and has a job named 'test'",
-        "Triggers on push (all branches) and pull_request (all branches): `on: [push, pull_request]`",
-        "Uses actions/checkout@v4",
-        "Uses actions/setup-node@v4 with node-version: '22' and cache: 'npm'",
-        "Runs `npm ci` then `npm test`",
-        "Job sets `timeout-minutes: 20` to allow for faucet retry backoff (up to 30 retries x ~5s each per wallet)",
+        "xrpl channel sign subcommand with: --channel hex (required), --amount XRP decimal (required, converted to drops), key material options (--seed, --mnemonic, --account/--keystore/--password); no --node required; uses xrpl.js signPaymentChannelClaim(channelId, amountDrops, privateKey); outputs hex signature",
+        "xrpl channel verify subcommand with: --channel hex (required), --amount XRP decimal (required, converted to drops), --signature hex (required), --public-key hex (required); no --node required; uses xrpl.js verifyPaymentChannelClaim(channelId, amountDrops, signature, publicKey); outputs 'valid' or 'invalid'",
+        "tests/e2e/channel/channel.sign.test.ts covers: sign a claim and verify it passes channel verify, verify a tampered signature fails, verify wrong amount fails (no network required)",
         "Typecheck passes"
       ],
       "priority": 3,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "channel claim command",
+      "description": "As a developer, I want to redeem an off-chain claim on-ledger or close a channel so funds are settled correctly.",
+      "acceptanceCriteria": [
+        "Read PaymentChannelClaim docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/paymentchannelclaim.md before implementing",
+        "xrpl channel claim subcommand with: --channel hex (required), --amount XRP decimal (optional, converted to drops), --balance XRP decimal (optional, converted to drops), --signature hex (optional), --public-key hex (optional), --close flag (sets tfClose = 0x00020000), --renew flag (sets tfRenew = 0x00010000)",
+        "Standard key material options: --seed, --mnemonic, --account/--keystore/--password",
+        "Standard output options: --node, --json, --dry-run, --no-wait",
+        "CLI exits with error if --signature is provided without --public-key, --amount, and --balance",
+        "tests/e2e/channel/channel.claim.test.ts covers: destination redeems a signed claim (create channel, sign claim, redeem with channel claim), source closes a channel with --close flag, --json, --dry-run",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "channel list query command",
+      "description": "As a developer, I want to list all open payment channels for an account so I can see their IDs, balances, and expiry.",
+      "acceptanceCriteria": [
+        "xrpl channel list <address> subcommand using account_channels RPC with optional --destination <address> filter",
+        "Default human-readable output per channel: channel ID, amount (XRP), balance (XRP), destination, settle-delay (seconds), expiration (ISO8601 or 'none'), cancel-after (ISO8601 or 'none'), public-key-hex",
+        "XRPL epoch timestamps converted to ISO8601: new Date((epoch + 946684800) * 1000).toISOString()",
+        "--json outputs raw JSON array",
+        "--node supported",
+        "tests/e2e/channel/channel.list.test.ts: create a channel then verify it appears in list; --json output; --destination filter returns only matching channels",
+        "Typecheck passes"
+      ],
+      "priority": 5,
       "passes": true,
       "notes": ""
     }
