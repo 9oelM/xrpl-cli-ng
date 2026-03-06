@@ -19,7 +19,7 @@ beforeAll(async () => {
 }, 180_000);
 
 function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 describe("account set fields", () => {
