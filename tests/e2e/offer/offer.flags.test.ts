@@ -1,8 +1,12 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { spawnSync } from "child_process";
 import { resolve } from "path";
+import { mkdtempSync, rmSync } from "fs";
+import { tmpdir } from "os";
 import { Client, Wallet, xrpToDrops } from "xrpl";
-import type { TrustSet, OfferCreate as XrplOfferCreate } from "xrpl";
+import type { TrustSet, OfferCreate as XrplOfferCreate, Payment as XrplPayment } from "xrpl";
+import { generateMnemonic } from "@scure/bip39";
+import { wordlist } from "@scure/bip39/wordlists/english";
 import { fundFromFaucet, TESTNET_URL } from "../../helpers/testnet.js";
 
 const CLI = resolve(process.cwd(), "src/index.ts");
@@ -20,6 +24,9 @@ function runCLI(args: string[]) {
 let client: Client;
 let maker: Wallet;
 let issuer: Wallet;
+let testMnemonic: string;
+let mnemonicAddress: string;
+let mnemonicWallet: Wallet;
 
 beforeAll(async () => {
   client = new Client(TESTNET_URL);
@@ -34,6 +41,29 @@ beforeAll(async () => {
     LimitAmount: { currency: "USD", issuer: issuer.address, value: "100000" },
   });
   await client.submitAndWait(maker.sign(trustTx).tx_blob);
+
+  // Generate a fresh mnemonic, fund the derived wallet, and set up trust line
+  testMnemonic = generateMnemonic(wordlist);
+  mnemonicWallet = Wallet.fromMnemonic(testMnemonic, {
+    mnemonicEncoding: "bip39",
+    derivationPath: "m/44'/144'/0'/0/0",
+  });
+  mnemonicAddress = mnemonicWallet.address;
+
+  const fundMnemonicTx: XrplPayment = await client.autofill({
+    TransactionType: "Payment",
+    Account: maker.address,
+    Amount: xrpToDrops(25),
+    Destination: mnemonicAddress,
+  });
+  await client.submitAndWait(maker.sign(fundMnemonicTx).tx_blob);
+
+  const mnemonicTrustTx: TrustSet = await client.autofill({
+    TransactionType: "TrustSet",
+    Account: mnemonicAddress,
+    LimitAmount: { currency: "USD", issuer: issuer.address, value: "100000" },
+  });
+  await client.submitAndWait(mnemonicWallet.sign(mnemonicTrustTx).tx_blob);
 }, 180_000);
 
 afterAll(async () => {
@@ -155,5 +185,71 @@ describe("offer flags", () => {
     expect(offersResult.status).toBe(0);
     const countAfter = (JSON.parse(offersResult.stdout) as unknown[]).length;
     expect(countAfter).toBeLessThanOrEqual(countBefore);
+  });
+
+  it("--fill-or-kill flag: exits 0 (tecKILLED is non-fatal) and offer is not placed", () => {
+    const countBefore = (
+      JSON.parse(
+        runCLI(["--node", "testnet", "account", "offers", "--json", maker.address]).stdout
+      ) as unknown[]
+    ).length;
+
+    const result = runCLI([
+      "--node", "testnet",
+      "offer", "create",
+      "--taker-pays", `1/USD/${issuer.address}`,
+      "--taker-gets", "10",
+      "--fill-or-kill",
+      "--seed", maker.seed!,
+    ]);
+    expect(result.status, `stdout: ${result.stdout} stderr: ${result.stderr}`).toBe(0);
+
+    // FOK offer that cannot be fully filled is killed — not placed in account_offers
+    const offersResult = runCLI([
+      "--node", "testnet",
+      "account", "offers", "--json", maker.address,
+    ]);
+    expect(offersResult.status).toBe(0);
+    const countAfter = (JSON.parse(offersResult.stdout) as unknown[]).length;
+    expect(countAfter).toBeLessThanOrEqual(countBefore);
+  });
+
+  it("--mnemonic key material: creates offer successfully", () => {
+    const result = runCLI([
+      "--node", "testnet",
+      "offer", "create",
+      "--taker-pays", `1/USD/${issuer.address}`,
+      "--taker-gets", "10",
+      "--mnemonic", testMnemonic,
+    ]);
+    expect(result.status, `stdout: ${result.stdout} stderr: ${result.stderr}`).toBe(0);
+    expect(result.stdout).toContain("Sequence:");
+  });
+
+  it("--account + --keystore + --password: creates offer successfully", () => {
+    const tmpDir = mkdtempSync(resolve(tmpdir(), "xrpl-test-keystore-"));
+    try {
+      const importResult = runCLI([
+        "wallet", "import",
+        maker.seed!,
+        "--password", "pw123",
+        "--keystore", tmpDir,
+      ]);
+      expect(importResult.status, `stdout: ${importResult.stdout} stderr: ${importResult.stderr}`).toBe(0);
+
+      const result = runCLI([
+        "--node", "testnet",
+        "offer", "create",
+        "--taker-pays", `1/USD/${issuer.address}`,
+        "--taker-gets", "10",
+        "--account", maker.address,
+        "--keystore", tmpDir,
+        "--password", "pw123",
+      ]);
+      expect(result.status, `stdout: ${result.stdout} stderr: ${result.stderr}`).toBe(0);
+      expect(result.stdout).toContain("Sequence:");
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 });

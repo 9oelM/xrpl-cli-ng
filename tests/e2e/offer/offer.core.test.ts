@@ -112,6 +112,86 @@ describe("offer core", () => {
     expect(offers.find((o) => o.seq === seq)).toBeUndefined();
   });
 
+  it("offer cancel --json: output has hash and tesSUCCESS result", async () => {
+    const createTx: XrplOfferCreate = await client.autofill({
+      TransactionType: "OfferCreate",
+      Account: maker.address,
+      TakerPays: { currency: "USD", issuer: issuer.address, value: "5" },
+      TakerGets: xrpToDrops(50),
+    });
+    const createResult = await client.submitAndWait(maker.sign(createTx).tx_blob);
+    const seq = (createResult.result.tx_json as { Sequence?: number }).Sequence!;
+
+    const result = runCLI([
+      "--node", "testnet",
+      "offer", "cancel",
+      "--sequence", String(seq),
+      "--json",
+      "--seed", maker.seed!,
+    ]);
+    expect(result.status, `stdout: ${result.stdout} stderr: ${result.stderr}`).toBe(0);
+    const out = JSON.parse(result.stdout) as { hash: string; result: string };
+    expect(out.hash).toMatch(/^[0-9A-Fa-f]{64}$/);
+    expect(out.result).toBe("tesSUCCESS");
+  });
+
+  it("offer cancel --dry-run: outputs OfferCancel tx JSON without cancelling", async () => {
+    const createTx: XrplOfferCreate = await client.autofill({
+      TransactionType: "OfferCreate",
+      Account: maker.address,
+      TakerPays: { currency: "USD", issuer: issuer.address, value: "5" },
+      TakerGets: xrpToDrops(50),
+    });
+    const createResult = await client.submitAndWait(maker.sign(createTx).tx_blob);
+    const seq = (createResult.result.tx_json as { Sequence?: number }).Sequence!;
+
+    const countBefore = (
+      JSON.parse(
+        runCLI(["--node", "testnet", "account", "offers", "--json", maker.address]).stdout
+      ) as unknown[]
+    ).length;
+
+    const result = runCLI([
+      "--node", "testnet",
+      "offer", "cancel",
+      "--sequence", String(seq),
+      "--dry-run",
+      "--seed", maker.seed!,
+    ]);
+    expect(result.status, `stdout: ${result.stdout} stderr: ${result.stderr}`).toBe(0);
+    const out = JSON.parse(result.stdout) as { tx_blob: string; tx: { TransactionType: string } };
+    expect(out.tx.TransactionType).toBe("OfferCancel");
+    expect(typeof out.tx_blob).toBe("string");
+
+    const countAfter = (
+      JSON.parse(
+        runCLI(["--node", "testnet", "account", "offers", "--json", maker.address]).stdout
+      ) as unknown[]
+    ).length;
+    expect(countAfter).toBe(countBefore);
+  });
+
+  it("offer cancel --no-wait: exits 0 and stdout is 64-char hex", async () => {
+    const createTx: XrplOfferCreate = await client.autofill({
+      TransactionType: "OfferCreate",
+      Account: maker.address,
+      TakerPays: { currency: "USD", issuer: issuer.address, value: "5" },
+      TakerGets: xrpToDrops(50),
+    });
+    const createResult = await client.submitAndWait(maker.sign(createTx).tx_blob);
+    const seq = (createResult.result.tx_json as { Sequence?: number }).Sequence!;
+
+    const result = runCLI([
+      "--node", "testnet",
+      "offer", "cancel",
+      "--sequence", String(seq),
+      "--no-wait",
+      "--seed", maker.seed!,
+    ]);
+    expect(result.status, `stdout: ${result.stdout} stderr: ${result.stderr}`).toBe(0);
+    expect(result.stdout.trim()).toMatch(/^[0-9A-Fa-f]{64}$/);
+  });
+
   it("--json output: hash, result tesSUCCESS, offerSequence > 0", () => {
     const result = runCLI([
       "--node", "testnet",
