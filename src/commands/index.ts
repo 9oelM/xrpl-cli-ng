@@ -4,3 +4,4 @@ export { paymentCommand } from "./payment.js";
 export { trustCommand } from "./trust.js";
 export { offerCommand } from "./offer.js";
 export { channelCommand } from "./channel.js";
+export { escrowCommand } from "./escrow.js";
