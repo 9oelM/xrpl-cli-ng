@@ -8,6 +8,7 @@ import { channelsCommand } from "./channels.js";
 import { nftsCommand } from "./nfts.js";
 import { setCommand } from "./set.js";
 import { deleteCommand } from "./delete.js";
+import { setRegularKeyCommand } from "./set-regular-key.js";
 
 export const accountCommand = new Command("account").description(
   "Account management commands"
@@ -22,3 +23,4 @@ accountCommand.addCommand(channelsCommand);
 accountCommand.addCommand(nftsCommand);
 accountCommand.addCommand(setCommand);
 accountCommand.addCommand(deleteCommand);
+accountCommand.addCommand(setRegularKeyCommand);
