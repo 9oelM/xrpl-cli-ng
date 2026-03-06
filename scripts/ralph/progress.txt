@@ -1,53 +1,37 @@
-## Codebase Patterns
-- Wallet resolution pattern: use a `resolveWallet(options)` helper — checks seed → mnemonic → account/keystore, matches trust.ts and payment.ts
-- OfferCreate sequence after submit: available in `response.result.tx_json.Sequence`; also available in `filled.Sequence` after autofill
-- `isoTimeToRippleTime` is exported directly from xrpl.js — use it to convert ISO 8601 to XRPL epoch for `Expiration` field
-- `OfferCreateFlags` is exported from xrpl.js: tfPassive, tfImmediateOrCancel, tfFillOrKill, tfSell
-
 # Ralph Progress Log
-Started: Thu Mar  5 03:07:41 PM Universal 2026
+Started: Fri Mar  6 04:30:16 AM Universal 2026
 ---
 
-## 2026-03-05 - US-001
-- Implemented `offer create` (alias `c`) and `offer cancel` (alias `x`) subcommands under `offer` top-level command
-- Files changed: `src/commands/offer.ts` (new), `src/commands/index.ts`, `src/index.ts`
+## Codebase Patterns
+- xrpl.js PaymentFlags real values: `tfNoRippleDirect=0x10000`, `tfPartialPayment=0x20000`, `tfLimitQuality=0x40000` (not 0x40000/0x80000 as some docs state)
+- Commander.js `--no-X` options: property is camelCase of X (NOT noX), default true, `--no-X` sets it to false; check with `!options.X`; NEVER give explicit `false` default
+- Use `@scure/bip39` (`generateMnemonic` + `wordlist` from `@scure/bip39/wordlists/english`) to generate fresh random mnemonics in beforeAll — never use well-known BIP39 test vectors like "abandon...about" on testnet (overused, high sequence number, transaction expiry)
+- Fund mnemonic-derived wallets from the faucet-funded sender wallet (via `client.autofill` + `sender.sign` + `client.submitAndWait`) in beforeAll, not directly from the faucet
+- For `account info --json` the output is the `account_data` object with `Balance` as a string in drops
+- For `account trust-lines --json` the output is an array with `{ account, currency, balance, limit }` — `balance` is positive from the holder's perspective
+
+## 2026-03-06 - US-002
+- Fixed `--no-ripple-direct` Commander.js naming bug: removed explicit `false` default, changed interface property `noRippleDirect` → `rippleDirect`, changed check to `!options.rippleDirect`
+- Added `--no-ripple-direct` dry-run test asserting `(Flags & 0x00010000) !== 0` (tfNoRippleDirect = 65536)
+- Added `--limit-quality` dry-run test asserting `(Flags & 0x00040000) !== 0` (tfLimitQuality = 262144)
+- Updated `--partial --deliver-min` test in payment.paths.test.ts to add `--json` and assert `deliveredAmount >= 1` (deliver-min value)
+- Files changed: src/commands/payment.ts, tests/e2e/payment/payment.core.test.ts, tests/e2e/payment/payment.paths.test.ts
 - **Learnings for future iterations:**
-  - `OfferCreateFlags` and `isoTimeToRippleTime` are both available directly from xrpl.js package
-  - `--immediate-or-cancel` and `--fill-or-kill` are mutually exclusive — checked before network call
-  - Plain output for offer create: `Offer created. Sequence: <N>` (as per PRD acceptance criteria)
-  - JSON output for offer create: `{ hash, result, offerSequence }`; for offer cancel: `{ hash, result }`
-  - offerSequence is taken from `txResult.tx_json.Sequence` in the validated response
-  - Keystore/wallet resolution factored into a `resolveWallet` helper to avoid code duplication
+  - xrpl.js PaymentFlags actual values: `tfNoRippleDirect=65536=0x10000`, `tfPartialPayment=131072=0x20000`, `tfLimitQuality=262144=0x40000` — NOT 0x40000/0x80000 as docs sometimes imply
+  - The `--no-ripple-direct` Commander.js issue: `--no-X` options store as `X` (camelCased), default true; passing `--no-X` sets it to false; check with `!options.X`; NEVER use explicit `false` default for `--no-X` options
+  - For IOU partial payments, `deliveredAmount` in JSON output is `{ value, currency, issuer }` — check `Number(out.deliveredAmount.value)` for assertions
 ---
 
-## 2026-03-05 - US-002
-- All OfferCreate flags (--sell, --passive, --immediate-or-cancel, --fill-or-kill, --expiration, --replace) were already implemented in src/commands/offer.ts as part of US-001
-- Mutual exclusion check (--immediate-or-cancel + --fill-or-kill exits 1) also already in place
-- Typecheck passes; full test suite passes (transient faucet 429 in payment.iou.test.ts unrelated)
-- Files changed: scripts/ralph/prd.json (US-002 passes: true)
+## 2026-03-06 - US-001
+- Added balance verification (before/after drops comparison) to "sends 1 XRP" test in payment.core.test.ts
+- Added trust-line balance verification after IOU payment in payment.iou.test.ts
+- Added --memo-type and --memo-format test using --dry-run to inspect tx.Memos[0].Memo
+- Added --mnemonic key material test using freshly generated random mnemonic (from @scure/bip39)
+- Added --account/--keystore/--password test (same pattern as trust.core.test.ts: tmpDir + wallet import CLI)
+- Files changed: tests/e2e/payment/payment.core.test.ts, tests/e2e/payment/payment.iou.test.ts
 - **Learnings for future iterations:**
-  - When building offer.ts, all flags were implemented upfront — US-002 was effectively a no-op at implementation time
-  - OfferCreate.OfferSequence (not to be confused with the account's Sequence) is used for --replace (atomic cancel+replace)
----
-
-## 2026-03-05 - US-003
-- Created tests/e2e/offer/offer.validation.test.ts (4 no-network tests)
-- Created tests/e2e/offer/offer.core.test.ts (6 on-chain tests with beforeAll faucet funding and USD trust line setup)
-- Fixed --no-wait bug in offer.ts: `.option("--no-wait", ..., false)` with explicit `false` default makes both states identical; removed default and changed `options.noWait` → `!options.wait`
-- Files changed: tests/e2e/offer/offer.validation.test.ts, tests/e2e/offer/offer.core.test.ts, src/commands/offer.ts
-- **Learnings for future iterations:**
-  - Commander.js `--no-xxx` option stores property as `xxx` (not `noWait`), default `true`, `--no-wait` sets to `false`. DO NOT pass explicit `false` default — it makes the flag a no-op. Check `!options.wait` not `options.noWait`.
-  - For offer on-chain verification: use `account offers --json <address>`, filter by seq number parsed from CLI output
-  - book_offers query direction: our offer (TakerPays=USD, TakerGets=XRP) appears in `{ taker_pays: {currency:"USD", issuer:...}, taker_gets: {currency:"XRP"} }` — NOT the reversed direction
-  - Keep xrpl.js client alive for entire test file (beforeAll connect, afterAll disconnect) when multiple async tests need on-chain queries
----
-
-## 2026-03-05 - US-004
-- Created tests/e2e/offer/offer.flags.test.ts (4 flag-specific on-chain tests: --passive, --replace, --expiration, --immediate-or-cancel)
-- Fixed offer.ts to treat tecKILLED as non-fatal for IOC/FOK offers (expected outcome, exits 0 with "Offer killed" message)
-- Files changed: tests/e2e/offer/offer.flags.test.ts, src/commands/offer.ts
-- **Learnings for future iterations:**
-  - `tecKILLED` result for OfferCreate with IOC/FOK: ledger killed offer because it couldn't be immediately filled — normal/expected outcome, must exit 0
-  - For --expiration test: `account_offers` JSON response includes `expiration` as a number (XRPL epoch) if set
-  - For --replace test: use xrpl.js to pre-create an offer directly to get a reliable sequence number
+  - "abandon...about" BIP39 mnemonic is widely used on testnet — its sequence is high and transactions expire; always generate fresh mnemonics with @scure/bip39
+  - Import pattern: `import { generateMnemonic } from "@scure/bip39"; import { wordlist } from "@scure/bip39/wordlists/english";`
+  - getBalanceDrops helper: `Number(JSON.parse(runCLI(["account", "info", "--json", addr]).stdout).Balance)`
+  - Trust line balance is from holder's perspective: positive when holding IOU
 ---
