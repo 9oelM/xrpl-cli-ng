@@ -1,3 +1,18 @@
+## 2026-03-06 - US-004
+- Implemented `xrpl channel claim` subcommand in `src/commands/channel.ts`
+- Added `PaymentChannelClaim` type import; added `channelClaimCommand` with `--channel`, `--amount`, `--balance`, `--signature`, `--public-key`, `--close`, `--renew`, standard key material, and standard output options
+- Validation: `--signature` requires `--public-key`, `--amount`, and `--balance`; channel must be 64-char hex; key material must be provided exactly once
+- `--close` flag sets tfClose (0x00020000), `--renew` sets tfRenew (0x00010000), combined with bitwise OR
+- Created `tests/e2e/channel/channel.claim.test.ts` — 13 tests (6 testnet, 7 no-network); all pass
+- Files changed: src/commands/channel.ts, tests/e2e/channel/channel.claim.test.ts
+- **Learnings for future iterations:**
+  - PaymentChannelClaim `Amount` = total XRP authorized by signature; `Balance` = total XRP delivered in this tx; for a full claim both are set to the same amount
+  - Source can close a channel with settle-delay=0 using --close flag; tesSUCCESS returned immediately
+  - Signature for claim must be uppercased when passed in tx field; use `.toUpperCase()`
+  - PublicKey in PaymentChannelClaim must also be uppercased
+  - `--close` and `--renew` are simple boolean Commander flags (default false), not negation flags — no `--no-X` gotcha applies
+---
+
 ## 2026-03-06 - US-003
 - Implemented `xrpl channel sign` and `xrpl channel verify` subcommands in `src/commands/channel.ts`
 - Both are fully offline — no network required, no `--node` flag
