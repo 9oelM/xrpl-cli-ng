@@ -25,3 +25,14 @@ Started: Fri Mar  6 11:22:03 AM Universal 2026
   - `multisig list` uses `account_objects` RPC with `type: "signer_list"`
   - US-001 includes delete/list commands even though US-002 covers them, because set tests require list for verification
 ---
+
+## 2026-03-06 - US-002
+- Created `tests/e2e/multisig/multisig.delete.test.ts` (4 tests: set+delete+verify, --json, --dry-run, --no-wait)
+- Created `tests/e2e/multisig/multisig.list.test.ts` (3 tests: correct quorum/weights, --json, no signer list)
+- All 7 tests pass; typecheck passes
+- Files changed: tests/e2e/multisig/multisig.delete.test.ts, tests/e2e/multisig/multisig.list.test.ts
+- **Learnings for future iterations:**
+  - `multisig delete --dry-run` still connects to testnet for autofill (need node URL); tx.SignerQuorum will be 0 confirming deletion intent
+  - For list tests: set the signer list in `beforeAll` so individual tests just query rather than wait for network
+  - `--no-wait` tests for delete need a signer list set first; sequencing matters for destructive operations
+---
