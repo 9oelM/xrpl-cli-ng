@@ -1,90 +1,28 @@
-# Ralph Progress Log
-Started: Fri Mar  6 04:30:16 AM Universal 2026
----
-
 ## Codebase Patterns
-- xrpl.js PaymentFlags real values: `tfNoRippleDirect=0x10000`, `tfPartialPayment=0x20000`, `tfLimitQuality=0x40000` (not 0x40000/0x80000 as some docs state)
-- Commander.js `--no-X` options: property is camelCase of X (NOT noX), default true, `--no-X` sets it to false; check with `!options.X`; NEVER give explicit `false` default
-- Use `@scure/bip39` (`generateMnemonic` + `wordlist` from `@scure/bip39/wordlists/english`) to generate fresh random mnemonics in beforeAll — never use well-known BIP39 test vectors like "abandon...about" on testnet (overused, high sequence number, transaction expiry)
-- Fund mnemonic-derived wallets from the faucet-funded sender wallet (via `client.autofill` + `sender.sign` + `client.submitAndWait`) in beforeAll, not directly from the faucet
-- For `account info --json` the output is the `account_data` object with `Balance` as a string in drops
-- For `account trust-lines --json` the output is an array with `{ account, currency, balance, limit }` — `balance` is positive from the holder's perspective
+- Shared CLI runner: `tests/helpers/cli.ts` exports `runCLI(args, extraEnv?)` — all E2E tests import from here
+- Runtime PATH resolution: `path.dirname(process.execPath) + path.delimiter + process.env.PATH` works in fnm (local) and setup-node (CI)
+- Some test files use `resolve` from `path` for `mkdtempSync(resolve(tmpdir(), ...))` — keep that import even after removing CLI/TSX/E2E_PATH boilerplate
 
-## 2026-03-06 - US-006
-- Added offer cancel --json test: pre-creates offer via xrpl.js, cancels with --json, asserts hash (64-char hex) and result 'tesSUCCESS'
-- Added offer cancel --dry-run test: pre-creates offer, runs dry-run, asserts TransactionType === 'OfferCancel' and tx_blob present; verifies offer count unchanged
-- Added offer cancel --no-wait test: pre-creates offer, cancels with --no-wait, asserts exit 0 and 64-char hex stdout
-- Added --fill-or-kill test: asserts exit 0 (tecKILLED is non-fatal) and offer count does not grow
-- Added --mnemonic test: generates fresh mnemonic, funds wallet + sets up trust line in beforeAll (via xrpl.js), runs offer create with --mnemonic, asserts exit 0 + "Sequence:" in stdout
-- Added --account/--keystore/--password test: temp keystore dir, wallet import, offer create with --account/--keystore/--password, asserts exit 0
-- Files changed: tests/e2e/offer/offer.core.test.ts, tests/e2e/offer/offer.flags.test.ts
-- **Learnings for future iterations:**
-  - For mnemonic wallet offer tests, set up trust line in beforeAll using `mnemonicWallet.sign(...)` (Wallet.fromMnemonic returns a full Wallet object with signing capability)
-  - FOK and IOC offers both yield tecKILLED when they can't be filled — the CLI treats this as non-fatal (exit 0) which is the correct behavior
-  - offer cancel --dry-run returns `{ tx_blob, tx }` (same shape as offer create --dry-run); tx.TransactionType === 'OfferCancel'
----
-
-## 2026-03-06 - US-005
-- Created tests/e2e/account/account.set.flags.test.ts with its own beforeAll funding one wallet + mnemonic wallet
-- Added --set-flag defaultRipple test: submits AccountSet SetFlag=8, sleeps 10s, queries account info --json, asserts (Flags & 0x00800000) !== 0
-- Added --clear-flag defaultRipple test: submits AccountSet ClearFlag=8, sleeps 10s, asserts (Flags & 0x00800000) === 0
-- Added --mnemonic test: fund mnemonic wallet from faucet wallet in beforeAll, run account set --domain with --mnemonic, assert exit 0 + stdout contains "Transaction submitted:"
-- Added --account/--keystore/--password test: temp keystore dir, wallet import, account set --domain, assert exit 0
-- Files changed: tests/e2e/account/account.set.flags.test.ts (new)
-- **Learnings for future iterations:**
-  - `account set` uses named flags (defaultRipple, requireDestTag, etc.) not numeric values; the ASF_FLAG_MAP enforces this
-  - lsfDefaultRipple ledger bit is 0x00800000; asfDefaultRipple value is 8 in the ASF_FLAG_MAP
-  - Set-flag and clear-flag tests must be sequential on the same wallet (the clear test depends on the set test having run)
-  - --set-flag and --clear-flag are accepted as named strings, not numbers
----
-
-## 2026-03-06 - US-004
-- Created tests/e2e/account/account.set.fields.test.ts with its own beforeAll funding one wallet via fundFromFaucet
-- Added --email-hash test: submits 32-char hex EmailHash, sleeps 10s, queries account info --json, asserts EmailHash matches
-- Added --transfer-rate test: submits 1005000000, sleeps 10s, queries account info --json, asserts TransferRate === 1005000000
-- Added --tick-size test: submits 5, sleeps 10s, queries account info --json, asserts TickSize === 5
-- Files changed: tests/e2e/account/account.set.fields.test.ts (new)
-- **Learnings for future iterations:**
-  - `account set` uses `client.submit()` (not `submitAndWait`), so tests must sleep ~10s before querying on-chain state
-  - `account info --json` outputs the raw `account_data` object — fields like `EmailHash`, `TransferRate`, `TickSize` are top-level properties
-  - EmailHash must be exactly 32 hex chars (16 bytes, MD5 size); use uppercase for comparison safety
-  - Tests within a describe block run sequentially in vitest — sequential submit + sleep + verify works safely on a single wallet
----
-
-## 2026-03-06 - US-003
-- Added on-chain trust-line verification to 'creates USD trust line' test (queries account trust-lines, asserts USD + issuer address present)
-- Added on-chain trust-line verification to 'alias s' test (asserts EUR + issuer address present)
-- Added on-chain trust-line verification to '--account/--keystore/--password' test (asserts CNY + issuer address present)
-- Added new '--mnemonic key material creates a trust line' test with fresh bip39 mnemonic, funds wallet from trustor, verifies MNE trust line on-chain
-- Files changed: tests/e2e/trust/trust.core.test.ts
-- **Learnings for future iterations:**
-  - `account trust-lines --json <address>` returns array with `{ account: string, currency: string, balance: string, limit: string, ... }` — `account` is the issuer/counterparty address
-  - Mnemonic wallets must be funded in beforeAll from the faucet-funded wallet (not directly from faucet) using `client.autofill` + `wallet.sign` + `client.submitAndWait`
-  - Use `Wallet.fromMnemonic(mnemonic, { mnemonicEncoding: "bip39", derivationPath: "m/44'/144'/0'/0/0" })` to derive address for funding
----
-
-## 2026-03-06 - US-002
-- Fixed `--no-ripple-direct` Commander.js naming bug: removed explicit `false` default, changed interface property `noRippleDirect` → `rippleDirect`, changed check to `!options.rippleDirect`
-- Added `--no-ripple-direct` dry-run test asserting `(Flags & 0x00010000) !== 0` (tfNoRippleDirect = 65536)
-- Added `--limit-quality` dry-run test asserting `(Flags & 0x00040000) !== 0` (tfLimitQuality = 262144)
-- Updated `--partial --deliver-min` test in payment.paths.test.ts to add `--json` and assert `deliveredAmount >= 1` (deliver-min value)
-- Files changed: src/commands/payment.ts, tests/e2e/payment/payment.core.test.ts, tests/e2e/payment/payment.paths.test.ts
-- **Learnings for future iterations:**
-  - xrpl.js PaymentFlags actual values: `tfNoRippleDirect=65536=0x10000`, `tfPartialPayment=131072=0x20000`, `tfLimitQuality=262144=0x40000` — NOT 0x40000/0x80000 as docs sometimes imply
-  - The `--no-ripple-direct` Commander.js issue: `--no-X` options store as `X` (camelCased), default true; passing `--no-X` sets it to false; check with `!options.X`; NEVER use explicit `false` default for `--no-X` options
-  - For IOU partial payments, `deliveredAmount` in JSON output is `{ value, currency, issuer }` — check `Number(out.deliveredAmount.value)` for assertions
+# Ralph Progress Log
+Started: Fri Mar  6 05:45:09 AM Universal 2026
 ---
 
 ## 2026-03-06 - US-001
-- Added balance verification (before/after drops comparison) to "sends 1 XRP" test in payment.core.test.ts
-- Added trust-line balance verification after IOU payment in payment.iou.test.ts
-- Added --memo-type and --memo-format test using --dry-run to inspect tx.Memos[0].Memo
-- Added --mnemonic key material test using freshly generated random mnemonic (from @scure/bip39)
-- Added --account/--keystore/--password test (same pattern as trust.core.test.ts: tmpDir + wallet import CLI)
-- Files changed: tests/e2e/payment/payment.core.test.ts, tests/e2e/payment/payment.iou.test.ts
+- Created `tests/helpers/cli.ts` with shared `runCLI(args, extraEnv?)` using runtime PATH from `path.dirname(process.execPath)`
+- Updated all 35 E2E test files to import `runCLI` from the shared helper, removing per-file boilerplate
+- Fixed `account/set.test.ts` which used `exec`/`execAsync` with inline TSX/CLI/E2E_PATH — converted to `runCLI`
+- Fixed `wallet/import.test.ts` which had an inline `spawnSync` call — converted to `runCLI` with extraEnv
 - **Learnings for future iterations:**
-  - "abandon...about" BIP39 mnemonic is widely used on testnet — its sequence is high and transactions expire; always generate fresh mnemonics with @scure/bip39
-  - Import pattern: `import { generateMnemonic } from "@scure/bip39"; import { wordlist } from "@scure/bip39/wordlists/english";`
-  - getBalanceDrops helper: `Number(JSON.parse(runCLI(["account", "info", "--json", addr]).stdout).Balance)`
-  - Trust line balance is from holder's perspective: positive when holding IOU
+  - Some files use `resolve` from `path` for `mkdtempSync` — must keep that import even when removing CLI runner boilerplate
+  - `account/set.test.ts` had an unusual `exec`+`promisify` pattern in `beforeAll`; converted to synchronous `runCLI`
+  - Typecheck passes with no issues after the refactor
+---
+
+## 2026-03-06 - US-002
+- Created `.github/workflows/typecheck.yml` triggering on push and pull_request
+- Workflow named 'Typecheck', job named 'typecheck', uses actions/checkout@v4 + actions/setup-node@v4 (node 22, npm cache)
+- Runs `npm ci` then `npm run typecheck`
+- **Learnings for future iterations:**
+  - GitHub Actions workflows go in `.github/workflows/` — directory must be created if it doesn't exist
+  - `on: [push, pull_request]` covers all branches by default
 ---
