@@ -1,0 +1,49 @@
+{
+  "project": "xrpl-cli",
+  "branchName": "ralph/clawback",
+  "description": "Clawback command for recovering IOU and MPT tokens from holders, plus account set --allow-clawback with irreversibility guard",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "clawback command",
+      "description": "As a token issuer, I want to claw back tokens from a holder's account from the CLI so I can recover issued tokens for compliance or error correction.",
+      "acceptanceCriteria": [
+        "Read Clawback docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/clawback.md before implementing",
+        "Create src/commands/clawback.ts and register it in src/commands/index.ts and src/index.ts",
+        "xrpl clawback command with: --amount (required, IOU: value/CURRENCY/holder-address where the third field is the HOLDER not the issuer; MPT: value/MPT_ISSUANCE_ID), --holder address (required for MPT mode only)",
+        "Help text for --amount must explicitly say 'For IOU tokens: value/CURRENCY/holder-address (holder-address is the account to claw back from, not the token issuer)'",
+        "Standard key material options: --seed, --mnemonic, --account/--keystore/--password",
+        "Standard output options: --node, --json, --dry-run, --no-wait",
+        "CLI detects mode: --holder present = MPT mode; --holder absent = IOU mode",
+        "CLI exits with error if --holder is provided with a three-part IOU amount (value/CURRENCY/address)",
+        "CLI exits with error if MPT-format amount (two-part: value/MPT_ID) is provided without --holder",
+        "CLI exits with error if amount value is zero",
+        "IOU wire format: Amount = { value, currency, issuer: holderAddress } — the holder address goes in the issuer sub-field",
+        "MPT wire format: Amount = { value, mpt_issuance_id }, Holder = holderAddress",
+        "tests/e2e/clawback/clawback.validation.test.ts: zero amount, IOU with --holder, MPT without --holder, missing key material (no network)",
+        "tests/e2e/clawback/clawback.iou.test.ts: enable clawback on issuer, set trust line, issue tokens, claw back; --json, --dry-run",
+        "tests/e2e/clawback/clawback.mpt.test.ts: create MPT issuance with clawback enabled, authorize holder, transfer tokens, claw back; --json, --dry-run",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "account set --allow-clawback flag with --confirm guard",
+      "description": "As a token issuer, I want to enable clawback on my account with an explicit confirmation so I cannot accidentally set an irreversible flag.",
+      "acceptanceCriteria": [
+        "Add --allow-clawback flag to existing xrpl account set command in src/commands/account/set.ts",
+        "Add --confirm flag to xrpl account set (used to acknowledge irreversible operations)",
+        "When --allow-clawback is passed without --confirm: CLI exits 1 with message: 'Error: --allow-clawback is irreversible. Once enabled it cannot be disabled. To proceed, add --confirm to your command.'",
+        "When --allow-clawback is passed with --confirm: transaction is submitted using asfAllowTrustLineClawback from xrpl.js AccountSetAsfFlags enum (do not hardcode numeric value)",
+        "tests/e2e/account/account.set.clawback.test.ts: attempt without --confirm exits 1 with correct error message; attempt with --confirm succeeds and lsfAllowTrustLineClawback is set on-chain (verified via account info)",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

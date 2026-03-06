@@ -1,0 +1,79 @@
+{
+  "project": "xrpl-cli",
+  "branchName": "ralph/checks",
+  "description": "Check commands — create, cash, cancel, and list XRPL Checks with XRP and IOU support",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "check create command",
+      "description": "As a developer, I want to issue a check from the CLI so a recipient can pull funds at their convenience.",
+      "acceptanceCriteria": [
+        "Read CheckCreate docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/checkcreate.md before implementing",
+        "Create src/commands/check.ts and register it in src/commands/index.ts and src/index.ts",
+        "xrpl check create subcommand with: --to (required), --send-max (required, XRP decimal or value/CURRENCY/issuer IOU format), --expiration ISO8601 (optional, converted to XRPL epoch: Math.floor(new Date(s).getTime()/1000)-946684800), --destination-tag n (optional), --invoice-id string (optional, plain string auto hex-encoded via convertStringToHex; CLI rejects if input > 32 bytes)",
+        "Standard key material options: --seed, --mnemonic, --account/--keystore/--password",
+        "Standard output options: --node, --json, --dry-run, --no-wait",
+        "On success, output prints the Check ID (from AffectedNodes CreatedNode where LedgerEntryType === 'Check')",
+        "Reuse parseAmount and toXrplAmount from src/utils/amount.ts for --send-max parsing",
+        "tests/e2e/check/check.validation.test.ts: missing --to, missing --send-max, invalid ISO date, missing key material (no network)",
+        "tests/e2e/check/check.create.test.ts: create XRP check, --expiration, --destination-tag, --json, --dry-run",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "check cash command",
+      "description": "As a developer, I want to cash a check from the CLI so I can pull funds authorised for me.",
+      "acceptanceCriteria": [
+        "Read CheckCash docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/checkcash.md before implementing",
+        "xrpl check cash subcommand with: --check hex (required, 64-char Check ID), --amount (optional, XRP decimal or IOU), --deliver-min (optional, XRP decimal or IOU)",
+        "Standard key material options: --seed, --mnemonic, --account/--keystore/--password",
+        "Standard output options: --node, --json, --dry-run, --no-wait",
+        "CLI exits with error if both --amount and --deliver-min are provided",
+        "CLI exits with error if neither --amount nor --deliver-min is provided",
+        "Reuse parseAmount and toXrplAmount from src/utils/amount.ts",
+        "tests/e2e/check/check.cash.test.ts: cash an XRP check with --amount, cash with --deliver-min, --json, --dry-run",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "check cancel command",
+      "description": "As a developer, I want to cancel a check from the CLI so the reserved funds are freed.",
+      "acceptanceCriteria": [
+        "Read CheckCancel docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/checkcancel.md before implementing",
+        "xrpl check cancel subcommand with: --check hex (required, 64-char Check ID)",
+        "Standard key material options: --seed, --mnemonic, --account/--keystore/--password",
+        "Standard output options: --node, --json, --dry-run, --no-wait",
+        "tests/e2e/check/check.cancel.test.ts: sender cancels own check, --json, --dry-run",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "check list query command",
+      "description": "As a developer, I want to list pending checks for an account so I know which IDs to cash or cancel.",
+      "acceptanceCriteria": [
+        "xrpl check list <address> subcommand using account_objects RPC with type: 'check'",
+        "Default human-readable output per check: check ID, send-max (XRP decimal or value/CURRENCY/issuer), destination, expiration (ISO8601 or 'none'), invoice-id (hex or 'none')",
+        "XRPL epoch timestamps converted to ISO8601: new Date((epoch + 946684800) * 1000).toISOString()",
+        "--json outputs raw JSON array",
+        "--node supported",
+        "tests/e2e/check/check.list.test.ts: create a check then verify it appears in list output; --json output",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
