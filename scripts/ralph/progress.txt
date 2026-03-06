@@ -1,37 +1,26 @@
 ## Codebase Patterns
-- Shared CLI runner: `tests/helpers/cli.ts` exports `runCLI(args, extraEnv?)` — all E2E tests import from here
-- Runtime PATH resolution: `path.dirname(process.execPath) + path.delimiter + process.env.PATH` works in fnm (local) and setup-node (CI)
-- Some test files use `resolve` from `path` for `mkdtempSync(resolve(tmpdir(), ...))` — keep that import even after removing CLI/TSX/E2E_PATH boilerplate
+- EscrowCreate: FinishAfter/CancelAfter must be > current ledger close time (past timestamps fail with tecNO_PERMISSION)
+- EscrowCreate: self-escrow (Account == Destination) fails with tecNO_PERMISSION
+- EscrowCreate: --condition alone is invalid; xrpl.js requires FinishAfter or CancelAfter even when Condition is set
+- isoTimeToRippleTime() from xrpl package handles ISO8601 → XRPL epoch conversion
+- Commands with subcommands: create top-level Command("escrow"), add subcommands with .addCommand()
+- --no-wait pattern: .option("--no-wait", ...) with NO third arg; interface uses `wait: boolean`; check `if (!options.wait)`
+- Offer.ts has reusable resolveWallet() pattern that other commands duplicate
 
 # Ralph Progress Log
-Started: Fri Mar  6 05:45:09 AM Universal 2026
+Started: Fri Mar  6 07:58:31 AM Universal 2026
 ---
 
 ## 2026-03-06 - US-001
-- Created `tests/helpers/cli.ts` with shared `runCLI(args, extraEnv?)` using runtime PATH from `path.dirname(process.execPath)`
-- Updated all 35 E2E test files to import `runCLI` from the shared helper, removing per-file boilerplate
-- Fixed `account/set.test.ts` which used `exec`/`execAsync` with inline TSX/CLI/E2E_PATH — converted to `runCLI`
-- Fixed `wallet/import.test.ts` which had an inline `spawnSync` call — converted to `runCLI` with extraEnv
+- Implemented `xrpl escrow create` subcommand in src/commands/escrow.ts
+- Registered escrow command in src/commands/index.ts and src/index.ts
+- Created tests/e2e/escrow/escrow.validation.test.ts (5 no-network tests)
+- Created tests/e2e/escrow/escrow.create.test.ts (9 E2E tests against testnet)
+- Files changed: src/commands/escrow.ts, src/commands/index.ts, src/index.ts, tests/e2e/escrow/escrow.validation.test.ts, tests/e2e/escrow/escrow.create.test.ts
 - **Learnings for future iterations:**
-  - Some files use `resolve` from `path` for `mkdtempSync` — must keep that import even when removing CLI runner boilerplate
-  - `account/set.test.ts` had an unusual `exec`+`promisify` pattern in `beforeAll`; converted to synchronous `runCLI`
-  - Typecheck passes with no issues after the refactor
----
-
-## 2026-03-06 - US-002
-- Created `.github/workflows/typecheck.yml` triggering on push and pull_request
-- Workflow named 'Typecheck', job named 'typecheck', uses actions/checkout@v4 + actions/setup-node@v4 (node 22, npm cache)
-- Runs `npm ci` then `npm run typecheck`
-- **Learnings for future iterations:**
-  - GitHub Actions workflows go in `.github/workflows/` — directory must be created if it doesn't exist
-  - `on: [push, pull_request]` covers all branches by default
----
-
-## 2026-03-06 - US-003
-- Created `.github/workflows/test.yml` triggering on push and pull_request
-- Workflow named 'Test', job named 'test', `timeout-minutes: 20` set at job level
-- Uses actions/checkout@v4 + actions/setup-node@v4 (node 22, npm cache), runs `npm ci` then `npm test`
-- **Learnings for future iterations:**
-  - `timeout-minutes` is a job-level field in GitHub Actions (not step-level)
-  - 20 minutes covers 30 faucet retries × 5s each plus test execution time
+  - FinishAfter must be FUTURE (>current ledger close time); past timestamps cause tecNO_PERMISSION
+  - Self-escrow (Destination == Account) also causes tecNO_PERMISSION
+  - xrpl.js Wallet.sign() validates at signing time; condition-only escrow (no time) throws ValidationError
+  - isoTimeToRippleTime() from xrpl handles epoch conversion (use instead of manual Math.floor)
+  - For escrow finish tests (US-002): create with FinishAfter ~15s ahead, wait, then finish
 ---

@@ -1,18 +1,22 @@
 {
   "project": "xrpl-cli",
-  "branchName": "ralph/github-ci",
-  "description": "GitHub Actions CI — typecheck and E2E test workflows on every push and PR, with runtime Node PATH resolution replacing hardcoded fnm paths",
+  "branchName": "ralph/escrow",
+  "description": "Escrow commands — create, finish, cancel, and list XRPL escrows with time-based and crypto-condition support",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Fix hardcoded fnm PATH in test files",
-      "description": "As a developer, I want E2E test files to resolve the Node binary directory at runtime so tests work both locally (fnm) and in CI (setup-node).",
+      "title": "escrow create command",
+      "description": "As a developer, I want to lock XRP into an escrow from the CLI so I can schedule or condition a payment without writing a script.",
       "acceptanceCriteria": [
-        "Create tests/helpers/cli.ts that exports a runCLI(args, extraEnv?) function using PATH set to `path.dirname(process.execPath) + path.delimiter + (process.env.PATH ?? '')` — this resolves to the bin dir of the currently running node binary",
-        "Replace every hardcoded `/home/vscode/.fnm/node-versions/v22.22.0/installation/bin` string in all test files with the runtime-resolved path from the shared helper or inline `process.execPath` pattern",
-        "The shared runCLI helper uses TSX = resolve(process.cwd(), 'node_modules/.bin/tsx') and CLI = resolve(process.cwd(), 'src/index.ts')",
-        "All existing test files that define their own runCLI or E2E_PATH are updated to use the shared helper or inline process.execPath",
-        "npm test passes (no 'command not found' or 'spawn' errors)",
+        "Read EscrowCreate docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/escrowcreate.md before implementing",
+        "Create src/commands/escrow.ts and register it in src/commands/index.ts",
+        "xrpl escrow create subcommand with: --to (required), --amount XRP decimal (required, converted to drops), --finish-after ISO8601 (optional, converted to XRPL epoch: Math.floor(new Date(s).getTime()/1000)-946684800), --cancel-after ISO8601 (optional), --condition hex (optional), --destination-tag n (optional), --source-tag n (optional)",
+        "Standard key material options: --seed, --mnemonic, --account/--keystore/--password",
+        "Standard output options: --node, --json, --dry-run, --no-wait",
+        "CLI exits with error if neither --finish-after nor --condition is provided",
+        "On success, output clearly prints the transaction hash and EscrowCreate sequence number",
+        "tests/e2e/escrow/escrow.validation.test.ts covers: missing --to, missing --amount, missing both --finish-after and --condition, invalid ISO date, missing key material (no network)",
+        "tests/e2e/escrow/escrow.create.test.ts covers: time-based create with FinishAfter set to past timestamp, create with CancelAfter, --json output, --dry-run",
         "Typecheck passes"
       ],
       "priority": 1,
@@ -21,37 +25,53 @@
     },
     {
       "id": "US-002",
-      "title": "Typecheck GitHub Actions workflow",
-      "description": "As a developer, I want a CI workflow that runs npm run typecheck on every push and PR so TypeScript errors are caught without running E2E tests.",
+      "title": "escrow finish command",
+      "description": "As a developer, I want to release funds from a time-locked or condition-locked escrow so the destination receives the XRP.",
       "acceptanceCriteria": [
-        "Create .github/workflows/typecheck.yml",
-        "Workflow is named 'Typecheck' and has a job named 'typecheck'",
-        "Triggers on push (all branches) and pull_request (all branches): `on: [push, pull_request]`",
-        "Uses actions/checkout@v4",
-        "Uses actions/setup-node@v4 with node-version: '22' and cache: 'npm'",
-        "Runs `npm ci` then `npm run typecheck`",
+        "Read EscrowFinish docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/escrowfinish.md before implementing",
+        "xrpl escrow finish subcommand with: --owner (required), --sequence n (required, the EscrowCreate sequence number), --condition hex (optional), --fulfillment hex (optional)",
+        "Standard key material options: --seed, --mnemonic, --account/--keystore/--password",
+        "Standard output options: --node, --json, --dry-run, --no-wait",
+        "CLI exits with error if --condition is provided without --fulfillment or vice versa",
+        "When --fulfillment is present, fee is calculated as: Math.ceil((fulfillmentHex.length/2 + 15)/16)*10 + 330 drops minimum",
+        "tests/e2e/escrow/escrow.finish.test.ts covers: finish a time-based escrow (FinishAfter set to past), finish a crypto-condition escrow using a known 32-byte preimage, --json, --dry-run",
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-003",
-      "title": "E2E test GitHub Actions workflow",
-      "description": "As a developer, I want a CI workflow that runs the full test suite on every push and PR so regressions are caught before merge.",
+      "title": "escrow cancel command",
+      "description": "As a developer, I want to cancel an expired escrow so the locked XRP is returned to the sender.",
       "acceptanceCriteria": [
-        "Create .github/workflows/test.yml",
-        "Workflow is named 'Test' and has a job named 'test'",
-        "Triggers on push (all branches) and pull_request (all branches): `on: [push, pull_request]`",
-        "Uses actions/checkout@v4",
-        "Uses actions/setup-node@v4 with node-version: '22' and cache: 'npm'",
-        "Runs `npm ci` then `npm test`",
-        "Job sets `timeout-minutes: 20` to allow for faucet retry backoff (up to 30 retries x ~5s each per wallet)",
+        "Read EscrowCancel docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/escrowcancel.md before implementing",
+        "xrpl escrow cancel subcommand with: --owner (required), --sequence n (required)",
+        "Standard key material options: --seed, --mnemonic, --account/--keystore/--password",
+        "Standard output options: --node, --json, --dry-run, --no-wait",
+        "tests/e2e/escrow/escrow.cancel.test.ts covers: cancel an escrow whose CancelAfter has passed (create with CancelAfter ~10s in future, poll until cancel succeeds), --json, --dry-run",
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": true,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "escrow list query command",
+      "description": "As a developer, I want to list all pending escrows for an account so I know sequence numbers to use for finish/cancel.",
+      "acceptanceCriteria": [
+        "xrpl escrow list <address> subcommand that queries account_objects with type: 'escrow'",
+        "Default human-readable output shows per escrow: sequence, amount in XRP, destination, FinishAfter (ISO8601 or 'none'), CancelAfter (ISO8601 or 'none'), Condition (hex or 'none')",
+        "XRPL epoch timestamps converted back to ISO8601: new Date((epoch + 946684800) * 1000).toISOString()",
+        "--json outputs raw JSON array",
+        "--node option supported",
+        "tests/e2e/escrow/escrow.list.test.ts: create an escrow then verify it appears in list output; --json output",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
       "notes": ""
     }
   ]
