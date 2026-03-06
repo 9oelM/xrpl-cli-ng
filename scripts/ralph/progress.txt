@@ -1,4 +1,7 @@
 ## Codebase Patterns
+- PREIMAGE-SHA-256 fulfillment for 32-byte zero preimage: `A02280200000000000000000000000000000000000000000000000000000000000000000` (72 hex chars = 36 bytes); condition: `A025802066687AADF862BD776C8FC18B8E9F8E20089714856EE233B3902A591D0D5F2925810120`
+- EscrowFinish fee with fulfillment: Math.ceil((fulfillmentBytes + 15) / 16) * 10 + 330 drops; set as max(calculated, autofill)
+- In beforeAll, always compute `finishAfter` fresh inside each create call (not once at the top) since faucet calls take 20-30s and the timestamp can expire before the tx is submitted
 - EscrowCreate: FinishAfter/CancelAfter must be > current ledger close time (past timestamps fail with tecNO_PERMISSION)
 - EscrowCreate: self-escrow (Account == Destination) fails with tecNO_PERMISSION
 - EscrowCreate: --condition alone is invalid; xrpl.js requires FinishAfter or CancelAfter even when Condition is set
@@ -23,4 +26,17 @@ Started: Fri Mar  6 07:58:31 AM Universal 2026
   - xrpl.js Wallet.sign() validates at signing time; condition-only escrow (no time) throws ValidationError
   - isoTimeToRippleTime() from xrpl handles epoch conversion (use instead of manual Math.floor)
   - For escrow finish tests (US-002): create with FinishAfter ~15s ahead, wait, then finish
+---
+
+## 2026-03-06 - US-002
+- Implemented `xrpl escrow finish` subcommand in src/commands/escrow.ts
+- Added condition/fulfillment pair validation and fulfillment-based fee calculation
+- Added 5 finish validation tests to tests/e2e/escrow/escrow.validation.test.ts
+- Created tests/e2e/escrow/escrow.finish.test.ts (7 E2E tests: time-based finish, crypto-condition finish, --json, --no-wait, --dry-run x2, --account/--keystore)
+- Files changed: src/commands/escrow.ts, tests/e2e/escrow/escrow.validation.test.ts, tests/e2e/escrow/escrow.finish.test.ts
+- **Learnings for future iterations:**
+  - PREIMAGE-SHA-256 fulfillment for 32 zero-byte preimage is 72 hex chars (not 76 — count carefully!)
+  - Compute `finishAfter` inside each escrow create call in beforeAll, not once at the top; faucet + prior submits consume 20-30s
+  - For condition-based escrows, always pair --condition with --cancel-after (xrpl.js requires at least one time field)
+  - EscrowFinish fee is auto-set to max(autofill_fee, calculated_fee) to ensure ledger acceptance
 ---
