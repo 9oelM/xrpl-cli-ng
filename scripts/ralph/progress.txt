@@ -1,96 +1,23 @@
 # Ralph Progress Log
-Started: Fri Mar  6 10:24:14 AM Universal 2026
----
-
 ## Codebase Patterns
-- Brokered NFT accept: use fresh/clean accounts for brokered-mode sellers; reusing accounts with prior NFT history can cause `tecOBJECT_NOT_FOUND` due to NFTokenPage state. Use a dedicated wallet (e.g., `broker` who has no prior NFT transactions) as the brokered seller.
-- `--offer` repeatable option pattern in Commander.js: `.option("--offer <hex>", "desc", (val, prev: string[]) => prev.concat([val]), [] as string[])` — validation must check `options.offer.length === 0` since the default is `[]` not `undefined`.
-- `nft_buy_offers` RPC returns `rpcOBJECT_NOT_FOUND` when there are NO buy offers (not just when the NFT doesn't exist); always wrap in try/catch when querying.
-- For read-only query commands (`nft offer list`), use `Promise.allSettled` to fetch both sell and buy offers in parallel — treat rejected (not found) as empty array.
-- `NFTokenCreateOfferFlags.tfSellNFToken = 1` is exported from xrpl.js; use for sell offer flag
-- XRPL epoch offset: `XRPL_EPOCH_OFFSET = 946684800` (Unix seconds from Jan 1, 1900 to Jan 1, 2000)
-- NFTokenOfferID is in `CreatedNode.LedgerIndex` (not `NewFields`) in AffectedNodes metadata
-- For two-wallet E2E tests, call `fundFromFaucet` twice in `Promise.all` — `distributeToWallets` has a broken dynamic import (`autofill` is not a function)
-- Buy offers: `--owner` required (owner = NFT holder); Sell offers: sender must hold the NFT, no `--owner`
-- NFT commands go in `src/commands/nft.ts` with subcommand structure (like offer.ts)
-- Use `getNFTokenID(meta as TransactionMetadata)` from xrpl.js to extract NFTokenID; fallback scan AffectedNodes for CreatedNode with LedgerEntryType NFTokenPage
-- `convertStringToHex` from xrpl.js converts plain URI strings to hex for NFTokenMint.URI
-- `NFTokenMintFlags` enum: tfBurnable=1, tfOnlyXRP=2, tfTransferable=8, tfMutable=16 (never use tfTrustLine=4)
-- `resolveWallet` helper pattern is duplicated per command file (no shared utility yet) — follow same pattern
+- `resolveWallet` helper is duplicated per command file (not shared util) — copy from credential.ts
+- `AuthorizeCredential` from xrpl.js wraps each entry: `{ Credential: { Issuer, CredentialType } }`
+- For `deposit-preauth set`, `AuthorizeCredentials`/`UnauthorizeCredentials` each take exactly one entry array
+- Enable DepositAuth with `AccountSet` `SetFlag: 9` (asfDepositAuth) in beforeAll for preauth tests
+- Credential-based preauth requires funded issuer address on testnet
+
+Started: Fri Mar  6 11:22:04 AM Universal 2026
 ---
 
 ## 2026-03-06 - US-001
-- Implemented `xrpl nft mint` subcommand in `src/commands/nft.ts`
-- Registered nft command in `src/commands/index.ts` and `src/index.ts`
-- Files changed: `src/commands/nft.ts` (new), `src/commands/index.ts`, `src/index.ts`, `tests/e2e/nft/nft.validation.test.ts` (new), `tests/e2e/nft/nft.mint.test.ts` (new)
-- All 5 validation tests pass (no network), all 9 E2E mint tests pass on testnet
+- Implemented `deposit-preauth set` subcommand in `src/commands/deposit-preauth.ts`
+- Registered command in `src/commands/index.ts` and `src/index.ts`
+- Created `tests/e2e/deposit-preauth/deposit-preauth.validation.test.ts` (10 no-network tests)
+- Created `tests/e2e/deposit-preauth/deposit-preauth.set.test.ts` (9 funded E2E tests)
+- Files changed: src/commands/deposit-preauth.ts, src/commands/index.ts, src/index.ts, tests/e2e/deposit-preauth/deposit-preauth.validation.test.ts, tests/e2e/deposit-preauth/deposit-preauth.set.test.ts
 - **Learnings for future iterations:**
-  - `getNFTokenID` from xrpl.js requires `TransactionMetadata` type — cast with `as TransactionMetadata`
-  - The `meta.nftoken_id` field is the direct source when available; `getNFTokenID` as secondary; AffectedNodes scan as tertiary fallback
-  - `--no-wait` uses Commander's negation pattern (`wait: boolean`, no explicit false default)
-  - `convertStringToHex` works perfectly for URI hex encoding
-  - NFTokenMint testnet transactions confirm ~2-8s including `submitAndWait`
----
-
-## 2026-03-06 - US-002
-- Implemented `xrpl nft burn` and `xrpl nft modify` subcommands in `src/commands/nft.ts`
-- Added `NFTokenBurn` and `NFTokenModify` type imports from xrpl
-- Added shared `BaseNftOptions` and `SubmitResult` types to reduce duplication
-- Files changed: `src/commands/nft.ts`, `tests/e2e/nft/nft.burn.test.ts` (new), `tests/e2e/nft/nft.modify.test.ts` (new), `tests/e2e/nft/nft.validation.test.ts`
-- All 14 validation tests pass (no network), all 4 burn E2E tests and 5 modify E2E tests pass on testnet
-- **Learnings for future iterations:**
-  - `NFTokenModify` type is exported from xrpl.js — import alongside `NFTokenMint`
-  - For `--clear-uri`: omitting the URI field in `NFTokenModify` tx deletes the existing URI per XRPL docs
-  - Validation: require at least one of --uri or --clear-uri; error if both are set
-  - `convertHexToString` from xrpl.js is useful in tests to decode URI hex back to plain string for assertion
-  - `--dry-run` with a zeroed NFTokenID (`"0".repeat(64)`) works for dry-run tests without real NFT IDs
-  - NFTokenModify testnet transactions confirm in ~2-8s
----
-
-## 2026-03-06 - US-003
-- Implemented `xrpl nft offer create` subcommand in `src/commands/nft.ts`
-- Added `nftOfferCommand` group with `create` subcommand; registered in `nftCommand`
-- Added `NFTokenCreateOfferFlags` and `NFTokenCreateOffer` type imports from xrpl.js
-- Reused `parseAmount`/`toXrplAmount` from `src/utils/amount.js`
-- Files changed: `src/commands/nft.ts`, `tests/e2e/nft/nft.validation.test.ts`, `tests/e2e/nft/nft.offer.create.test.ts` (new)
-- All 20 validation tests pass (no network), all 7 E2E offer create tests pass on testnet
-- **Learnings for future iterations:**
-  - NFTokenOfferID is stored in `CreatedNode.LedgerIndex` in AffectedNodes — not in `NewFields`
-  - `distributeToWallets` is broken (dynamic import `autofill` not a function); use `Promise.all([fundFromFaucet(client), fundFromFaucet(client)])` for multiple wallets
-  - XRPL_EPOCH_OFFSET = 946684800 for ISO8601 → XRPL epoch conversion
-  - Buy offers: `Owner` field required = account that currently holds the NFT (not the offer maker)
-  - `'0'` amount is valid for XRP sell giveaway offers; `parseAmount('0')` returns `{type:'xrp', drops:'0'}`
----
-
-## 2026-03-06 - US-004
-- Implemented `xrpl nft offer accept` and `xrpl nft offer cancel` subcommands in `src/commands/nft.ts`
-- Added `NFTokenAcceptOffer` and `NFTokenCancelOffer` type imports from xrpl.js
-- `nft offer accept`: --sell-offer, --buy-offer, --broker-fee options; validates at least one offer provided; validates --broker-fee requires both offers
-- `nft offer cancel`: --offer (repeatable) option; validates at least one offer provided
-- Registered both in `nftOfferCommand` alongside existing `create`
-- Files changed: `src/commands/nft.ts`, `tests/e2e/nft/nft.validation.test.ts`, `tests/e2e/nft/nft.offer.accept.test.ts` (new), `tests/e2e/nft/nft.offer.cancel.test.ts` (new)
-- All 29 validation tests pass, all 66 NFT E2E tests pass on testnet
-- **Learnings for future iterations:**
-  - Brokered mode accept with broker fee fails when seller account has prior NFT transaction history; fix: use a fresh/clean wallet as the brokered seller (e.g., `broker` wallet which has no prior NFT txns)
-  - `nft_buy_offers` RPC throws exception (not empty array) when no buy offers exist — wrap in try/catch
-  - `NFTokenCancelOffer.NFTokenOffers` field is a string array (repeatable --offer on CLI)
-  - Commander.js repeatable option: `(val, prev: string[]) => prev.concat([val])` with default `[] as string[]`; check `.length === 0` for "missing" validation
-  - The `tecOBJECT_NOT_FOUND` in brokered mode can also mean "NFT not in seller's page" — verify using fresh accounts avoids this
----
-
-## 2026-03-06 - US-005
-- Implemented `xrpl nft offer list <nft-id>` subcommand in `src/commands/nft.ts`
-- Added `nftOfferListCommand` with `.argument("<nft-id>")` pattern; registered in `nftOfferCommand`
-- Fetches `nft_sell_offers` and `nft_buy_offers` RPCs in parallel via `Promise.allSettled`; treats rejected results as empty arrays
-- Human-readable output: two sections "Sell Offers" / "Buy Offers" with ID, Amount, Owner, Expiration, Destination per offer
-- `--json` outputs `{ sellOffers, buyOffers }` using raw ledger offer objects
-- Amount formatting: drops→XRP decimal for string amounts; `value CURRENCY/issuer` for IOU amounts
-- Expiration formatting: undefined→"none"; integer→ISO8601 using `xrplTime + XRPL_EPOCH_OFFSET`; destination→address or "any"
-- Files changed: `src/commands/nft.ts`, `tests/e2e/nft/nft.offer.list.test.ts` (new)
-- All 3 E2E tests pass on testnet; typecheck passes
-- **Learnings for future iterations:**
-  - `Promise.allSettled` is the correct pattern for parallel read queries where either RPC may 404
-  - Commander.js `.argument()` + `.action(async (arg, options, cmd) => {...})` — positional arg comes before options
-  - `client.request({command: "nft_sell_offers", nft_id: ...})` requires a type cast since xrpl.js types may not expose these as named request types — use `as Parameters<typeof client.request>[0]`
-  - Test structure: single `beforeAll` that mints NFT, creates sell and buy offers; all three tests reuse the same IDs
+  - `AuthorizeCredential` type from xrpl.js: `{ Credential: { Issuer: string; CredentialType: string } }` — the inner `Credential` wrapper is required
+  - Set `SetFlag: 9` (asfDepositAuth) on the owner wallet in beforeAll to make preauth semantically meaningful on testnet
+  - Must fund credential issuer separately (not just owner+other) for credential-based preauth tests
+  - The `--no-wait` test should unauthorize an already-authorized account to avoid duplicate preauth error
 ---
