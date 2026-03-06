@@ -1,0 +1,19 @@
+## Codebase Patterns
+- Wallet resolution pattern: use a `resolveWallet(options)` helper — checks seed → mnemonic → account/keystore, matches trust.ts and payment.ts
+- OfferCreate sequence after submit: available in `response.result.tx_json.Sequence`; also available in `filled.Sequence` after autofill
+- `isoTimeToRippleTime` is exported directly from xrpl.js — use it to convert ISO 8601 to XRPL epoch for `Expiration` field
+- `OfferCreateFlags` is exported from xrpl.js: tfPassive, tfImmediateOrCancel, tfFillOrKill, tfSell
+- Trust line verification: `account trust-lines --json <address>` — returns JSON with `lines` array; each entry has `currency`, `account` (issuer), `balance`
+- Account field verification: `account info --json <address>` — returns JSON; check `account_data.EmailHash`, `.TransferRate`, `.TickSize`, `.Flags` (bitmask)
+- Account offers: `account offers --json <address>` — returns JSON with `offers` array; each entry has `seq`, `taker_pays`, `taker_gets`, `expiration` (if set)
+- XRP balance is in `account_data.Balance` as a string of drops (1 XRP = 1000000 drops)
+- Commander.js `--no-xxx` option: stores as `xxx` (not `noXxx`), default `true`, flag sets to `false`. DO NOT pass explicit `false` default. Use `!options.wait` not `options.noWait`.
+- tecKILLED for IOC/FOK OfferCreate: ledger killed offer because it couldn't fill — normal outcome, must exit 0
+- For --mnemonic tests: use xrpl.js `Wallet.fromMnemonic(mnemonic)` to derive the wallet, get `.address` to fund via faucet
+- For keystore tests: use `wallet import --seed <seed> --account <name> --password <pw> --keystore <dir>` to create an entry; use a temp dir per test file
+- book_offers query direction: offer TakerPays=USD, TakerGets=XRP appears in `{ taker_pays: {currency:"USD",...}, taker_gets: {currency:"XRP"} }` — NOT reversed
+- Keep xrpl.js client alive for entire test file (beforeAll connect, afterAll disconnect) when multiple async tests need on-chain queries
+
+# Ralph Progress Log
+Started: Fri Mar  6 00:00:00 UTC 2026
+---

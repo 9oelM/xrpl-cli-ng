@@ -1,0 +1,85 @@
+{
+  "project": "xrpl-cli",
+  "branchName": "ralph/offer",
+  "description": "Offer command (DEX) — offer create and offer cancel with full flag support and on-chain state verification in E2E tests",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Core offer create and offer cancel commands",
+      "description": "As a CLI user, I want to create and cancel DEX offers on XRPL so that I can exchange currencies without writing scripts.",
+      "acceptanceCriteria": [
+        "New command file at src/commands/offer.ts with top-level 'offer' command and subcommands 'create' (alias 'c') and 'cancel' (alias 'x')",
+        "'offer create --taker-pays <amount> --taker-gets <amount> --seed <seed> --node testnet' submits OfferCreate and exits 0",
+        "Amount format: plain number = XRP drops conversion (e.g. '1.5' XRP), 'value/CURRENCY/issuerAddress' = IOU",
+        "On success, plain output prints: 'Offer created. Sequence: <N>'",
+        "'offer cancel --sequence <N> --seed <seed> --node testnet' submits OfferCancel and exits 0",
+        "'--json' flag: offer create outputs { hash, result, offerSequence }; offer cancel outputs { hash, result }",
+        "'--dry-run' flag: outputs serialized tx JSON ({ tx_blob, tx }) without submitting",
+        "'--no-wait' flag: submits without waiting for validation, exits 0 with 64-char hex hash in stdout",
+        "Key material options: --seed, --mnemonic, --account/--keystore/--password (consistent with trust.ts pattern)",
+        "Command registered in src/commands/index.ts and src/index.ts",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "OfferCreate flags: --sell, --passive, --immediate-or-cancel, --fill-or-kill, --expiration, --replace",
+      "description": "As a CLI user, I want full control over offer behavior using all standard OfferCreate flags.",
+      "acceptanceCriteria": [
+        "'--sell' sets tfSell flag on the OfferCreate transaction",
+        "'--passive' sets tfPassive flag on the OfferCreate transaction",
+        "'--immediate-or-cancel' sets tfImmediateOrCancel flag",
+        "'--fill-or-kill' sets tfFillOrKill flag",
+        "'--expiration <iso-string>' sets the Expiration field; accepts ISO 8601 (e.g. '2030-01-01T00:00:00Z') and converts to XRPL epoch using xrpl.js isoTimeToRippleTime or equivalent",
+        "'--replace <sequence>' sets the OfferSequence field on OfferCreate (atomic cancel+replace)",
+        "Using '--immediate-or-cancel' and '--fill-or-kill' together exits 1 with stderr containing '--immediate-or-cancel and --fill-or-kill are mutually exclusive'",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "E2E tests: offer.validation.test.ts (no-network) and offer.core.test.ts (on-chain state verification)",
+      "description": "As a developer, I want E2E tests that verify actual ledger state after offer operations so we know the DEX integration is correct.",
+      "acceptanceCriteria": [
+        "Create tests/e2e/offer/offer.validation.test.ts: no beforeAll, uses static dummy address rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh and seed snoPBrXtMeMyMHUVTgbuqAfg1SUTb; tests: missing --taker-pays exits 1, missing --taker-gets exits 1, missing key material exits 1, --immediate-or-cancel + --fill-or-kill exits 1 with mutual exclusion error",
+        "Create tests/e2e/offer/offer.core.test.ts: beforeAll funds 2 wallets via fundFromFaucet; sets up USD trust line between them using xrpl.js client directly",
+        "offer.core.test.ts test 'offer create XRP→IOU': run 'offer create --taker-pays 1/USD/<issuer> --taker-gets 10 --seed <seed> --node testnet'; query 'account offers --json <address>' and assert the new offer appears with matching taker_pays/taker_gets; also call client.request({ command: 'book_offers', taker_pays: { currency: 'XRP' }, taker_gets: { currency: 'USD', issuer: <issuer> } }) and assert the offer appears in the order book",
+        "offer.core.test.ts test 'offer cancel': pre-create an offer via xrpl.js directly in a beforeEach or inline setup; run 'offer cancel --sequence <seq> --seed <seed> --node testnet'; query 'account offers --json <address>' and assert the offer is no longer present",
+        "offer.core.test.ts test '--json output': assert stdout parses as JSON with hash (64-char hex), result 'tesSUCCESS', and offerSequence (number > 0)",
+        "offer.core.test.ts test '--dry-run': assert stdout parses as JSON with tx.TransactionType === 'OfferCreate' and tx_blob string; query account offers and assert count unchanged",
+        "offer.core.test.ts test '--no-wait': assert exit 0 and stdout matches /[0-9A-Fa-f]{64}/",
+        "offer.core.test.ts test '--sell flag': run offer create with --sell; verify offer appears in account_offers",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "E2E tests: offer.flags.test.ts (flag-specific on-chain verification)",
+      "description": "As a developer, I want flag-specific E2E tests that verify on-chain effects of --passive, --replace, --expiration, and --immediate-or-cancel.",
+      "acceptanceCriteria": [
+        "Create tests/e2e/offer/offer.flags.test.ts: beforeAll funds 2 wallets via fundFromFaucet and sets up USD trust line via xrpl.js",
+        "Test '--passive flag': run 'offer create --taker-pays 1/USD/<issuer> --taker-gets 10 --passive --seed <seed> --node testnet'; verify offer appears in 'account offers --json <address>'",
+        "Test '--replace flag': pre-create an offer via xrpl.js (record its sequence N); run 'offer create --taker-pays 1/USD/<issuer> --taker-gets 10 --replace <N> --seed <seed> --node testnet'; query account offers and assert original offer sequence N is gone AND a new offer is present",
+        "Test '--expiration flag': run offer create with '--expiration 2030-01-01T00:00:00Z'; query account offers and assert the offer entry has an 'expiration' field that is a positive number",
+        "Test '--immediate-or-cancel flag': run offer create with --immediate-or-cancel; assert exit 0 (command does not error); the offer may or may not remain in account_offers depending on ledger state — assert that if an offer remains it has the correct taker_pays/taker_gets, OR assert account_offers length has not increased (IOC offer consumed or cancelled)",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

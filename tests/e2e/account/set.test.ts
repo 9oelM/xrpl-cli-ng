@@ -3,6 +3,7 @@ import { spawnSync, exec } from "child_process";
 import { promisify } from "util";
 import { resolve } from "path";
 import { Client, Wallet } from "xrpl";
+import { fundFromFaucet } from "../../helpers/testnet.js";
 
 const CLI = resolve(process.cwd(), "src/index.ts");
 const TSX = resolve(process.cwd(), "node_modules/.bin/tsx");
@@ -30,8 +31,7 @@ beforeAll(async () => {
   const client = new Client(TESTNET_URL);
   await client.connect();
   try {
-    const funded = await client.fundWallet();
-    testWallet = funded.wallet;
+    testWallet = await fundFromFaucet(client);
   } finally {
     await client.disconnect();
   }

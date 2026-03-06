@@ -1,0 +1,16 @@
+## Codebase Patterns
+- E2E tests use `spawnSync(TSX, [CLI, ...args])` pattern with 120s timeout per test call
+- `wallet import <seed>` takes key material as positional arg, not `--seed`; use `--password`, `--keystore` flags for keystore control
+- `account trust-lines --json <address>` returns raw array including `no_ripple`, `quality_in`, `quality_out`, `freeze_peer`, `peer_authorized` fields
+- Tests within a describe block run sequentially, so state created in test A is visible in test B
+- For --auth tests: enable RequireAuth on a dedicated wallet in beforeAll (not inline) to avoid LastLedgerSequence expiry
+- Use beforeAll timeout of 240_000ms when funding 3+ wallets + on-chain setup
+- E2E test files must be split by concern: <command>.validation.test.ts (no-network, no beforeAll), <command>.core.test.ts (happy path), <command>.<area>.test.ts (flag-specific)
+- Static dummy values for validation tests: address=rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh, seed=snoPBrXtMeMyMHUVTgbuqAfg1SUTb
+- `account offers --json <address>` returns array with `seq`, `taker_pays`, `taker_gets` fields per offer
+- For on-chain offer verification: use `account offers --json <address>` (CLI) to check account-level offers; use xrpl.js client.request({ command: 'book_offers', ... }) for order book verification
+- XRPL epoch conversion: use `isoTimeToRippleTime` from xrpl.js for --expiration ISO string → XRPL epoch
+
+# Ralph Progress Log
+Started: Thu Mar  5 02:15:42 PM Universal 2026
+---

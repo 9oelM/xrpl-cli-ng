@@ -1,0 +1,107 @@
+{
+  "project": "xrpl-cli",
+  "branchName": "ralph/e2e-coverage",
+  "description": "E2E test coverage improvements — ledger-state assertions and full CLI option coverage across payment, trust, account set, and offer commands",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Payment: balance verification + memo-type/format + key-material tests",
+      "description": "As a developer, I want payment tests to verify XRP and IOU balance changes and to cover --memo-type, --memo-format, --mnemonic, and --account/--keystore/--password.",
+      "acceptanceCriteria": [
+        "In payment.core.test.ts, the 'sends 1 XRP' test queries sender balance before and after via 'account info --json' and asserts it decreased by at least 1 XRP (1000000 drops); asserts recipient balance increased by exactly 1000000 drops",
+        "In payment.iou.test.ts, after the IOU payment query the recipient's trust line via 'account trust-lines --json <address>' and assert the balance field reflects the received amount",
+        "Add test for --memo-type and --memo-format: run 'payment send ... --memo-type text --memo-format text --dry-run'; parse tx JSON and assert Memos[0].Memo.MemoType and MemoFormat are present (hex-encoded strings)",
+        "Add test for --mnemonic key material: fund a wallet derived from a known mnemonic via fundFromFaucet, run 'payment send ... --mnemonic <mnemonic> --node testnet', assert exit 0",
+        "Add test for --account/--keystore/--password key material: create a keystore entry in a temp dir via 'wallet import', run 'payment send ... --account <addr> --keystore <dir> --password <pw>', assert exit 0",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Payment: --no-ripple-direct, --limit-quality flags + --partial/--deliver-min delivered amount",
+      "description": "As a developer, I want routing flag options tested via --dry-run Flags inspection, and partial payment tests to verify the actual delivered amount.",
+      "acceptanceCriteria": [
+        "Add test for --no-ripple-direct: run 'payment send ... --no-ripple-direct --dry-run --json'; parse tx JSON and assert (Flags & 0x00040000) !== 0 (tfNoRippleDirect bit set)",
+        "Add test for --limit-quality: run 'payment send ... --limit-quality --dry-run --json'; parse tx JSON and assert (Flags & 0x00080000) !== 0 (tfLimitQuality bit set)",
+        "In payment.paths.test.ts, the '--partial --deliver-min' test must run with '--json' and assert meta.delivered_amount is a string representing a value >= the deliver-min amount and > 0",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Trust set: on-chain trust-line verification + --mnemonic coverage",
+      "description": "As a developer, I want trust set tests to verify the trust line actually appears on-chain via account trust-lines query, and to cover the --mnemonic key-material path.",
+      "acceptanceCriteria": [
+        "In trust.core.test.ts, the 'creates USD trust line' test queries 'account trust-lines --json <address>' after the CLI call and asserts a trust line with currency 'USD' and the correct issuer address exists in the result",
+        "In trust.core.test.ts, the 'alias s' test similarly asserts the trust line exists after the command runs",
+        "In trust.core.test.ts, the '--account/--keystore/--password' test asserts the trust line exists after the command runs",
+        "Add a new test for --mnemonic: fund a wallet derived from a known mnemonic, run 'trust set ... --mnemonic <mnemonic>', assert exit 0 and query 'account trust-lines --json' to verify the trust line was created",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Account set: --email-hash, --transfer-rate, --tick-size with on-chain verification",
+      "description": "As a developer, I want tests for account set fields that query account info and verify the ledger reflects each change.",
+      "acceptanceCriteria": [
+        "Create tests/e2e/account/account.set.fields.test.ts with its own beforeAll that funds one wallet via fundFromFaucet",
+        "Test --email-hash: run 'account set --email-hash <32-char-hex-string> --seed <seed> --node testnet'; query 'account info --json <address>' and assert account_data.EmailHash equals the submitted value",
+        "Test --transfer-rate: run 'account set --transfer-rate 1005000000 --seed <seed> --node testnet'; query 'account info --json <address>' and assert account_data.TransferRate === 1005000000",
+        "Test --tick-size: run 'account set --tick-size 5 --seed <seed> --node testnet'; query 'account info --json <address>' and assert account_data.TickSize === 5",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Account set: --set-flag/--clear-flag on-chain verification + --mnemonic/--account key-material",
+      "description": "As a developer, I want --set-flag to be verified on-chain, --clear-flag to be tested, and --mnemonic/--account key-material paths to be covered.",
+      "acceptanceCriteria": [
+        "Add test for --set-flag: run 'account set --set-flag 8 --seed <seed> --node testnet' (asfDefaultRipple=8); query 'account info --json <address>' and assert (account_data.Flags & 0x00800000) !== 0",
+        "Add test for --clear-flag: set the flag first, then run 'account set --clear-flag 8 --seed <seed> --node testnet'; query 'account info --json <address>' and assert (account_data.Flags & 0x00800000) === 0",
+        "Add test for --mnemonic: run 'account set --domain example.com --mnemonic <mnemonic> --node testnet', assert exit 0",
+        "Add test for --account/--keystore/--password: run 'account set --domain example2.com --account <addr> --keystore <dir> --password <pw> --node testnet', assert exit 0",
+        "New tests should go in account.set.fields.test.ts (from US-004) or a new account.set.flags.test.ts if a separate beforeAll is cleaner",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Offer: cancel output modes + --fill-or-kill + key-material coverage",
+      "description": "As a developer, I want offer cancel output modes (--json, --dry-run, --no-wait), offer create --fill-or-kill, and key-material paths (--mnemonic, --account) to be covered by tests.",
+      "acceptanceCriteria": [
+        "Add test for 'offer cancel --json': pre-create an offer via xrpl.js, cancel with '--json', assert stdout parses as JSON with hash (64-char hex) and result 'tesSUCCESS'",
+        "Add test for 'offer cancel --dry-run': assert stdout parses as JSON with tx.TransactionType === 'OfferCancel' and tx_blob string; assert no change in account offers count",
+        "Add test for 'offer cancel --no-wait': assert exit 0 and stdout matches /[0-9A-Fa-f]{64}/",
+        "Add test for 'offer create --fill-or-kill': run offer create with --fill-or-kill; assert exit 0 (tecKILLED is non-fatal); assert the offer is NOT present in 'account offers --json' (FOK offers that cannot be fully filled are not placed)",
+        "Add test for 'offer create --mnemonic': fund a wallet derived from a known mnemonic, run offer create with --mnemonic, assert exit 0",
+        "Add test for 'offer create --account/--keystore/--password': create keystore entry, run offer create with --account/--keystore/--password, assert exit 0",
+        "Tests should be added to existing offer.core.test.ts or offer.flags.test.ts as appropriate; create a new file only if a separate beforeAll is needed",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

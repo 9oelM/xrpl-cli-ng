@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { spawnSync } from "child_process";
 import { resolve } from "path";
 import { Client, Wallet } from "xrpl";
+import { fundFromFaucet } from "../../helpers/testnet.js";
 
 const CLI = resolve(process.cwd(), "src/index.ts");
 const TSX = resolve(process.cwd(), "node_modules/.bin/tsx");
@@ -30,8 +31,7 @@ beforeAll(async () => {
   const client = new Client(TESTNET_URL);
   await client.connect();
   try {
-    const funded = await client.fundWallet();
-    fundedWallet = funded.wallet;
+    fundedWallet = await fundFromFaucet(client);
   } finally {
     await client.disconnect();
   }

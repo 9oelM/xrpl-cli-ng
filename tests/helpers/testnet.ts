@@ -7,19 +7,30 @@ const FAUCET_URL = "https://faucet.altnet.rippletest.net/accounts";
  * Fund a fresh wallet from the testnet faucet.
  * Returns the funded wallet.
  */
+const FAUCET_MAX_RETRIES = 30;
+const FAUCET_RETRY_BASE_MS = 5000;
+
 export async function fundFromFaucet(client: Client): Promise<Wallet> {
   const wallet = Wallet.generate();
-  const response = await fetch(FAUCET_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ destination: wallet.address }),
-  });
-  if (!response.ok) {
-    throw new Error(`Faucet request failed: ${response.status}`);
+  let lastStatus = 0;
+  for (let attempt = 0; attempt < FAUCET_MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      const delay = FAUCET_RETRY_BASE_MS * attempt;
+      await new Promise((r) => setTimeout(r, delay));
+    }
+    const response = await fetch(FAUCET_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ destination: wallet.address }),
+    });
+    if (response.ok) {
+      await waitForAccount(client, wallet.address);
+      return wallet;
+    }
+    lastStatus = response.status;
+    if (response.status !== 429 && response.status < 500) break;
   }
-  // Wait for the account to appear on-ledger
-  await waitForAccount(client, wallet.address);
-  return wallet;
+  throw new Error(`Faucet request failed after ${FAUCET_MAX_RETRIES} attempts: ${lastStatus}`);
 }
 
 /**

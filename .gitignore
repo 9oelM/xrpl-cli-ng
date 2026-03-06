@@ -1,3 +1,6 @@
+# Ralph parallel worktrees
+.worktrees/
+
 # Logs
 logs
 *.log
