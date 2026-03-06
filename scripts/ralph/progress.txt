@@ -26,3 +26,12 @@ Started: Fri Mar  6 05:45:09 AM Universal 2026
   - GitHub Actions workflows go in `.github/workflows/` — directory must be created if it doesn't exist
   - `on: [push, pull_request]` covers all branches by default
 ---
+
+## 2026-03-06 - US-003
+- Created `.github/workflows/test.yml` triggering on push and pull_request
+- Workflow named 'Test', job named 'test', `timeout-minutes: 20` set at job level
+- Uses actions/checkout@v4 + actions/setup-node@v4 (node 22, npm cache), runs `npm ci` then `npm test`
+- **Learnings for future iterations:**
+  - `timeout-minutes` is a job-level field in GitHub Actions (not step-level)
+  - 20 minutes covers 30 faucet retries × 5s each plus test execution time
+---
