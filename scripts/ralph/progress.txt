@@ -22,3 +22,14 @@ Started: Fri Mar  6 10:24:13 AM Universal 2026
   - Check cash test needs a real check ID to be created first in beforeAll; reuse the create command with `--json` to extract `checkId`
   - Check cancel test: sender can cancel their own check, receiver can also cancel a check sent to them
 ---
+
+## 2026-03-06 - US-002
+- Created `tests/e2e/check/check.cash.test.ts` (5 E2E tests on testnet)
+- Implementation was already in `src/commands/check.ts` from US-001
+- Tests: --amount, --deliver-min, --json, --dry-run, --no-wait
+- Files changed: tests/e2e/check/check.cash.test.ts
+- **Learnings for future iterations:**
+  - For --dry-run test in cash/cancel: autofill doesn't validate CheckID existence on-chain, so a dummy check ID works fine
+  - Creating multiple checks in beforeAll: use runCLI with --json to extract checkId synchronously; one check per consuming test
+  - --deliver-min with XRP check: receiver gets SendMax amount (up to the max), at least deliverMin; works fine with XRP checks
+---
