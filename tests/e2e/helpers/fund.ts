@@ -1,0 +1,161 @@
+import { Client, Wallet, xrpToDrops } from "xrpl";
+import type { TicketCreate, Payment as XrplPayment } from "xrpl";
+
+export const XRPL_WS = "wss://s.altnet.rippletest.net:51233";
+
+const FAUCET_URL = "https://faucet.altnet.rippletest.net/accounts";
+const FAUCET_MAX_RETRIES = 30;
+const FAUCET_RETRY_BASE_MS = 5000;
+
+// Module-level ticket pool — shared across all test cases within a file.
+// JS is single-threaded so nextTicket() is race-free.
+const ticketPool: number[] = [];
+
+/**
+ * Fund a master wallet from the testnet faucet (1 faucet call).
+ * Returns a wallet with ~1000 XRP ready to distribute.
+ */
+export async function fundMaster(client: Client): Promise<Wallet> {
+  const wallet = Wallet.generate();
+  let lastStatus = 0;
+
+  for (let attempt = 0; attempt < FAUCET_MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      await new Promise((r) => setTimeout(r, FAUCET_RETRY_BASE_MS * attempt));
+    }
+    const response = await fetch(FAUCET_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ destination: wallet.address }),
+    });
+    if (response.ok) {
+      await waitForAccount(client, wallet.address);
+      return wallet;
+    }
+    lastStatus = response.status;
+    if (response.status !== 429 && response.status < 500) break;
+  }
+  throw new Error(
+    `Faucet request failed after ${FAUCET_MAX_RETRIES} attempts: status ${lastStatus}`,
+  );
+}
+
+/**
+ * Pre-create `count` tickets on the master account.
+ * Extracts TicketSequence values from meta.AffectedNodes and stores them in
+ * the module-level pool for use by nextTicket().
+ */
+export async function initTicketPool(
+  client: Client,
+  master: Wallet,
+  count: number,
+): Promise<void> {
+  const ticketTx: TicketCreate = await client.autofill({
+    TransactionType: "TicketCreate",
+    Account: master.address,
+    TicketCount: count,
+  });
+  const signed = master.sign(ticketTx);
+  const result = await client.submitAndWait(signed.tx_blob);
+
+  const meta = result.result.meta;
+  if (!meta || typeof meta === "string") {
+    throw new Error("No metadata returned from TicketCreate");
+  }
+
+  const affectedNodes = meta.AffectedNodes ?? [];
+  for (const node of affectedNodes) {
+    if ("CreatedNode" in node && node.CreatedNode.LedgerEntryType === "Ticket") {
+      const fields = node.CreatedNode.NewFields as { TicketSequence?: number };
+      if (typeof fields.TicketSequence === "number") {
+        ticketPool.push(fields.TicketSequence);
+      }
+    }
+  }
+}
+
+/**
+ * Synchronously pop the next ticket from the pool.
+ * Safe to call from concurrent async paths because JS is single-threaded.
+ */
+export function nextTicket(): number {
+  const ticket = ticketPool.shift();
+  if (ticket === undefined) {
+    throw new Error(
+      "Ticket pool exhausted — increase count passed to initTicketPool",
+    );
+  }
+  return ticket;
+}
+
+/**
+ * Generate `count` unfunded wallets (no network calls).
+ */
+export function generateWallets(count: number): Wallet[] {
+  return Array.from({ length: count }, () => Wallet.generate());
+}
+
+/**
+ * Generate `count` wallets and fund each with `amountXrp` from master.
+ * All funding payments are submitted concurrently using Sequence:0 +
+ * TicketSequence so they don't conflict with each other.
+ */
+export async function createFunded(
+  client: Client,
+  master: Wallet,
+  count: number,
+  amountXrp = 10,
+): Promise<Wallet[]> {
+  const wallets = generateWallets(count);
+
+  await Promise.all(
+    wallets.map(async (wallet) => {
+      const ticket = nextTicket();
+      // Build the payment with Sequence:0 + TicketSequence so concurrent
+      // payments from master don't step on each other's sequence numbers.
+      const tx = await client.autofill({
+        TransactionType: "Payment",
+        Account: master.address,
+        Amount: xrpToDrops(amountXrp),
+        Destination: wallet.address,
+        // Pre-set Sequence:0 so autofill doesn't overwrite it.
+        Sequence: 0,
+        TicketSequence: ticket,
+      } as XrplPayment & { TicketSequence: number });
+
+      // Ensure autofill did not clobber the ticket-based fields.
+      tx.Sequence = 0;
+      (tx as typeof tx & { TicketSequence: number }).TicketSequence = ticket;
+
+      const signed = master.sign(tx);
+      await client.submitAndWait(signed.tx_blob);
+    }),
+  );
+
+  return wallets;
+}
+
+async function waitForAccount(
+  client: Client,
+  address: string,
+  retries = 10,
+  delayMs = 2000,
+): Promise<void> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      await client.request({
+        command: "account_info",
+        account: address,
+        ledger_index: "validated",
+      });
+      return;
+    } catch {
+      if (i < retries - 1) {
+        await new Promise((r) => setTimeout(r, delayMs));
+      }
+    }
+  }
+  throw new Error(
+    `Account ${address} did not appear on ledger after ${retries} retries`,
+  );
+}
