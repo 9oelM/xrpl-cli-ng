@@ -1,3 +1,14 @@
+## 2026-03-06 - US-004
+- Implemented `xrpl credential list <address>` subcommand
+- Files changed: src/commands/credential.ts (added CredentialEntry interface, tryDecodeHex, xrplEpochToISO helpers, credentialListCommand), tests/e2e/credential/credential.list.test.ts (new, 3 E2E tests)
+- **Learnings for future iterations:**
+  - `account_objects` with `type: "credential"` returns credential ledger entries; cast via `as unknown as CredentialEntry[]` to avoid type mismatch with xrpl.js `AccountObject` union
+  - lsfAccepted flag is 0x00010000 (65536); check `(Flags & LSF_ACCEPTED) !== 0`
+  - XRPL epoch → ISO8601: `new Date((epoch + 946684800) * 1000).toISOString()`
+  - `Buffer.from(hex, 'hex').toString('utf-8')` decodes hex; check for `\uFFFD` replacement char to detect invalid UTF-8
+  - `credential list` is a read-only query — no key material needed, no signing
+---
+
 ## 2026-03-06 - US-003
 - Implemented `xrpl credential delete` subcommand
 - Files changed: src/commands/credential.ts (added CredentialDeleteOptions, credentialDeleteCommand, registered it; added isDeletedNode import), tests/e2e/credential/credential.validation.test.ts (added 3 delete validation tests), tests/e2e/credential/credential.delete.test.ts (new, 6 E2E tests)
