@@ -11,6 +11,16 @@
 Started: Fri Mar  6 10:24:14 AM Universal 2026
 ---
 
+## 2026-03-06 - US-002
+- Implemented `xrpl credential accept` subcommand
+- Files changed: src/commands/credential.ts (added CredentialAcceptOptions interface + credentialAcceptCommand + registered it), tests/e2e/credential/credential.validation.test.ts (added 4 accept validation tests), tests/e2e/credential/credential.accept.test.ts (new, 5 E2E tests)
+- **Learnings for future iterations:**
+  - CredentialAccept type is exported from xrpl.js v4; fields: Account (subject/sender), Issuer (required), CredentialType (hex)
+  - Verified on-chain acceptance via account_objects RPC with type: "credential" — lsfAccepted flag is 0x00010000 (65536)
+  - Tests fund subject from issuer (not faucet) to avoid rate limits; use distinct credential type strings per test to avoid tecDUPLICATE
+  - All output modes (--json, --dry-run, --no-wait) and --credential-type-hex variant are fully covered
+---
+
 ## 2026-03-06 - US-001
 - Implemented `xrpl credential create` subcommand
 - Files changed: src/commands/credential.ts (new), src/commands/index.ts, src/index.ts, tests/e2e/credential/credential.validation.test.ts (new), tests/e2e/credential/credential.create.test.ts (new)
