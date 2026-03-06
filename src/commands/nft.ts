@@ -2,7 +2,7 @@ import { Command } from "commander";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { Wallet, NFTokenMintFlags, convertStringToHex, getNFTokenID } from "xrpl";
-import type { NFTokenMint, TransactionMetadata } from "xrpl";
+import type { NFTokenMint, NFTokenBurn, NFTokenModify, TransactionMetadata } from "xrpl";
 import { deriveKeypair } from "ripple-keypairs";
 import { withClient } from "../utils/client.js";
 import { getNodeUrl } from "../utils/node.js";
@@ -265,6 +265,259 @@ const nftMintCommand = new Command("mint")
     });
   });
 
+// ---------- shared types ----------
+
+interface BaseNftOptions {
+  seed?: string;
+  mnemonic?: string;
+  account?: string;
+  password?: string;
+  keystore?: string;
+  wait: boolean;
+  json: boolean;
+  dryRun: boolean;
+}
+
+type SubmitResult = {
+  hash?: string;
+  ledger_index?: number;
+  meta?: {
+    TransactionResult?: string;
+  };
+  tx_json?: { Fee?: string };
+};
+
+// ---------- nft burn ----------
+
+interface NftBurnOptions extends BaseNftOptions {
+  nft: string;
+  owner?: string;
+}
+
+const nftBurnCommand = new Command("burn")
+  .description("Burn (destroy) an NFT on the XRP Ledger")
+  .requiredOption("--nft <hex>", "64-char NFTokenID to burn")
+  .option("--owner <address>", "NFT owner address (when issuer burns a burnable token they don't hold)")
+  .option("--seed <seed>", "Family seed for signing")
+  .option("--mnemonic <phrase>", "BIP39 mnemonic for signing")
+  .option("--account <address-or-alias>", "Account address or alias to load from keystore")
+  .option("--password <password>", "Keystore decryption password (insecure, prefer interactive prompt)")
+  .option("--keystore <dir>", "Keystore directory (default: ~/.xrpl/keystore/; XRPL_KEYSTORE env var also accepted)")
+  .option("--no-wait", "Submit without waiting for validation")
+  .option("--json", "Output as JSON", false)
+  .option("--dry-run", "Print signed tx without submitting", false)
+  .action(async (options: NftBurnOptions, cmd: Command) => {
+    // Validate NFTokenID
+    if (!/^[0-9A-Fa-f]{64}$/.test(options.nft)) {
+      process.stderr.write("Error: --nft must be a 64-character hex NFTokenID\n");
+      process.exit(1);
+    }
+
+    // Validate key material
+    const keyMaterialCount = [options.seed, options.mnemonic, options.account].filter(Boolean).length;
+    if (keyMaterialCount === 0) {
+      process.stderr.write("Error: provide key material via --seed, --mnemonic, or --account\n");
+      process.exit(1);
+    }
+    if (keyMaterialCount > 1) {
+      process.stderr.write("Error: provide only one of --seed, --mnemonic, or --account\n");
+      process.exit(1);
+    }
+
+    const signerWallet = await resolveWallet(options);
+
+    const tx: NFTokenBurn = {
+      TransactionType: "NFTokenBurn",
+      Account: signerWallet.address,
+      NFTokenID: options.nft.toUpperCase(),
+      ...(options.owner !== undefined ? { Owner: options.owner } : {}),
+    };
+
+    const url = getNodeUrl(cmd);
+
+    await withClient(url, async (client) => {
+      const filled = await client.autofill(tx);
+
+      if (options.dryRun) {
+        const signed = signerWallet.sign(filled);
+        console.log(JSON.stringify({ tx_blob: signed.tx_blob, tx: filled }));
+        return;
+      }
+
+      const signed = signerWallet.sign(filled);
+
+      if (!options.wait) {
+        await client.submit(signed.tx_blob);
+        if (options.json) {
+          console.log(JSON.stringify({ hash: signed.hash }));
+        } else {
+          console.log(`Transaction: ${signed.hash}`);
+        }
+        return;
+      }
+
+      let response;
+      try {
+        response = await client.submitAndWait(signed.tx_blob);
+      } catch (e: unknown) {
+        const err = e as Error;
+        if (err.constructor.name === "TimeoutError" || err.message?.includes("LastLedgerSequence")) {
+          process.stderr.write("Error: transaction expired (LastLedgerSequence exceeded)\n");
+          process.exit(1);
+        }
+        throw e;
+      }
+
+      const txResult = response.result as SubmitResult;
+      const resultCode = txResult.meta?.TransactionResult ?? "unknown";
+      const hash = txResult.hash ?? signed.hash;
+      const feeDrops = txResult.tx_json?.Fee ?? "0";
+      const feeXrp = (Number(feeDrops) / 1_000_000).toFixed(6);
+      const ledger = txResult.ledger_index;
+
+      if (/^te[cfm]/i.test(resultCode)) {
+        process.stderr.write(`Error: transaction failed with ${resultCode}\n`);
+        if (options.json) {
+          console.log(JSON.stringify({ hash, result: resultCode, fee: feeXrp, ledger }));
+        }
+        process.exit(1);
+      }
+
+      if (options.json) {
+        console.log(JSON.stringify({ hash, result: resultCode, fee: feeXrp, ledger }));
+      } else {
+        console.log(`Transaction: ${hash}`);
+        console.log(`Result:      ${resultCode}`);
+        console.log(`Fee:         ${feeXrp} XRP`);
+        console.log(`Ledger:      ${ledger}`);
+      }
+    });
+  });
+
+// ---------- nft modify ----------
+
+interface NftModifyOptions extends BaseNftOptions {
+  nft: string;
+  uri?: string;
+  clearUri: boolean;
+  owner?: string;
+}
+
+const nftModifyCommand = new Command("modify")
+  .description("Modify the URI of a mutable NFT on the XRP Ledger")
+  .requiredOption("--nft <hex>", "64-char NFTokenID to modify")
+  .option("--uri <string>", "New metadata URI (plain string, converted to hex)")
+  .option("--clear-uri", "Explicitly clear the existing URI", false)
+  .option("--owner <address>", "NFT owner address (if different from signer)")
+  .option("--seed <seed>", "Family seed for signing")
+  .option("--mnemonic <phrase>", "BIP39 mnemonic for signing")
+  .option("--account <address-or-alias>", "Account address or alias to load from keystore")
+  .option("--password <password>", "Keystore decryption password (insecure, prefer interactive prompt)")
+  .option("--keystore <dir>", "Keystore directory (default: ~/.xrpl/keystore/; XRPL_KEYSTORE env var also accepted)")
+  .option("--no-wait", "Submit without waiting for validation")
+  .option("--json", "Output as JSON", false)
+  .option("--dry-run", "Print signed tx without submitting", false)
+  .action(async (options: NftModifyOptions, cmd: Command) => {
+    // Validate NFTokenID
+    if (!/^[0-9A-Fa-f]{64}$/.test(options.nft)) {
+      process.stderr.write("Error: --nft must be a 64-character hex NFTokenID\n");
+      process.exit(1);
+    }
+
+    // Validate URI vs clear-uri
+    if (!options.uri && !options.clearUri) {
+      process.stderr.write("Error: provide --uri <string> or --clear-uri\n");
+      process.exit(1);
+    }
+    if (options.uri && options.clearUri) {
+      process.stderr.write("Error: --uri and --clear-uri are mutually exclusive\n");
+      process.exit(1);
+    }
+
+    // Validate key material
+    const keyMaterialCount = [options.seed, options.mnemonic, options.account].filter(Boolean).length;
+    if (keyMaterialCount === 0) {
+      process.stderr.write("Error: provide key material via --seed, --mnemonic, or --account\n");
+      process.exit(1);
+    }
+    if (keyMaterialCount > 1) {
+      process.stderr.write("Error: provide only one of --seed, --mnemonic, or --account\n");
+      process.exit(1);
+    }
+
+    const signerWallet = await resolveWallet(options);
+
+    const tx: NFTokenModify = {
+      TransactionType: "NFTokenModify",
+      Account: signerWallet.address,
+      NFTokenID: options.nft.toUpperCase(),
+      ...(options.uri !== undefined ? { URI: convertStringToHex(options.uri) } : {}),
+      ...(options.owner !== undefined ? { Owner: options.owner } : {}),
+    };
+
+    const url = getNodeUrl(cmd);
+
+    await withClient(url, async (client) => {
+      const filled = await client.autofill(tx);
+
+      if (options.dryRun) {
+        const signed = signerWallet.sign(filled);
+        console.log(JSON.stringify({ tx_blob: signed.tx_blob, tx: filled }));
+        return;
+      }
+
+      const signed = signerWallet.sign(filled);
+
+      if (!options.wait) {
+        await client.submit(signed.tx_blob);
+        if (options.json) {
+          console.log(JSON.stringify({ hash: signed.hash }));
+        } else {
+          console.log(`Transaction: ${signed.hash}`);
+        }
+        return;
+      }
+
+      let response;
+      try {
+        response = await client.submitAndWait(signed.tx_blob);
+      } catch (e: unknown) {
+        const err = e as Error;
+        if (err.constructor.name === "TimeoutError" || err.message?.includes("LastLedgerSequence")) {
+          process.stderr.write("Error: transaction expired (LastLedgerSequence exceeded)\n");
+          process.exit(1);
+        }
+        throw e;
+      }
+
+      const txResult = response.result as SubmitResult;
+      const resultCode = txResult.meta?.TransactionResult ?? "unknown";
+      const hash = txResult.hash ?? signed.hash;
+      const feeDrops = txResult.tx_json?.Fee ?? "0";
+      const feeXrp = (Number(feeDrops) / 1_000_000).toFixed(6);
+      const ledger = txResult.ledger_index;
+
+      if (/^te[cfm]/i.test(resultCode)) {
+        process.stderr.write(`Error: transaction failed with ${resultCode}\n`);
+        if (options.json) {
+          console.log(JSON.stringify({ hash, result: resultCode, fee: feeXrp, ledger }));
+        }
+        process.exit(1);
+      }
+
+      if (options.json) {
+        console.log(JSON.stringify({ hash, result: resultCode, fee: feeXrp, ledger }));
+      } else {
+        console.log(`Transaction: ${hash}`);
+        console.log(`Result:      ${resultCode}`);
+        console.log(`Fee:         ${feeXrp} XRP`);
+        console.log(`Ledger:      ${ledger}`);
+      }
+    });
+  });
+
 export const nftCommand = new Command("nft")
   .description("Manage NFTs on the XRP Ledger")
-  .addCommand(nftMintCommand);
+  .addCommand(nftMintCommand)
+  .addCommand(nftBurnCommand)
+  .addCommand(nftModifyCommand);
