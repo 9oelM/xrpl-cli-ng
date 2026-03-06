@@ -72,5 +72,9 @@ export const infoCommand = new Command("info")
       if (data.TickSize && data.TickSize !== 0) {
         console.log(`Tick Size:    ${data.TickSize}`);
       }
+
+      if (data.RegularKey) {
+        console.log(`Regular Key:  ${data.RegularKey}`);
+      }
     });
   });
