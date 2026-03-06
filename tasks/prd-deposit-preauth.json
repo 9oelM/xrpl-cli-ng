@@ -1,0 +1,49 @@
+{
+  "project": "xrpl-cli",
+  "branchName": "ralph/deposit-preauth",
+  "description": "Deposit preauth commands — authorize and revoke deposit preauthorization by account or credential on XRPL accounts",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "deposit-preauth set command",
+      "description": "As an account owner, I want to grant or revoke deposit preauthorization from the CLI so I can control who can send payments to my account when Deposit Authorization is enabled.",
+      "acceptanceCriteria": [
+        "Read DepositPreauth docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/depositpreauth.md before implementing",
+        "Create src/commands/deposit-preauth.ts and register it in src/commands/index.ts and src/index.ts",
+        "xrpl deposit-preauth with exactly one of: --authorize <address>, --unauthorize <address>, --authorize-credential <issuer>, --unauthorize-credential <issuer>",
+        "--credential-type <string> (plain string, auto hex-encoded via convertStringToHex) — required when using --authorize-credential or --unauthorize-credential",
+        "--credential-type-hex <hex> (raw hex) — mutually exclusive with --credential-type",
+        "Standard key material options: --seed, --mnemonic, --account/--keystore/--password",
+        "Standard output options: --node, --json, --dry-run, --no-wait",
+        "CLI exits with error if none of the four main flags are provided",
+        "CLI exits with error if more than one of the four main flags are provided",
+        "CLI exits with error if both --credential-type and --credential-type-hex are provided",
+        "CLI exits with error if --credential-type or --credential-type-hex is used without --authorize-credential or --unauthorize-credential",
+        "CLI exits with error if --authorize-credential or --unauthorize-credential is used without --credential-type or --credential-type-hex",
+        "tests/e2e/deposit-preauth/deposit-preauth.validation.test.ts: no main flag, multiple main flags, credential-type without credential flag, both credential-type flags, credential flag without credential-type (no network)",
+        "tests/e2e/deposit-preauth/deposit-preauth.set.test.ts: authorize account, unauthorize account, authorize by credential, unauthorize by credential; --json, --dry-run",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "deposit-preauth list command",
+      "description": "As an account owner, I want to query the list of existing deposit preauthorizations so I can verify who is authorized to send payments.",
+      "acceptanceCriteria": [
+        "xrpl deposit-preauth list <address> subcommand using account_objects RPC with type: 'deposit_preauth'",
+        "Default output: each preauth on its own line — 'Account: <address>' for account-based, 'Credential: <issuer> / <credential-type-decoded>' for credential-based",
+        "Shows 'No deposit preauthorizations.' if the account has none",
+        "--json outputs raw JSON",
+        "--node supported",
+        "tests/e2e/deposit-preauth/deposit-preauth.list.test.ts: authorize an account, verify it appears in list; authorize a credential, verify it appears; unauthorize and verify removal; --json",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

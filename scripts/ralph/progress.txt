@@ -1,21 +1,38 @@
 ## Codebase Patterns
-- `distributeToWallets` helper in tests/helpers/testnet.ts is broken (uses `autofill` as standalone but it's a Client method). Use multiple `fundFromFaucet` calls in parallel instead.
-- `--no-wait` pattern: use `.option("--no-wait", "...")` (no third arg), interface has `wait: boolean`, check with `if (!options.wait)`. Commander strips `no-` prefix so property is `wait`.
-- `account info` command displays `RegularKey` field when present (added in US-001).
+- New commands go in `src/commands/<name>.ts`, exported from `src/commands/index.ts`, and registered in `src/index.ts`
+- Use `resolveWallet()` helper pattern (see credential.ts) for key material resolution
+- `--no-wait` option: use `.option("--no-wait", "...")` (NO third arg), property is `wait: boolean`, check `if (!options.wait)`
+- Repeatable CLI options in Commander.js: `.option("--flag <val>", "desc", (val: string, prev: string[]) => [...prev, val], [] as string[])`
+- Validation test files should be pure no-network; avoid dummy seeds whose address (e.g. rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh) conflicts with test signer addresses
+- Ordering of CLI validations: check count/structural constraints BEFORE per-item validation (e.g., check >32 signers before validating each address)
 
 # Ralph Progress Log
 Started: Fri Mar  6 11:22:03 AM Universal 2026
 ---
 
 ## 2026-03-06 - US-001
-- Implemented `account set-regular-key` command via `src/commands/account/set-regular-key.ts`
-- Registered command in `src/commands/account/index.ts`
-- Updated `src/commands/account/info.ts` to display `Regular Key:` field when present
-- Created `tests/e2e/account/account.set-regular-key.validation.test.ts` (6 no-network tests)
-- Created `tests/e2e/account/account.set-regular-key.test.ts` (7 testnet E2E tests)
+- Implemented `multisig set`, `multisig delete`, and `multisig list` subcommands in `src/commands/multisig.ts`
+- Registered command in `src/commands/index.ts` and `src/index.ts`
+- Created `tests/e2e/multisig/multisig.validation.test.ts` (16 no-network tests)
+- Created `tests/e2e/multisig/multisig.set.test.ts` (7 testnet tests)
+- All 23 tests pass; typecheck passes
+- Files changed: src/commands/multisig.ts, src/commands/index.ts, src/index.ts, tests/e2e/multisig/multisig.validation.test.ts, tests/e2e/multisig/multisig.set.test.ts
 - **Learnings for future iterations:**
-  - `distributeToWallets` in testnet helper is broken — uses standalone `autofill()` which doesn't exist in xrpl.js; it's a method on Client. Used two parallel `fundFromFaucet()` calls instead.
-  - The `--no-wait` option must follow the pattern from CLAUDE.md memory: no default arg, interface uses `wait: boolean`, check `!options.wait`.
-  - SetRegularKey transaction omits `RegularKey` field entirely when removing (not set to empty/null); achieved with spread operator: `...(options.key !== undefined ? { RegularKey: options.key } : {})`.
-  - `account info` did not display `RegularKey` — added it so E2E tests can verify on-chain state.
+  - `--no-wait` must follow the credential.ts pattern (no third arg, `wait: boolean`, `if (!options.wait)`)
+  - Count checks should run BEFORE per-item validation loops to give cleaner error messages
+  - The genesis DUMMY_SEED address (rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh) cannot be a signer in its own list — avoid using ADDR_1=DUMMY_SEED address as a signer when the signing key is DUMMY_SEED
+  - `multisig delete` is a SignerListSet with SignerQuorum=0 and no SignerEntries
+  - `multisig list` uses `account_objects` RPC with `type: "signer_list"`
+  - US-001 includes delete/list commands even though US-002 covers them, because set tests require list for verification
+---
+
+## 2026-03-06 - US-002
+- Created `tests/e2e/multisig/multisig.delete.test.ts` (4 tests: set+delete+verify, --json, --dry-run, --no-wait)
+- Created `tests/e2e/multisig/multisig.list.test.ts` (3 tests: correct quorum/weights, --json, no signer list)
+- All 7 tests pass; typecheck passes
+- Files changed: tests/e2e/multisig/multisig.delete.test.ts, tests/e2e/multisig/multisig.list.test.ts
+- **Learnings for future iterations:**
+  - `multisig delete --dry-run` still connects to testnet for autofill (need node URL); tx.SignerQuorum will be 0 confirming deletion intent
+  - For list tests: set the signer list in `beforeAll` so individual tests just query rather than wait for network
+  - `--no-wait` tests for delete need a signer list set first; sequencing matters for destructive operations
 ---

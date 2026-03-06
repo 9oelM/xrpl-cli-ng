@@ -1,0 +1,30 @@
+{
+  "project": "xrpl-cli",
+  "branchName": "ralph/account-delete",
+  "description": "account delete command — permanently delete an XRPL account and sweep remaining XRP to a destination",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "account delete command",
+      "description": "As a developer, I want to permanently delete an XRPL account from the CLI so I can close unused accounts and recover their XRP balance.",
+      "acceptanceCriteria": [
+        "Read AccountDelete docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/accountdelete.md before implementing",
+        "Create src/commands/account/delete.ts and register it in src/commands/account/index.ts",
+        "xrpl account delete with: --destination <address> (required), --destination-tag <n> (optional), --confirm (required boolean flag)",
+        "Standard key material options: --seed, --mnemonic, --account/--keystore/--password",
+        "Standard output options: --node, --json, --dry-run, --no-wait",
+        "CLI exits with error if --destination is missing",
+        "CLI exits with error if --destination is not a valid classic address",
+        "CLI exits with error if --confirm is not provided (message: 'This permanently deletes your account. Pass --confirm to proceed.') — unless --dry-run is set",
+        "--dry-run bypasses the --confirm requirement",
+        "Help text notes: 'Fee: ~2 XRP (owner reserve, non-refundable)'",
+        "tests/e2e/account/account.delete.validation.test.ts: missing destination, invalid destination address, missing --confirm without --dry-run (no network)",
+        "tests/e2e/account/account.delete.test.ts: fund a fresh wallet, delete it pointing to another funded wallet, verify account no longer exists via account info; --json, --dry-run",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
