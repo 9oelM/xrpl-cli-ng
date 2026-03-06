@@ -1,49 +1,73 @@
 {
   "project": "xrpl-cli",
-  "branchName": "ralph/deposit-preauth",
-  "description": "Deposit preauth commands — authorize and revoke deposit preauthorization by account or credential on XRPL accounts",
+  "branchName": "ralph/permissioned-domain",
+  "description": "Permissioned Domain Commands - Create, update, and delete permissioned domains that gate access via credentials on XRPL",
   "userStories": [
     {
       "id": "US-001",
-      "title": "deposit-preauth set command",
-      "description": "As an account owner, I want to grant or revoke deposit preauthorization from the CLI so I can control who can send payments to my account when Deposit Authorization is enabled.",
+      "title": "permissioned-domain create command",
+      "description": "As a CLI user, I want to create a permissioned domain with a set of accepted credentials so that I can define which credential holders are permitted in my domain.",
       "acceptanceCriteria": [
-        "Read DepositPreauth docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/depositpreauth.md before implementing",
-        "Create src/commands/deposit-preauth.ts and register it in src/commands/index.ts and src/index.ts",
-        "xrpl deposit-preauth with exactly one of: --authorize <address>, --unauthorize <address>, --authorize-credential <issuer>, --unauthorize-credential <issuer>",
-        "--credential-type <string> (plain string, auto hex-encoded via convertStringToHex) — required when using --authorize-credential or --unauthorize-credential",
-        "--credential-type-hex <hex> (raw hex) — mutually exclusive with --credential-type",
-        "Standard key material options: --seed, --mnemonic, --account/--keystore/--password",
-        "Standard output options: --node, --json, --dry-run, --no-wait",
-        "CLI exits with error if none of the four main flags are provided",
-        "CLI exits with error if more than one of the four main flags are provided",
-        "CLI exits with error if both --credential-type and --credential-type-hex are provided",
-        "CLI exits with error if --credential-type or --credential-type-hex is used without --authorize-credential or --unauthorize-credential",
-        "CLI exits with error if --authorize-credential or --unauthorize-credential is used without --credential-type or --credential-type-hex",
-        "tests/e2e/deposit-preauth/deposit-preauth.validation.test.ts: no main flag, multiple main flags, credential-type without credential flag, both credential-type flags, credential flag without credential-type (no network)",
-        "tests/e2e/deposit-preauth/deposit-preauth.set.test.ts: authorize account, unauthorize account, authorize by credential, unauthorize by credential; --json, --dry-run",
-        "Typecheck passes"
+        "Implement src/commands/permissioned-domain.ts with permissionedDomainCommand registered in src/commands/index.ts and src/index.ts",
+        "`xrpl permissioned-domain create --credential <issuer>:<type>` submits PermissionedDomainSet tx with no DomainID field (creates new domain)",
+        "--credential is repeatable (collect array); 1\u201310 credentials accepted; error if 0 or >10 provided",
+        "<type> in --credential <issuer>:<type> is treated as UTF-8 and auto-encoded to hex via convertStringToHex from xrpl",
+        "`--credentials-json <json>` accepts JSON array of {\"issuer\":\"r...\",\"credential_type\":\"hex...\"} objects as alternative input",
+        "--credential and --credentials-json are mutually exclusive; error if both provided",
+        "On success, outputs `Domain ID: <hash>` extracted from CreatedNode where LedgerEntryType === 'PermissionedDomain' in tx metadata",
+        "`--json` outputs {\"result\":\"success\",\"domainId\":\"<hash>\",\"tx\":\"<hash>\"}",
+        "`--dry-run` prints unsigned tx JSON and exits without submitting",
+        "`--no-wait` submits without waiting for validation",
+        "Supports --seed, --mnemonic, --account/--keystore/--password key material",
+        "Validation tests (no network): missing credentials exits with error, >10 credentials exits with error, both --credential and --credentials-json exits with error, invalid issuer address format exits with error",
+        "E2E tests on testnet: create with 1 credential, create with 3 credentials, --json, --dry-run, --no-wait",
+        "Typecheck passes",
+        "Tests pass"
       ],
       "priority": 1,
       "passes": true,
-      "notes": ""
+      "notes": "Requires PermissionedDomains and Credentials amendments. AcceptedCredentials wire format uses Issuer (address) and CredentialType (hex). If testnet does not have the amendment, use devnet instead and note this in a comment."
     },
     {
       "id": "US-002",
-      "title": "deposit-preauth list command",
-      "description": "As an account owner, I want to query the list of existing deposit preauthorizations so I can verify who is authorized to send payments.",
+      "title": "permissioned-domain update command",
+      "description": "As a CLI user, I want to update the accepted credentials of an existing permissioned domain I own so that I can change which credentials grant access.",
       "acceptanceCriteria": [
-        "xrpl deposit-preauth list <address> subcommand using account_objects RPC with type: 'deposit_preauth'",
-        "Default output: each preauth on its own line — 'Account: <address>' for account-based, 'Credential: <issuer> / <credential-type-decoded>' for credential-based",
-        "Shows 'No deposit preauthorizations.' if the account has none",
-        "--json outputs raw JSON",
-        "--node supported",
-        "tests/e2e/deposit-preauth/deposit-preauth.list.test.ts: authorize an account, verify it appears in list; authorize a credential, verify it appears; unauthorize and verify removal; --json",
-        "Typecheck passes"
+        "`xrpl permissioned-domain update --domain-id <hash> --credential <issuer>:<type>` submits PermissionedDomainSet tx with DomainID field set",
+        "--domain-id required; must be 64-char hex string; error if missing or malformed",
+        "Same --credential / --credentials-json rules as create (1\u201310, mutually exclusive)",
+        "Help text clearly states update replaces the entire credentials list (not a merge)",
+        "On success, outputs `Domain ID: <hash>` and `Tx: <hash>`",
+        "`--json`, `--dry-run`, `--no-wait` supported",
+        "Supports --seed, --mnemonic, --account/--keystore/--password",
+        "Validation tests (no network): missing --domain-id exits with error, invalid --domain-id format exits with error, missing credentials exits with error",
+        "E2E tests on testnet: create domain in beforeAll, update credential list, verify via account_objects, --json, --dry-run",
+        "Typecheck passes",
+        "Tests pass"
       ],
       "priority": 2,
-      "passes": true,
-      "notes": ""
+      "passes": false,
+      "notes": "PermissionedDomainSet with DomainID = update; without DomainID = create. The AcceptedCredentials array fully replaces the existing list on update."
+    },
+    {
+      "id": "US-003",
+      "title": "permissioned-domain delete command",
+      "description": "As a CLI user, I want to delete a permissioned domain I own so that I can remove it from the ledger and reclaim the reserve.",
+      "acceptanceCriteria": [
+        "`xrpl permissioned-domain delete --domain-id <hash>` submits PermissionedDomainDelete tx",
+        "--domain-id required; must be 64-char hex string; error if missing or malformed",
+        "On success, outputs `Deleted domain: <hash>` and `Tx: <hash>`",
+        "`--json` outputs {\"result\":\"success\",\"domainId\":\"<hash>\",\"tx\":\"<hash>\"}",
+        "`--dry-run`, `--no-wait` supported",
+        "Supports --seed, --mnemonic, --account/--keystore/--password",
+        "Validation tests (no network): missing --domain-id exits with error, invalid --domain-id format exits with error",
+        "E2E tests on testnet: create domain in beforeAll then delete it, verify gone via account_objects (type: 'permissioned_domain'), --json, --dry-run, --no-wait",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Error conditions: tecNO_ENTRY if domain doesn't exist, tecNO_PERMISSION if not the owner. Use isDeletedNode from xrpl to confirm deletion in metadata if needed."
     }
   ]
 }

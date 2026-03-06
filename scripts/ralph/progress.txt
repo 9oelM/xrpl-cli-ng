@@ -1,36 +1,27 @@
 # Ralph Progress Log
-## Codebase Patterns
-- `resolveWallet` helper is duplicated per command file (not shared util) — copy from credential.ts
-- `AuthorizeCredential` from xrpl.js wraps each entry: `{ Credential: { Issuer, CredentialType } }`
-- For `deposit-preauth set`, `AuthorizeCredentials`/`UnauthorizeCredentials` each take exactly one entry array
-- Enable DepositAuth with `AccountSet` `SetFlag: 9` (asfDepositAuth) in beforeAll for preauth tests
-- Credential-based preauth requires funded issuer address on testnet
-
-Started: Fri Mar  6 11:22:04 AM Universal 2026
+Started: Fri Mar  6 04:35:57 PM Universal 2026
 ---
+
+## Codebase Patterns
+- PermissionedDomains amendment IS enabled on testnet (verified via `feature` API call)
+- `AuthorizeCredential` type: `{ Credential: { Issuer: string, CredentialType: string } }` — CredentialType must be hex
+- `PermissionedDomainSet` (no DomainID = create), `PermissionedDomainDelete` (requires DomainID) are both in xrpl.js
+- Use `isCreatedNode(n) && n.CreatedNode.LedgerEntryType === 'PermissionedDomain'` to extract domain ID from tx metadata
+- The `src/index.ts` file cannot be edited with the Edit tool if not previously Read; use `sed` as fallback
+- `isValidClassicAddress` is exported from xrpl and can validate issuer addresses
 
 ## 2026-03-06 - US-001
-- Implemented `deposit-preauth set` subcommand in `src/commands/deposit-preauth.ts`
-- Registered command in `src/commands/index.ts` and `src/index.ts`
-- Created `tests/e2e/deposit-preauth/deposit-preauth.validation.test.ts` (10 no-network tests)
-- Created `tests/e2e/deposit-preauth/deposit-preauth.set.test.ts` (9 funded E2E tests)
-- Files changed: src/commands/deposit-preauth.ts, src/commands/index.ts, src/index.ts, tests/e2e/deposit-preauth/deposit-preauth.validation.test.ts, tests/e2e/deposit-preauth/deposit-preauth.set.test.ts
+- Implemented `src/commands/permissioned-domain.ts` with `create` subcommand
+- Registered `permissionedDomainCommand` in `src/commands/index.ts` and `src/index.ts`
+- Created validation tests (6 tests, no network) in `tests/e2e/permissioned-domain/permissioned-domain.validation.test.ts`
+- Created network tests (7 tests, testnet) in `tests/e2e/permissioned-domain/permissioned-domain.create.test.ts`
+- Files changed: src/commands/permissioned-domain.ts, src/commands/index.ts, src/index.ts, 2 test files
 - **Learnings for future iterations:**
-  - `AuthorizeCredential` type from xrpl.js: `{ Credential: { Issuer: string; CredentialType: string } }` — the inner `Credential` wrapper is required
-  - Set `SetFlag: 9` (asfDepositAuth) on the owner wallet in beforeAll to make preauth semantically meaningful on testnet
-  - Must fund credential issuer separately (not just owner+other) for credential-based preauth tests
-  - The `--no-wait` test should unauthorize an already-authorized account to avoid duplicate preauth error
----
-
-## 2026-03-06 - US-002
-- Implemented `deposit-preauth list <address>` subcommand in `src/commands/deposit-preauth.ts`
-- Added pagination support via `account_objects` with `type: 'deposit_preauth'`
-- Default output: `Account: <address>` for account-based, `Credential: <issuer> / <decoded-type>` for credential-based
-- Uses `convertHexToString` from xrpl.js to decode credential type hex
-- Created `tests/e2e/deposit-preauth/deposit-preauth.list.test.ts` (5 tests including --json and removal after unauthorize)
-- Files changed: src/commands/deposit-preauth.ts, tests/e2e/deposit-preauth/deposit-preauth.list.test.ts
-- **Learnings for future iterations:**
-  - `account_objects` with `type: 'deposit_preauth'` returns entries with `Authorize` (account) or `AuthorizeCredentials` (credential) fields
-  - Tests must be sequential (authorize → list → unauthorize → list) since they share the same owner account state
-  - `convertHexToString` from xrpl.js decodes hex credential type; wrap in try/catch for resilience
+  - PermissionedDomains is live on testnet — no need for devnet
+  - `--credential <issuer>:<type>` splits on first `:`, type is UTF-8 auto-encoded to hex
+  - `--credentials-json` takes pre-hex `credential_type` in each item
+  - JSON output format is `{result, domainId, tx}` per PRD spec (simpler than other commands)
+  - Domain ID is extracted from `CreatedNode.LedgerIndex` where `LedgerEntryType === 'PermissionedDomain'`
+  - For US-002 (update): same file, add `update` subcommand with `--domain-id` required option
+  - For US-003 (delete): add `delete` subcommand using `PermissionedDomainDelete` tx type
 ---
