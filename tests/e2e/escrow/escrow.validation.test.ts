@@ -114,3 +114,33 @@ describe("escrow finish validation (no network)", () => {
     expect(result.stderr).toContain("Error:");
   });
 });
+
+describe("escrow cancel validation (no network)", () => {
+  it("missing --owner exits 1", () => {
+    const result = runCLI([
+      "escrow", "cancel",
+      "--sequence", "1",
+      "--seed", DUMMY_SEED,
+    ]);
+    expect(result.status).toBe(1);
+  });
+
+  it("missing --sequence exits 1", () => {
+    const result = runCLI([
+      "escrow", "cancel",
+      "--owner", DUMMY_ADDRESS,
+      "--seed", DUMMY_SEED,
+    ]);
+    expect(result.status).toBe(1);
+  });
+
+  it("missing key material exits 1 with error message", () => {
+    const result = runCLI([
+      "escrow", "cancel",
+      "--owner", DUMMY_ADDRESS,
+      "--sequence", "1",
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Error:");
+  });
+});
