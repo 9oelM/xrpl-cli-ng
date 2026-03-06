@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
-import { Wallet, convertStringToHex } from "xrpl";
+import { Wallet, convertStringToHex, convertHexToString } from "xrpl";
 import type { DepositPreauth, TransactionMetadataBase } from "xrpl";
 import type { AuthorizeCredential } from "xrpl";
 import { deriveKeypair } from "ripple-keypairs";
@@ -292,6 +292,76 @@ const depositPreauthSetCommand = new Command("set")
     });
   });
 
+// ---------- deposit-preauth list ----------
+
+interface DepositPreauthEntry {
+  LedgerEntryType: string;
+  Authorize?: string;
+  AuthorizeCredentials?: Array<{ Credential: { Issuer: string; CredentialType: string } }>;
+}
+
+interface DepositPreauthListOptions {
+  json: boolean;
+}
+
+const depositPreauthListCommand = new Command("list")
+  .description("List deposit preauthorizations for an account")
+  .argument("<address>", "Account address to query")
+  .option("--json", "Output as JSON", false)
+  .action(async (address: string, options: DepositPreauthListOptions, cmd: Command) => {
+    const url = getNodeUrl(cmd);
+
+    await withClient(url, async (client) => {
+      // Paginate through all deposit_preauth objects
+      const entries: DepositPreauthEntry[] = [];
+      let marker: unknown = undefined;
+
+      do {
+        const res = await client.request({
+          command: "account_objects",
+          account: address,
+          type: "deposit_preauth",
+          limit: 400,
+          ...(marker !== undefined ? { marker } : {}),
+        } as Parameters<typeof client.request>[0]);
+
+        const result = res.result as {
+          account_objects: DepositPreauthEntry[];
+          marker?: unknown;
+        };
+
+        entries.push(...result.account_objects);
+        marker = result.marker;
+      } while (marker !== undefined);
+
+      if (options.json) {
+        console.log(JSON.stringify(entries));
+        return;
+      }
+
+      if (entries.length === 0) {
+        console.log("No deposit preauthorizations.");
+        return;
+      }
+
+      for (const entry of entries) {
+        if (entry.Authorize !== undefined) {
+          console.log(`Account: ${entry.Authorize}`);
+        } else if (entry.AuthorizeCredentials !== undefined && entry.AuthorizeCredentials.length > 0) {
+          const cred = entry.AuthorizeCredentials[0]!.Credential;
+          let credTypeStr: string;
+          try {
+            credTypeStr = convertHexToString(cred.CredentialType);
+          } catch {
+            credTypeStr = cred.CredentialType;
+          }
+          console.log(`Credential: ${cred.Issuer} / ${credTypeStr}`);
+        }
+      }
+    });
+  });
+
 export const depositPreauthCommand = new Command("deposit-preauth")
   .description("Manage deposit preauthorizations on XRPL accounts")
-  .addCommand(depositPreauthSetCommand);
+  .addCommand(depositPreauthSetCommand)
+  .addCommand(depositPreauthListCommand);
