@@ -9,3 +9,4 @@ export { checkCommand } from "./check.js";
 export { clawbackCommand } from "./clawback.js";
 export { credentialCommand } from "./credential.js";
 export { nftCommand } from "./nft.js";
+export { oracleCommand } from "./oracle.js";
