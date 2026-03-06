@@ -49,6 +49,37 @@ describe("credential accept validation (no network)", () => {
   });
 });
 
+describe("credential delete validation (no network)", () => {
+  it("missing credential-type exits 1 with error", () => {
+    const result = runCLI([
+      "credential", "delete",
+      "--seed", DUMMY_SEED,
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Error:");
+  });
+
+  it("both --credential-type and --credential-type-hex exits 1", () => {
+    const result = runCLI([
+      "credential", "delete",
+      "--credential-type", "KYC",
+      "--credential-type-hex", "4B5943",
+      "--seed", DUMMY_SEED,
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("mutually exclusive");
+  });
+
+  it("missing key material exits 1", () => {
+    const result = runCLI([
+      "credential", "delete",
+      "--credential-type", "KYC",
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Error:");
+  });
+});
+
 describe("credential create validation (no network)", () => {
   it("missing --subject exits 1 with error", () => {
     const result = runCLI([

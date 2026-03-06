@@ -1,8 +1,8 @@
 import { Command } from "commander";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
-import { Wallet, isCreatedNode, convertStringToHex, isoTimeToRippleTime } from "xrpl";
-import type { CredentialCreate, CredentialAccept, TransactionMetadataBase } from "xrpl";
+import { Wallet, isCreatedNode, isDeletedNode, convertStringToHex, isoTimeToRippleTime } from "xrpl";
+import type { CredentialCreate, CredentialAccept, CredentialDelete, TransactionMetadataBase } from "xrpl";
 import { deriveKeypair } from "ripple-keypairs";
 import { withClient } from "../utils/client.js";
 import { getNodeUrl } from "../utils/node.js";
@@ -444,7 +444,184 @@ const credentialAcceptCommand = new Command("accept")
     });
   });
 
+interface CredentialDeleteOptions {
+  credentialType?: string;
+  credentialTypeHex?: string;
+  subject?: string;
+  issuer?: string;
+  seed?: string;
+  mnemonic?: string;
+  account?: string;
+  password?: string;
+  keystore?: string;
+  wait: boolean;
+  json: boolean;
+  dryRun: boolean;
+}
+
+const credentialDeleteCommand = new Command("delete")
+  .description("Delete an on-chain credential (revoke or clean up)")
+  .option("--credential-type <string>", "Credential type as plain string (auto hex-encoded, max 64 bytes)")
+  .option("--credential-type-hex <hex>", "Credential type as raw hex (2-128 hex chars)")
+  .option("--subject <address>", "Subject account address (defaults to sender if omitted)")
+  .option("--issuer <address>", "Issuer account address (defaults to sender if omitted)")
+  .option("--seed <seed>", "Family seed for signing")
+  .option("--mnemonic <phrase>", "BIP39 mnemonic for signing")
+  .option("--account <address-or-alias>", "Account address or alias to load from keystore")
+  .option("--password <password>", "Keystore decryption password (insecure, prefer interactive prompt)")
+  .option("--keystore <dir>", "Keystore directory (default: ~/.xrpl/keystore/; XRPL_KEYSTORE env var also accepted)")
+  .option("--no-wait", "Submit without waiting for validation")
+  .option("--json", "Output as JSON", false)
+  .option("--dry-run", "Print signed tx without submitting", false)
+  .action(async (options: CredentialDeleteOptions, cmd: Command) => {
+    // Validate mutually exclusive credential-type flags
+    if (options.credentialType !== undefined && options.credentialTypeHex !== undefined) {
+      process.stderr.write("Error: --credential-type and --credential-type-hex are mutually exclusive\n");
+      process.exit(1);
+    }
+    if (options.credentialType === undefined && options.credentialTypeHex === undefined) {
+      process.stderr.write("Error: provide --credential-type or --credential-type-hex\n");
+      process.exit(1);
+    }
+
+    // Resolve credential type hex
+    let credentialTypeHex: string;
+    if (options.credentialType !== undefined) {
+      const encoded = convertStringToHex(options.credentialType);
+      const byteLen = encoded.length / 2;
+      if (byteLen > 64) {
+        process.stderr.write(`Error: --credential-type encodes to ${byteLen} bytes, max is 64\n`);
+        process.exit(1);
+      }
+      if (byteLen < 1) {
+        process.stderr.write("Error: --credential-type must not be empty\n");
+        process.exit(1);
+      }
+      credentialTypeHex = encoded;
+    } else {
+      const hex = options.credentialTypeHex!;
+      if (!/^[0-9A-Fa-f]+$/.test(hex) || hex.length < 2 || hex.length > 128) {
+        process.stderr.write("Error: --credential-type-hex must be 2-128 hex characters\n");
+        process.exit(1);
+      }
+      credentialTypeHex = hex.toUpperCase();
+    }
+
+    // Validate key material
+    const keyMaterialCount = [options.seed, options.mnemonic, options.account].filter(Boolean).length;
+    if (keyMaterialCount === 0) {
+      process.stderr.write("Error: provide key material via --seed, --mnemonic, or --account\n");
+      process.exit(1);
+    }
+    if (keyMaterialCount > 1) {
+      process.stderr.write("Error: provide only one of --seed, --mnemonic, or --account\n");
+      process.exit(1);
+    }
+
+    const signerWallet = await resolveWallet(options);
+    const keystoreDir = getKeystoreDir(options);
+
+    // Resolve subject and issuer (default to sender)
+    const subject = options.subject !== undefined
+      ? resolveAccount(options.subject, keystoreDir)
+      : signerWallet.address;
+    const issuer = options.issuer !== undefined
+      ? resolveAccount(options.issuer, keystoreDir)
+      : signerWallet.address;
+
+    // Build CredentialDelete transaction
+    const tx: CredentialDelete = {
+      TransactionType: "CredentialDelete",
+      Account: signerWallet.address,
+      CredentialType: credentialTypeHex,
+      Subject: subject,
+      Issuer: issuer,
+    };
+
+    const url = getNodeUrl(cmd);
+
+    await withClient(url, async (client) => {
+      const filled = await client.autofill(tx);
+
+      if (options.dryRun) {
+        const signed = signerWallet.sign(filled);
+        console.log(JSON.stringify({ tx_blob: signed.tx_blob, tx: filled }));
+        return;
+      }
+
+      const signed = signerWallet.sign(filled);
+
+      if (!options.wait) {
+        await client.submit(signed.tx_blob);
+        if (options.json) {
+          console.log(JSON.stringify({ hash: signed.hash }));
+        } else {
+          console.log(`Transaction: ${signed.hash}`);
+        }
+        return;
+      }
+
+      let response;
+      try {
+        response = await client.submitAndWait(signed.tx_blob);
+      } catch (e: unknown) {
+        const err = e as Error;
+        if (err.constructor.name === "TimeoutError" || err.message?.includes("LastLedgerSequence")) {
+          process.stderr.write("Error: transaction expired (LastLedgerSequence exceeded)\n");
+          process.exit(1);
+        }
+        throw e;
+      }
+
+      const txResult = response.result as {
+        hash?: string;
+        ledger_index?: number;
+        meta?: TransactionMetadataBase & { TransactionResult?: string };
+        tx_json?: { Fee?: string };
+      };
+
+      const resultCode = txResult.meta?.TransactionResult ?? "unknown";
+      const hash = txResult.hash ?? signed.hash;
+      const feeDrops = txResult.tx_json?.Fee ?? "0";
+      const feeXrp = (Number(feeDrops) / 1_000_000).toFixed(6);
+      const ledger = txResult.ledger_index;
+
+      if (/^te[cfm]/i.test(resultCode)) {
+        process.stderr.write(`Error: transaction failed with ${resultCode}\n`);
+        if (options.json) {
+          console.log(JSON.stringify({ hash, result: resultCode, fee: feeXrp, ledger }));
+        }
+        process.exit(1);
+      }
+
+      // Extract deleted Credential ledger entry ID from AffectedNodes
+      let credentialId: string | null = null;
+      const meta = txResult.meta;
+      if (meta && typeof meta !== "string") {
+        const credNode = meta.AffectedNodes?.find(
+          (n) => isDeletedNode(n) && n.DeletedNode.LedgerEntryType === "Credential"
+        );
+        if (credNode && isDeletedNode(credNode)) {
+          credentialId = credNode.DeletedNode.LedgerIndex;
+        }
+      }
+
+      if (options.json) {
+        console.log(JSON.stringify({ hash, result: resultCode, fee: feeXrp, ledger, credentialId }));
+      } else {
+        console.log(`Transaction:   ${hash}`);
+        console.log(`Result:        ${resultCode}`);
+        console.log(`Fee:           ${feeXrp} XRP`);
+        console.log(`Ledger:        ${ledger}`);
+        if (credentialId) {
+          console.log(`Credential ID: ${credentialId}`);
+        }
+      }
+    });
+  });
+
 export const credentialCommand = new Command("credential")
   .description("Manage XRPL on-chain credentials")
   .addCommand(credentialCreateCommand)
-  .addCommand(credentialAcceptCommand);
+  .addCommand(credentialAcceptCommand)
+  .addCommand(credentialDeleteCommand);
