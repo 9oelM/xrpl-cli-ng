@@ -1,21 +1,22 @@
 {
   "project": "xrpl-cli",
-  "branchName": "ralph/channel",
-  "description": "Payment channel commands — create, fund, sign, verify, claim, close, and list XRPL payment channels",
+  "branchName": "ralph/checks",
+  "description": "Check commands — create, cash, cancel, and list XRPL Checks with XRP and IOU support",
   "userStories": [
     {
       "id": "US-001",
-      "title": "channel create command",
-      "description": "As a developer, I want to open a payment channel from the CLI so I can lock XRP for a streaming payment relationship.",
+      "title": "check create command",
+      "description": "As a developer, I want to issue a check from the CLI so a recipient can pull funds at their convenience.",
       "acceptanceCriteria": [
-        "Read PaymentChannelCreate docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/paymentchannelcreate.md before implementing",
-        "Create src/commands/channel.ts and register it in src/commands/index.ts",
-        "xrpl channel create subcommand with: --to (required), --amount XRP decimal (required, converted to drops), --settle-delay seconds (required), --public-key hex (optional, derived from wallet.publicKey if omitted), --cancel-after ISO8601 (optional, converted to XRPL epoch: Math.floor(new Date(s).getTime()/1000)-946684800), --destination-tag n (optional)",
+        "Read CheckCreate docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/checkcreate.md before implementing",
+        "Create src/commands/check.ts and register it in src/commands/index.ts and src/index.ts",
+        "xrpl check create subcommand with: --to (required), --send-max (required, XRP decimal or value/CURRENCY/issuer IOU format), --expiration ISO8601 (optional, converted to XRPL epoch: Math.floor(new Date(s).getTime()/1000)-946684800), --destination-tag n (optional), --invoice-id string (optional, plain string auto hex-encoded via convertStringToHex; CLI rejects if input > 32 bytes)",
         "Standard key material options: --seed, --mnemonic, --account/--keystore/--password",
         "Standard output options: --node, --json, --dry-run, --no-wait",
-        "On success, output prints the channel ID (retrieved from transaction metadata CreatedNode with LedgerEntryType PaymentChannel)",
-        "tests/e2e/channel/channel.validation.test.ts covers: missing --to, missing --amount, missing --settle-delay, invalid ISO date, missing key material (no network)",
-        "tests/e2e/channel/channel.create.test.ts covers: create a channel and verify channel ID in output, --json, --dry-run",
+        "On success, output prints the Check ID (from AffectedNodes CreatedNode where LedgerEntryType === 'Check')",
+        "Reuse parseAmount and toXrplAmount from src/utils/amount.ts for --send-max parsing",
+        "tests/e2e/check/check.validation.test.ts: missing --to, missing --send-max, invalid ISO date, missing key material (no network)",
+        "tests/e2e/check/check.create.test.ts: create XRP check, --expiration, --destination-tag, --json, --dry-run",
         "Typecheck passes"
       ],
       "priority": 1,
@@ -24,14 +25,17 @@
     },
     {
       "id": "US-002",
-      "title": "channel fund command",
-      "description": "As a developer, I want to add more XRP to an existing channel so I can extend its capacity without reopening it.",
+      "title": "check cash command",
+      "description": "As a developer, I want to cash a check from the CLI so I can pull funds authorised for me.",
       "acceptanceCriteria": [
-        "Read PaymentChannelFund docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/paymentchannelfund.md before implementing",
-        "xrpl channel fund subcommand with: --channel hex (required, 64-char channel ID), --amount XRP decimal (required, converted to drops), --expiration ISO8601 (optional, converted to XRPL epoch)",
+        "Read CheckCash docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/checkcash.md before implementing",
+        "xrpl check cash subcommand with: --check hex (required, 64-char Check ID), --amount (optional, XRP decimal or IOU), --deliver-min (optional, XRP decimal or IOU)",
         "Standard key material options: --seed, --mnemonic, --account/--keystore/--password",
         "Standard output options: --node, --json, --dry-run, --no-wait",
-        "tests/e2e/channel/channel.fund.test.ts covers: fund an existing channel, verify updated amount in channel list output, --json, --dry-run",
+        "CLI exits with error if both --amount and --deliver-min are provided",
+        "CLI exits with error if neither --amount nor --deliver-min is provided",
+        "Reuse parseAmount and toXrplAmount from src/utils/amount.ts",
+        "tests/e2e/check/check.cash.test.ts: cash an XRP check with --amount, cash with --deliver-min, --json, --dry-run",
         "Typecheck passes"
       ],
       "priority": 2,
@@ -40,12 +44,14 @@
     },
     {
       "id": "US-003",
-      "title": "channel sign and channel verify commands",
-      "description": "As a developer, I want to sign and verify off-chain payment claims so I can conduct micropayments without on-chain transactions.",
+      "title": "check cancel command",
+      "description": "As a developer, I want to cancel a check from the CLI so the reserved funds are freed.",
       "acceptanceCriteria": [
-        "xrpl channel sign subcommand with: --channel hex (required), --amount XRP decimal (required, converted to drops), key material options (--seed, --mnemonic, --account/--keystore/--password); no --node required; uses xrpl.js signPaymentChannelClaim(channelId, amountDrops, privateKey); outputs hex signature",
-        "xrpl channel verify subcommand with: --channel hex (required), --amount XRP decimal (required, converted to drops), --signature hex (required), --public-key hex (required); no --node required; uses xrpl.js verifyPaymentChannelClaim(channelId, amountDrops, signature, publicKey); outputs 'valid' or 'invalid'",
-        "tests/e2e/channel/channel.sign.test.ts covers: sign a claim and verify it passes channel verify, verify a tampered signature fails, verify wrong amount fails (no network required)",
+        "Read CheckCancel docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/checkcancel.md before implementing",
+        "xrpl check cancel subcommand with: --check hex (required, 64-char Check ID)",
+        "Standard key material options: --seed, --mnemonic, --account/--keystore/--password",
+        "Standard output options: --node, --json, --dry-run, --no-wait",
+        "tests/e2e/check/check.cancel.test.ts: sender cancels own check, --json, --dry-run",
         "Typecheck passes"
       ],
       "priority": 3,
@@ -54,35 +60,18 @@
     },
     {
       "id": "US-004",
-      "title": "channel claim command",
-      "description": "As a developer, I want to redeem an off-chain claim on-ledger or close a channel so funds are settled correctly.",
+      "title": "check list query command",
+      "description": "As a developer, I want to list pending checks for an account so I know which IDs to cash or cancel.",
       "acceptanceCriteria": [
-        "Read PaymentChannelClaim docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/paymentchannelclaim.md before implementing",
-        "xrpl channel claim subcommand with: --channel hex (required), --amount XRP decimal (optional, converted to drops), --balance XRP decimal (optional, converted to drops), --signature hex (optional), --public-key hex (optional), --close flag (sets tfClose = 0x00020000), --renew flag (sets tfRenew = 0x00010000)",
-        "Standard key material options: --seed, --mnemonic, --account/--keystore/--password",
-        "Standard output options: --node, --json, --dry-run, --no-wait",
-        "CLI exits with error if --signature is provided without --public-key, --amount, and --balance",
-        "tests/e2e/channel/channel.claim.test.ts covers: destination redeems a signed claim (create channel, sign claim, redeem with channel claim), source closes a channel with --close flag, --json, --dry-run",
-        "Typecheck passes"
-      ],
-      "priority": 4,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-005",
-      "title": "channel list query command",
-      "description": "As a developer, I want to list all open payment channels for an account so I can see their IDs, balances, and expiry.",
-      "acceptanceCriteria": [
-        "xrpl channel list <address> subcommand using account_channels RPC with optional --destination <address> filter",
-        "Default human-readable output per channel: channel ID, amount (XRP), balance (XRP), destination, settle-delay (seconds), expiration (ISO8601 or 'none'), cancel-after (ISO8601 or 'none'), public-key-hex",
+        "xrpl check list <address> subcommand using account_objects RPC with type: 'check'",
+        "Default human-readable output per check: check ID, send-max (XRP decimal or value/CURRENCY/issuer), destination, expiration (ISO8601 or 'none'), invoice-id (hex or 'none')",
         "XRPL epoch timestamps converted to ISO8601: new Date((epoch + 946684800) * 1000).toISOString()",
         "--json outputs raw JSON array",
         "--node supported",
-        "tests/e2e/channel/channel.list.test.ts: create a channel then verify it appears in list; --json output; --destination filter returns only matching channels",
+        "tests/e2e/check/check.list.test.ts: create a check then verify it appears in list output; --json output",
         "Typecheck passes"
       ],
-      "priority": 5,
+      "priority": 4,
       "passes": true,
       "notes": ""
     }
