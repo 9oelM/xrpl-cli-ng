@@ -46,7 +46,7 @@
         "Tests pass"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "PermissionedDomainSet with DomainID = update; without DomainID = create. The AcceptedCredentials array fully replaces the existing list on update."
     },
     {

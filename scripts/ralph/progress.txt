@@ -25,3 +25,15 @@ Started: Fri Mar  6 04:35:57 PM Universal 2026
   - For US-002 (update): same file, add `update` subcommand with `--domain-id` required option
   - For US-003 (delete): add `delete` subcommand using `PermissionedDomainDelete` tx type
 ---
+
+## 2026-03-06 - US-002
+- Added `update` subcommand to `src/commands/permissioned-domain.ts` with `--domain-id` required option
+- Added 6 validation tests to `permissioned-domain.validation.test.ts` (missing/invalid domain-id, missing creds, mutually exclusive flags, invalid issuer, missing key material)
+- Created `tests/e2e/permissioned-domain/permissioned-domain.update.test.ts` with 7 network tests (basic update, credentials-json, account_objects verify, --json, --dry-run, --no-wait, --account/keystore)
+- Files changed: src/commands/permissioned-domain.ts, permissioned-domain.validation.test.ts, new permissioned-domain.update.test.ts
+- **Learnings for future iterations:**
+  - `PermissionedDomainSet.DomainID` is an optional field in xrpl.js types — no cast needed
+  - Update test pattern: each test calls `createDomain()` helper to get a fresh domain, then updates it (clean isolation)
+  - For --dry-run, the `DomainID` field appears in `tx` in the output — assert it to verify correct domain targeted
+  - For US-003 (delete): use `PermissionedDomainDelete` tx type with required `DomainID`; check `isDeletedNode` in metadata to confirm; output "Deleted domain: <hash>"
+---
