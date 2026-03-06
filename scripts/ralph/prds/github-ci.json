@@ -1,0 +1,58 @@
+{
+  "project": "xrpl-cli",
+  "branchName": "ralph/github-ci",
+  "description": "GitHub Actions CI — typecheck and E2E test workflows on every push and PR, with runtime Node PATH resolution replacing hardcoded fnm paths",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Fix hardcoded fnm PATH in test files",
+      "description": "As a developer, I want E2E test files to resolve the Node binary directory at runtime so tests work both locally (fnm) and in CI (setup-node).",
+      "acceptanceCriteria": [
+        "Create tests/helpers/cli.ts that exports a runCLI(args, extraEnv?) function using PATH set to `path.dirname(process.execPath) + path.delimiter + (process.env.PATH ?? '')` — this resolves to the bin dir of the currently running node binary",
+        "Replace every hardcoded `/home/vscode/.fnm/node-versions/v22.22.0/installation/bin` string in all test files with the runtime-resolved path from the shared helper or inline `process.execPath` pattern",
+        "The shared runCLI helper uses TSX = resolve(process.cwd(), 'node_modules/.bin/tsx') and CLI = resolve(process.cwd(), 'src/index.ts')",
+        "All existing test files that define their own runCLI or E2E_PATH are updated to use the shared helper or inline process.execPath",
+        "npm test passes (no 'command not found' or 'spawn' errors)",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Typecheck GitHub Actions workflow",
+      "description": "As a developer, I want a CI workflow that runs npm run typecheck on every push and PR so TypeScript errors are caught without running E2E tests.",
+      "acceptanceCriteria": [
+        "Create .github/workflows/typecheck.yml",
+        "Workflow is named 'Typecheck' and has a job named 'typecheck'",
+        "Triggers on push (all branches) and pull_request (all branches): `on: [push, pull_request]`",
+        "Uses actions/checkout@v4",
+        "Uses actions/setup-node@v4 with node-version: '22' and cache: 'npm'",
+        "Runs `npm ci` then `npm run typecheck`",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "E2E test GitHub Actions workflow",
+      "description": "As a developer, I want a CI workflow that runs the full test suite on every push and PR so regressions are caught before merge.",
+      "acceptanceCriteria": [
+        "Create .github/workflows/test.yml",
+        "Workflow is named 'Test' and has a job named 'test'",
+        "Triggers on push (all branches) and pull_request (all branches): `on: [push, pull_request]`",
+        "Uses actions/checkout@v4",
+        "Uses actions/setup-node@v4 with node-version: '22' and cache: 'npm'",
+        "Runs `npm ci` then `npm test`",
+        "Job sets `timeout-minutes: 20` to allow for faucet retry backoff (up to 30 retries x ~5s each per wallet)",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

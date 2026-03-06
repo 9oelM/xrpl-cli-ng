@@ -1,0 +1,21 @@
+## Codebase Patterns
+- Wallet resolution pattern: use a `resolveWallet(options)` helper — checks seed → mnemonic → account/keystore, matches trust.ts and payment.ts
+- OfferCreate sequence after submit: available in `response.result.tx_json.Sequence`; also available in `filled.Sequence` after autofill
+- `isoTimeToRippleTime` is exported directly from xrpl.js — use it to convert ISO 8601 to XRPL epoch for `Expiration` field
+- `OfferCreateFlags` is exported from xrpl.js: tfPassive, tfImmediateOrCancel, tfFillOrKill, tfSell
+- Trust line verification: `account trust-lines --json <address>` returns array with `{ account, currency, balance, limit }` — `balance` is positive from holder's perspective
+- Account field verification: `account info --json <address>` returns `account_data` object with `Balance` (drops string), `EmailHash`, `TransferRate`, `TickSize`, `Flags` (bitmask)
+- xrpl.js PaymentFlags real values: `tfNoRippleDirect=0x10000`, `tfPartialPayment=0x20000`, `tfLimitQuality=0x40000`
+- Commander.js `--no-X` options: property is camelCase of X (NOT noX), default true, `--no-X` sets it to false; check with `!options.X`; NEVER give explicit `false` default
+- Use `@scure/bip39` (`generateMnemonic` + `wordlist` from `@scure/bip39/wordlists/english`) to generate fresh random mnemonics in beforeAll — never use well-known BIP39 test vectors like "abandon...about" on testnet (overused, high sequence number, transaction expiry)
+- Fund mnemonic-derived wallets from the faucet-funded sender wallet (via `client.autofill` + `sender.sign` + `client.submitAndWait`) in beforeAll, not directly from the faucet
+- Mnemonic wallet derivation: `Wallet.fromMnemonic(mnemonic, { mnemonicEncoding: "bip39", derivationPath: "m/44'/144'/0'/0/0" })`
+- tecKILLED for IOC/FOK OfferCreate is non-fatal — CLI exits 0 with "Offer killed" message
+- `account set` uses named flag strings (defaultRipple, requireDestTag, etc.) not numeric values; lsfDefaultRipple ledger bit = 0x00800000; asfDefaultRipple value = 8
+- `account set` uses `client.submit()` (not submitAndWait) — tests must sleep ~10s before querying on-chain state after AccountSet
+- Node PATH for spawnSync in tests: use `path.dirname(process.execPath) + path.delimiter + (process.env.PATH ?? '')` — resolves to the bin dir of the currently running node binary; works with both fnm (local) and setup-node (CI)
+- Tests helper location: `tests/helpers/testnet.ts` (faucet + distributeToWallets); shared runCLI should go in `tests/helpers/cli.ts`
+
+# Ralph Progress Log
+Started: Fri Mar  6 00:00:00 UTC 2026
+---
