@@ -173,6 +173,99 @@ describe("nft offer create validation (no network)", () => {
   });
 });
 
+describe("nft offer accept validation (no network)", () => {
+  it("neither --sell-offer nor --buy-offer exits 1 with error", () => {
+    const result = runCLI([
+      "nft", "offer", "accept",
+      "--seed", DUMMY_SEED,
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Error:");
+  });
+
+  it("--broker-fee without both offers exits 1 with error", () => {
+    const result = runCLI([
+      "nft", "offer", "accept",
+      "--sell-offer", DUMMY_NFT_ID,
+      "--broker-fee", "1",
+      "--seed", DUMMY_SEED,
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("--broker-fee requires both --sell-offer and --buy-offer");
+  });
+
+  it("invalid --sell-offer (not 64 hex chars) exits 1 with error", () => {
+    const result = runCLI([
+      "nft", "offer", "accept",
+      "--sell-offer", "DEADBEEF",
+      "--seed", DUMMY_SEED,
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Error:");
+  });
+
+  it("missing key material exits 1", () => {
+    const result = runCLI([
+      "nft", "offer", "accept",
+      "--sell-offer", DUMMY_NFT_ID,
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Error:");
+  });
+
+  it("multiple key material options exits 1", () => {
+    const result = runCLI([
+      "nft", "offer", "accept",
+      "--sell-offer", DUMMY_NFT_ID,
+      "--seed", DUMMY_SEED,
+      "--mnemonic", "test test test test test test test test test test test junk",
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Error:");
+  });
+});
+
+describe("nft offer cancel validation (no network)", () => {
+  it("no --offer exits 1 with error", () => {
+    const result = runCLI([
+      "nft", "offer", "cancel",
+      "--seed", DUMMY_SEED,
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Error:");
+  });
+
+  it("invalid --offer (not 64 hex chars) exits 1 with error", () => {
+    const result = runCLI([
+      "nft", "offer", "cancel",
+      "--offer", "DEADBEEF",
+      "--seed", DUMMY_SEED,
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Error:");
+  });
+
+  it("missing key material exits 1", () => {
+    const result = runCLI([
+      "nft", "offer", "cancel",
+      "--offer", DUMMY_NFT_ID,
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Error:");
+  });
+
+  it("multiple key material options exits 1", () => {
+    const result = runCLI([
+      "nft", "offer", "cancel",
+      "--offer", DUMMY_NFT_ID,
+      "--seed", DUMMY_SEED,
+      "--mnemonic", "test test test test test test test test test test test junk",
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Error:");
+  });
+});
+
 describe("nft modify validation (no network)", () => {
   it("missing --nft exits 1 with error", () => {
     const result = runCLI([
