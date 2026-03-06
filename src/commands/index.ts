@@ -9,12 +9,7 @@ export { checkCommand } from "./check.js";
 export { clawbackCommand } from "./clawback.js";
 export { credentialCommand } from "./credential.js";
 export { nftCommand } from "./nft.js";
-<<<<<<< HEAD
-<<<<<<< HEAD
 export { multisigCommand } from "./multisig.js";
-=======
 export { oracleCommand } from "./oracle.js";
->>>>>>> ralph/oracle
-=======
 export { ticketCommand } from "./ticket.js";
->>>>>>> ralph/ticket
+export { depositPreauthCommand } from "./deposit-preauth.js";

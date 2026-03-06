@@ -1,27 +1,36 @@
-## Codebase Patterns
-- `resolveAccount(input, keystoreDir)` returns the input unchanged if it looks like an XRPL address (`/^r[a-zA-Z0-9]{24,33}$/`); otherwise scans keystore for an alias match and throws if not found. Always wrap in try/catch when you need a clean "invalid address" error.
-- Use `--confirm` (boolean flag, default false) for irreversible destructive commands; check `!options.dryRun && !options.confirm` to allow dry-run without confirmation.
-- `--no-wait` correct pattern per MEMORY.md: `.option("--no-wait", "...")` with NO default arg; interface property `wait: boolean`; check `!options.wait` for the no-wait path.
-
 # Ralph Progress Log
+## Codebase Patterns
+- `resolveWallet` helper is duplicated per command file (not shared util) — copy from credential.ts
+- `AuthorizeCredential` from xrpl.js wraps each entry: `{ Credential: { Issuer, CredentialType } }`
+- For `deposit-preauth set`, `AuthorizeCredentials`/`UnauthorizeCredentials` each take exactly one entry array
+- Enable DepositAuth with `AccountSet` `SetFlag: 9` (asfDepositAuth) in beforeAll for preauth tests
+- Credential-based preauth requires funded issuer address on testnet
+
 Started: Fri Mar  6 11:22:04 AM Universal 2026
 ---
 
 ## 2026-03-06 - US-001
-- Rewrote `src/commands/account/delete.ts`:
-  - Changed `--yes` → `--confirm` (boolean flag, no interactive prompt)
-  - Added `--no-wait` (correct pattern: `wait: boolean` in interface, no default in option)
-  - Added fee note in description: "Fee: ~2 XRP (owner reserve, non-refundable)"
-  - Error message for missing `--confirm`: "This permanently deletes your account. Pass --confirm to proceed."
-  - `--dry-run` bypasses `--confirm` requirement
-  - Destination validation: wrap `resolveAccount` in try/catch, then also call `isValidClassicAddress`
-  - Use `submitAndWait` by default; `submit` with `--no-wait`
-  - JSON output for both wait and no-wait paths
-- Created `tests/e2e/account/account.delete.validation.test.ts` (6 no-network tests)
-- Created `tests/e2e/account/account.delete.test.ts` (5 E2E tests: dry-run, dry-run+tag, no-wait, json+no-wait, actNotFound proxy)
-- Removed `tests/e2e/account/delete.test.ts` (replaced by the two files above)
+- Implemented `deposit-preauth set` subcommand in `src/commands/deposit-preauth.ts`
+- Registered command in `src/commands/index.ts` and `src/index.ts`
+- Created `tests/e2e/deposit-preauth/deposit-preauth.validation.test.ts` (10 no-network tests)
+- Created `tests/e2e/deposit-preauth/deposit-preauth.set.test.ts` (9 funded E2E tests)
+- Files changed: src/commands/deposit-preauth.ts, src/commands/index.ts, src/index.ts, tests/e2e/deposit-preauth/deposit-preauth.validation.test.ts, tests/e2e/deposit-preauth/deposit-preauth.set.test.ts
 - **Learnings for future iterations:**
-  - `resolveAccount` throws for non-address inputs; always wrap in try/catch to provide clean error messages
-  - DeletableAccounts amendment requires `Sequence + 256 <= LedgerIndex` — fresh testnet accounts can't be deleted immediately; use `--no-wait` for submission tests and an unfunded wallet for "actNotFound" verification
-  - `isValidClassicAddress` is exported directly from `xrpl` package
+  - `AuthorizeCredential` type from xrpl.js: `{ Credential: { Issuer: string; CredentialType: string } }` — the inner `Credential` wrapper is required
+  - Set `SetFlag: 9` (asfDepositAuth) on the owner wallet in beforeAll to make preauth semantically meaningful on testnet
+  - Must fund credential issuer separately (not just owner+other) for credential-based preauth tests
+  - The `--no-wait` test should unauthorize an already-authorized account to avoid duplicate preauth error
+---
+
+## 2026-03-06 - US-002
+- Implemented `deposit-preauth list <address>` subcommand in `src/commands/deposit-preauth.ts`
+- Added pagination support via `account_objects` with `type: 'deposit_preauth'`
+- Default output: `Account: <address>` for account-based, `Credential: <issuer> / <decoded-type>` for credential-based
+- Uses `convertHexToString` from xrpl.js to decode credential type hex
+- Created `tests/e2e/deposit-preauth/deposit-preauth.list.test.ts` (5 tests including --json and removal after unauthorize)
+- Files changed: src/commands/deposit-preauth.ts, tests/e2e/deposit-preauth/deposit-preauth.list.test.ts
+- **Learnings for future iterations:**
+  - `account_objects` with `type: 'deposit_preauth'` returns entries with `Authorize` (account) or `AuthorizeCredentials` (credential) fields
+  - Tests must be sequential (authorize → list → unauthorize → list) since they share the same owner account state
+  - `convertHexToString` from xrpl.js decodes hex credential type; wrap in try/catch for resilience
 ---
