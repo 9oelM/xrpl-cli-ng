@@ -10,6 +10,20 @@ Started: Fri Mar  6 04:30:16 AM Universal 2026
 - For `account info --json` the output is the `account_data` object with `Balance` as a string in drops
 - For `account trust-lines --json` the output is an array with `{ account, currency, balance, limit }` — `balance` is positive from the holder's perspective
 
+## 2026-03-06 - US-005
+- Created tests/e2e/account/account.set.flags.test.ts with its own beforeAll funding one wallet + mnemonic wallet
+- Added --set-flag defaultRipple test: submits AccountSet SetFlag=8, sleeps 10s, queries account info --json, asserts (Flags & 0x00800000) !== 0
+- Added --clear-flag defaultRipple test: submits AccountSet ClearFlag=8, sleeps 10s, asserts (Flags & 0x00800000) === 0
+- Added --mnemonic test: fund mnemonic wallet from faucet wallet in beforeAll, run account set --domain with --mnemonic, assert exit 0 + stdout contains "Transaction submitted:"
+- Added --account/--keystore/--password test: temp keystore dir, wallet import, account set --domain, assert exit 0
+- Files changed: tests/e2e/account/account.set.flags.test.ts (new)
+- **Learnings for future iterations:**
+  - `account set` uses named flags (defaultRipple, requireDestTag, etc.) not numeric values; the ASF_FLAG_MAP enforces this
+  - lsfDefaultRipple ledger bit is 0x00800000; asfDefaultRipple value is 8 in the ASF_FLAG_MAP
+  - Set-flag and clear-flag tests must be sequential on the same wallet (the clear test depends on the set test having run)
+  - --set-flag and --clear-flag are accepted as named strings, not numbers
+---
+
 ## 2026-03-06 - US-004
 - Created tests/e2e/account/account.set.fields.test.ts with its own beforeAll funding one wallet via fundFromFaucet
 - Added --email-hash test: submits 32-char hex EmailHash, sleeps 10s, queries account info --json, asserts EmailHash matches
