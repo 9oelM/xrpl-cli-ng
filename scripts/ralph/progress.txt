@@ -1,38 +1,36 @@
-## Codebase Patterns
-- New commands go in `src/commands/<name>.ts`, exported from `src/commands/index.ts`, and registered in `src/index.ts`
-- Use `resolveWallet()` helper pattern (see credential.ts) for key material resolution
-- `--no-wait` option: use `.option("--no-wait", "...")` (NO third arg), property is `wait: boolean`, check `if (!options.wait)`
-- Repeatable CLI options in Commander.js: `.option("--flag <val>", "desc", (val: string, prev: string[]) => [...prev, val], [] as string[])`
-- Validation test files should be pure no-network; avoid dummy seeds whose address (e.g. rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh) conflicts with test signer addresses
-- Ordering of CLI validations: check count/structural constraints BEFORE per-item validation (e.g., check >32 signers before validating each address)
-
 # Ralph Progress Log
-Started: Fri Mar  6 11:22:03 AM Universal 2026
+## Codebase Patterns
+- `resolveWallet` helper is duplicated per command file (not shared util) — copy from credential.ts
+- `AuthorizeCredential` from xrpl.js wraps each entry: `{ Credential: { Issuer, CredentialType } }`
+- For `deposit-preauth set`, `AuthorizeCredentials`/`UnauthorizeCredentials` each take exactly one entry array
+- Enable DepositAuth with `AccountSet` `SetFlag: 9` (asfDepositAuth) in beforeAll for preauth tests
+- Credential-based preauth requires funded issuer address on testnet
+
+Started: Fri Mar  6 11:22:04 AM Universal 2026
 ---
 
 ## 2026-03-06 - US-001
-- Implemented `multisig set`, `multisig delete`, and `multisig list` subcommands in `src/commands/multisig.ts`
+- Implemented `deposit-preauth set` subcommand in `src/commands/deposit-preauth.ts`
 - Registered command in `src/commands/index.ts` and `src/index.ts`
-- Created `tests/e2e/multisig/multisig.validation.test.ts` (16 no-network tests)
-- Created `tests/e2e/multisig/multisig.set.test.ts` (7 testnet tests)
-- All 23 tests pass; typecheck passes
-- Files changed: src/commands/multisig.ts, src/commands/index.ts, src/index.ts, tests/e2e/multisig/multisig.validation.test.ts, tests/e2e/multisig/multisig.set.test.ts
+- Created `tests/e2e/deposit-preauth/deposit-preauth.validation.test.ts` (10 no-network tests)
+- Created `tests/e2e/deposit-preauth/deposit-preauth.set.test.ts` (9 funded E2E tests)
+- Files changed: src/commands/deposit-preauth.ts, src/commands/index.ts, src/index.ts, tests/e2e/deposit-preauth/deposit-preauth.validation.test.ts, tests/e2e/deposit-preauth/deposit-preauth.set.test.ts
 - **Learnings for future iterations:**
-  - `--no-wait` must follow the credential.ts pattern (no third arg, `wait: boolean`, `if (!options.wait)`)
-  - Count checks should run BEFORE per-item validation loops to give cleaner error messages
-  - The genesis DUMMY_SEED address (rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh) cannot be a signer in its own list — avoid using ADDR_1=DUMMY_SEED address as a signer when the signing key is DUMMY_SEED
-  - `multisig delete` is a SignerListSet with SignerQuorum=0 and no SignerEntries
-  - `multisig list` uses `account_objects` RPC with `type: "signer_list"`
-  - US-001 includes delete/list commands even though US-002 covers them, because set tests require list for verification
+  - `AuthorizeCredential` type from xrpl.js: `{ Credential: { Issuer: string; CredentialType: string } }` — the inner `Credential` wrapper is required
+  - Set `SetFlag: 9` (asfDepositAuth) on the owner wallet in beforeAll to make preauth semantically meaningful on testnet
+  - Must fund credential issuer separately (not just owner+other) for credential-based preauth tests
+  - The `--no-wait` test should unauthorize an already-authorized account to avoid duplicate preauth error
 ---
 
 ## 2026-03-06 - US-002
-- Created `tests/e2e/multisig/multisig.delete.test.ts` (4 tests: set+delete+verify, --json, --dry-run, --no-wait)
-- Created `tests/e2e/multisig/multisig.list.test.ts` (3 tests: correct quorum/weights, --json, no signer list)
-- All 7 tests pass; typecheck passes
-- Files changed: tests/e2e/multisig/multisig.delete.test.ts, tests/e2e/multisig/multisig.list.test.ts
+- Implemented `deposit-preauth list <address>` subcommand in `src/commands/deposit-preauth.ts`
+- Added pagination support via `account_objects` with `type: 'deposit_preauth'`
+- Default output: `Account: <address>` for account-based, `Credential: <issuer> / <decoded-type>` for credential-based
+- Uses `convertHexToString` from xrpl.js to decode credential type hex
+- Created `tests/e2e/deposit-preauth/deposit-preauth.list.test.ts` (5 tests including --json and removal after unauthorize)
+- Files changed: src/commands/deposit-preauth.ts, tests/e2e/deposit-preauth/deposit-preauth.list.test.ts
 - **Learnings for future iterations:**
-  - `multisig delete --dry-run` still connects to testnet for autofill (need node URL); tx.SignerQuorum will be 0 confirming deletion intent
-  - For list tests: set the signer list in `beforeAll` so individual tests just query rather than wait for network
-  - `--no-wait` tests for delete need a signer list set first; sequencing matters for destructive operations
+  - `account_objects` with `type: 'deposit_preauth'` returns entries with `Authorize` (account) or `AuthorizeCredentials` (credential) fields
+  - Tests must be sequential (authorize → list → unauthorize → list) since they share the same owner account state
+  - `convertHexToString` from xrpl.js decodes hex credential type; wrap in try/catch for resilience
 ---
