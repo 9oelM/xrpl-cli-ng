@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { Command } from "commander";
-import { accountCommand, walletCommand, paymentCommand, trustCommand, offerCommand, channelCommand, escrowCommand } from "./commands/index.js";
+import { accountCommand, walletCommand, paymentCommand, trustCommand, offerCommand, channelCommand, escrowCommand, clawbackCommand } from "./commands/index.js";
 
 const program = new Command();
 
@@ -21,5 +21,6 @@ program.addCommand(trustCommand);
 program.addCommand(offerCommand);
 program.addCommand(channelCommand);
 program.addCommand(escrowCommand);
+program.addCommand(clawbackCommand);
 
 program.parse();
