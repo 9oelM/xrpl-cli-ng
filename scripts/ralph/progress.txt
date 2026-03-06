@@ -7,6 +7,10 @@ Started: Fri Mar  6 04:00:10 PM Universal 2026
 - Each `it()` block must call `createFunded` to get fresh wallets — never share across test cases
 - `tests/e2e/helpers/fund.ts` exports: `XRPL_WS`, `fundMaster`, `initTicketPool`, `nextTicket`, `generateWallets`, `createFunded`
 - Existing testnet helper at `tests/helpers/testnet.ts` exports `fundFromFaucet` (1 faucet per call) and `TESTNET_URL`
+- `fundAddress(client, master, address, amountXrp)` in fund.ts funds a specific wallet address (e.g. mnemonic-derived) using a ticket — use when `createFunded` (random wallets) won't work
+- For tests needing an active client (xrpl.js calls inside it()), keep `client` as file-level variable connected in beforeAll / disconnected in afterAll
+- Fund wallets with 25-30 XRP (not the default 10) — testnet base reserve is 10 XRP, leaving 0 available for transactions with the 10 XRP default
+- Use a local helper function (e.g. `setupMakerIssuer()`) within the test file to DRY up repeated wallet+trustline setup, while still creating fresh wallets per test
 
 ## 2026-03-06 - US-001
 - Implemented `tests/e2e/helpers/fund.ts` with: `fundMaster` (faucet call), `initTicketPool` (TicketCreate + extract TicketSequence from meta.AffectedNodes), `nextTicket` (sync pool pop), `generateWallets`, `createFunded` (parallel Promise.all payments using Sequence:0+TicketSequence)
@@ -16,4 +20,20 @@ Started: Fri Mar  6 04:00:10 PM Universal 2026
   - autofill can override Sequence — explicitly reset `tx.Sequence = 0` and `tx.TicketSequence = ticket` after autofill
   - `meta.AffectedNodes` for TicketCreate contains `CreatedNode` entries with `LedgerEntryType === "Ticket"` and `NewFields.TicketSequence`
   - ticketPool is module-level array; safe in single-threaded JS even with concurrent async code
+---
+
+## 2026-03-06 - US-002
+- Consolidated 8 test files into 4:
+  - `payment.core/iou/mpt/paths` → `payment.network.test.ts` + `payment.tokens.test.ts`
+  - `trust.core/issuer` → `trust.network.test.ts`
+  - `offer.core/flags` → `offer.network.test.ts`
+- Added `fundAddress(client, master, targetAddress, amountXrp)` to `tests/e2e/helpers/fund.ts` for funding specific (e.g. mnemonic-derived) wallets using a ticket
+- Each consolidated file: one `beforeAll` with `fundMaster` + `initTicketPool`; each `it()` calls `createFunded` for fresh wallets
+- Files changed: `tests/e2e/helpers/fund.ts` (updated), 4 new test files created, 8 old files deleted
+- **Learnings for future iterations:**
+  - Fund wallets with 25-30 XRP minimum (testnet base reserve is 10 XRP so default amountXrp=10 leaves 0 available)
+  - For offer tests that call xrpl.js directly inside it() blocks, keep `client` as file-level variable in beforeAll/afterAll
+  - A local `setupMakerIssuer()` helper inside a test file can create fresh wallets + trust line per test without sharing state
+  - Ticket count = (number of tests × wallets per test) + extras for mnemonic/special wallets; add ~20% buffer
+  - Individual tests that do network setup (trust lines, offer creation) inside the body can take up to 30-90 seconds; use `it("...", async () => {...}, 60_000)` to set per-test timeout
 ---
