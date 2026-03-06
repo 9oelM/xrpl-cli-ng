@@ -19,3 +19,12 @@ Started: Fri Mar  6 11:22:04 AM Universal 2026
   - ticket list subcommand needed for US-001 create tests (verify tickets exist); implemented both in one file
   - All 13 tests pass (7 validation + 6 E2E)
 ---
+
+## 2026-03-06 - US-002
+- Created tests/e2e/ticket/ticket.list.test.ts (4 E2E tests vs testnet)
+- Tests cover: list format with correct sequences, count verification, --json output, "No tickets." for empty account
+- Files changed: tests/e2e/ticket/ticket.list.test.ts, scripts/ralph/prd.json, scripts/ralph/progress.txt
+- **Learnings for future iterations:**
+  - The ticket list command was already implemented in US-001; US-002 only required the test file
+  - "No tickets." empty-state test uses wallet fund CLI + fresh wallet; skips gracefully if faucet rate-limits
+---
