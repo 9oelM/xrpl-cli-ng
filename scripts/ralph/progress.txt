@@ -1,3 +1,16 @@
+## 2026-03-06 - US-003
+- Implemented `xrpl channel sign` and `xrpl channel verify` subcommands in `src/commands/channel.ts`
+- Both are fully offline — no network required, no `--node` flag
+- `channel sign`: resolves wallet to get privateKey, calls `signPaymentChannelClaim(channel, xrpAmount, privateKey)`, outputs hex signature or `{"signature":"..."}` with --json
+- `channel verify`: calls `verifyPaymentChannelClaim(channel, xrpAmount, signature, publicKey)`, outputs "valid"/"invalid" or `{"valid":bool}` with --json; wraps in try/catch to handle malformed signatures gracefully (returns false instead of throwing)
+- Created `tests/e2e/channel/channel.sign.test.ts` — 16 tests, all offline (no testnet needed)
+- Files changed: src/commands/channel.ts, tests/e2e/channel/channel.sign.test.ts
+- **Learnings for future iterations:**
+  - `signPaymentChannelClaim(channel, xrpAmount, privateKey)` takes XRP amount as decimal string (NOT drops); xrpl.js calls xrpToDrops internally
+  - `verifyPaymentChannelClaim` throws on malformed/invalid hex signatures — always wrap in try/catch and treat exceptions as `valid = false`
+  - These are pure crypto operations — no XRPL network connection needed at all
+---
+
 ## Codebase Patterns
 - PaymentChannel ledger entry type in AffectedNodes metadata is "PayChannel" NOT "PaymentChannel"
 - xrpl.js `isCreatedNode(n)` helper from "xrpl" is the correct way to narrow Node union type
