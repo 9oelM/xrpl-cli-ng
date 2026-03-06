@@ -1,30 +1,27 @@
 ## Codebase Patterns
-- New commands follow the pattern in src/commands/check.ts: resolveWallet helper, submitAndReport-style inline logic, withClient wrapper
-- Register commands in both src/commands/index.ts (export) and src/index.ts (addCommand)
-- Ticket metadata: extract created TicketSequence values from AffectedNodes where CreatedNode.LedgerEntryType === "Ticket" and NewFields.TicketSequence
-- ticket list uses account_objects with type: "ticket"; paginate via marker until exhausted
+- `resolveAccount(input, keystoreDir)` returns the input unchanged if it looks like an XRPL address (`/^r[a-zA-Z0-9]{24,33}$/`); otherwise scans keystore for an alias match and throws if not found. Always wrap in try/catch when you need a clean "invalid address" error.
+- Use `--confirm` (boolean flag, default false) for irreversible destructive commands; check `!options.dryRun && !options.confirm` to allow dry-run without confirmation.
+- `--no-wait` correct pattern per MEMORY.md: `.option("--no-wait", "...")` with NO default arg; interface property `wait: boolean`; check `!options.wait` for the no-wait path.
 
 # Ralph Progress Log
 Started: Fri Mar  6 11:22:04 AM Universal 2026
 ---
 
 ## 2026-03-06 - US-001
-- Implemented `ticket create` and `ticket list` subcommands in src/commands/ticket.ts
-- Registered ticketCommand in src/commands/index.ts and src/index.ts
-- Created tests/e2e/ticket/ticket.validation.test.ts (7 tests, no network)
-- Created tests/e2e/ticket/ticket.create.test.ts (6 E2E tests vs testnet)
-- Files changed: src/commands/ticket.ts, src/commands/index.ts, src/index.ts, tests/e2e/ticket/ticket.validation.test.ts, tests/e2e/ticket/ticket.create.test.ts
+- Rewrote `src/commands/account/delete.ts`:
+  - Changed `--yes` → `--confirm` (boolean flag, no interactive prompt)
+  - Added `--no-wait` (correct pattern: `wait: boolean` in interface, no default in option)
+  - Added fee note in description: "Fee: ~2 XRP (owner reserve, non-refundable)"
+  - Error message for missing `--confirm`: "This permanently deletes your account. Pass --confirm to proceed."
+  - `--dry-run` bypasses `--confirm` requirement
+  - Destination validation: wrap `resolveAccount` in try/catch, then also call `isValidClassicAddress`
+  - Use `submitAndWait` by default; `submit` with `--no-wait`
+  - JSON output for both wait and no-wait paths
+- Created `tests/e2e/account/account.delete.validation.test.ts` (6 no-network tests)
+- Created `tests/e2e/account/account.delete.test.ts` (5 E2E tests: dry-run, dry-run+tag, no-wait, json+no-wait, actNotFound proxy)
+- Removed `tests/e2e/account/delete.test.ts` (replaced by the two files above)
 - **Learnings for future iterations:**
-  - TicketCreate sets TicketCount field (not TicketSequence); created sequences extracted from AffectedNodes CreatedNode entries
-  - ticket list subcommand needed for US-001 create tests (verify tickets exist); implemented both in one file
-  - All 13 tests pass (7 validation + 6 E2E)
----
-
-## 2026-03-06 - US-002
-- Created tests/e2e/ticket/ticket.list.test.ts (4 E2E tests vs testnet)
-- Tests cover: list format with correct sequences, count verification, --json output, "No tickets." for empty account
-- Files changed: tests/e2e/ticket/ticket.list.test.ts, scripts/ralph/prd.json, scripts/ralph/progress.txt
-- **Learnings for future iterations:**
-  - The ticket list command was already implemented in US-001; US-002 only required the test file
-  - "No tickets." empty-state test uses wallet fund CLI + fresh wallet; skips gracefully if faucet rate-limits
+  - `resolveAccount` throws for non-address inputs; always wrap in try/catch to provide clean error messages
+  - DeletableAccounts amendment requires `Sequence + 256 <= LedgerIndex` — fresh testnet accounts can't be deleted immediately; use `--no-wait` for submission tests and an unfunded wallet for "actNotFound" verification
+  - `isValidClassicAddress` is exported directly from `xrpl` package
 ---

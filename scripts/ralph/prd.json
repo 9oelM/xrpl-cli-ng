@@ -1,43 +1,28 @@
 {
   "project": "xrpl-cli",
-  "branchName": "ralph/ticket",
-  "description": "Ticket commands — create and list ticket sequence numbers on XRPL accounts",
+  "branchName": "ralph/account-delete",
+  "description": "account delete command — permanently delete an XRPL account and sweep remaining XRP to a destination",
   "userStories": [
     {
       "id": "US-001",
-      "title": "ticket create command",
-      "description": "As a developer, I want to reserve ticket sequence numbers from the CLI so I can submit transactions out-of-order or in parallel without sequence conflicts.",
+      "title": "account delete command",
+      "description": "As a developer, I want to permanently delete an XRPL account from the CLI so I can close unused accounts and recover their XRP balance.",
       "acceptanceCriteria": [
-        "Read TicketCreate docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/ticketcreate.md before implementing",
-        "Create src/commands/ticket.ts and register it in src/commands/index.ts and src/index.ts",
-        "xrpl ticket create with: --count <n> (required, positive integer 1-250)",
+        "Read AccountDelete docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/accountdelete.md before implementing",
+        "Create src/commands/account/delete.ts and register it in src/commands/account/index.ts",
+        "xrpl account delete with: --destination <address> (required), --destination-tag <n> (optional), --confirm (required boolean flag)",
         "Standard key material options: --seed, --mnemonic, --account/--keystore/--password",
         "Standard output options: --node, --json, --dry-run, --no-wait",
-        "CLI exits with error if --count is missing",
-        "CLI exits with error if --count is not an integer in range [1, 250]",
-        "tests/e2e/ticket/ticket.validation.test.ts: missing count, count=0, count=251, count=-1, non-integer count (no network)",
-        "tests/e2e/ticket/ticket.create.test.ts: create 1 ticket and verify via ticket list; create multiple tickets; --json, --dry-run",
+        "CLI exits with error if --destination is missing",
+        "CLI exits with error if --destination is not a valid classic address",
+        "CLI exits with error if --confirm is not provided (message: 'This permanently deletes your account. Pass --confirm to proceed.') — unless --dry-run is set",
+        "--dry-run bypasses the --confirm requirement",
+        "Help text notes: 'Fee: ~2 XRP (owner reserve, non-refundable)'",
+        "tests/e2e/account/account.delete.validation.test.ts: missing destination, invalid destination address, missing --confirm without --dry-run (no network)",
+        "tests/e2e/account/account.delete.test.ts: fund a fresh wallet, delete it pointing to another funded wallet, verify account no longer exists via account info; --json, --dry-run",
         "Typecheck passes"
       ],
       "priority": 1,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-002",
-      "title": "ticket list command",
-      "description": "As a developer, I want to query the current ticket list for an account so I can see which sequence numbers are reserved.",
-      "acceptanceCriteria": [
-        "xrpl ticket list <address> subcommand using account_objects RPC with type: 'ticket'",
-        "Default output: each ticket on its own line as 'Ticket sequence: <n>'",
-        "Shows 'No tickets.' if the account has none",
-        "--json outputs raw JSON",
-        "--node supported",
-        "Paginates if account_objects returns a marker (follow marker until exhausted)",
-        "tests/e2e/ticket/ticket.list.test.ts: create tickets, verify ticket list shows correct sequences; verify count matches --count; --json",
-        "Typecheck passes"
-      ],
-      "priority": 2,
       "passes": true,
       "notes": ""
     }
