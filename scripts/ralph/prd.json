@@ -1,23 +1,22 @@
 {
   "project": "xrpl-cli",
-  "branchName": "ralph/nft",
-  "description": "NFT commands — mint, burn, modify, and trade NFTs on the XRP Ledger with full offer lifecycle support",
+  "branchName": "ralph/ticket",
+  "description": "Ticket commands — create and list ticket sequence numbers on XRPL accounts",
   "userStories": [
     {
       "id": "US-001",
-      "title": "nft mint command",
-      "description": "As a developer, I want to mint an NFT from the CLI so I can create on-chain digital assets with configurable properties.",
+      "title": "ticket create command",
+      "description": "As a developer, I want to reserve ticket sequence numbers from the CLI so I can submit transactions out-of-order or in parallel without sequence conflicts.",
       "acceptanceCriteria": [
-        "Read NFTokenMint docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/nftokenmint.md before implementing",
-        "Create src/commands/nft.ts and register it in src/commands/index.ts and src/index.ts",
-        "xrpl nft mint subcommand with: --taxon n (required, UInt32), --uri string (optional, plain string converted to hex via convertStringToHex from xrpl), --transfer-fee bps (optional, 0-50000; requires --transferable — CLI errors if used without it), --burnable flag (tfBurnable), --only-xrp flag (tfOnlyXRP), --transferable flag (tfTransferable), --mutable flag (tfMutable), --issuer address (optional)",
+        "Read TicketCreate docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/ticketcreate.md before implementing",
+        "Create src/commands/ticket.ts and register it in src/commands/index.ts and src/index.ts",
+        "xrpl ticket create with: --count <n> (required, positive integer 1-250)",
         "Standard key material options: --seed, --mnemonic, --account/--keystore/--password",
         "Standard output options: --node, --json, --dry-run, --no-wait",
-        "CLI exits with error if --transfer-fee is set without --transferable",
-        "Do NOT use tfTrustLine flag (0x00000004) — deprecated and invalid",
-        "On success, output prints the NFTokenID from tx.result.meta.nftoken_id (or scan AffectedNodes for CreatedNode with LedgerEntryType NFTokenPage as fallback)",
-        "tests/e2e/nft/nft.validation.test.ts: missing --taxon, --transfer-fee > 50000, --transfer-fee without --transferable, missing key material (no network)",
-        "tests/e2e/nft/nft.mint.test.ts: mint with taxon only, mint with --uri, mint with --transfer-fee + --transferable, --json, --dry-run",
+        "CLI exits with error if --count is missing",
+        "CLI exits with error if --count is not an integer in range [1, 250]",
+        "tests/e2e/ticket/ticket.validation.test.ts: missing count, count=0, count=251, count=-1, non-integer count (no network)",
+        "tests/e2e/ticket/ticket.create.test.ts: create 1 ticket and verify via ticket list; create multiple tickets; --json, --dry-run",
         "Typecheck passes"
       ],
       "priority": 1,
@@ -26,80 +25,20 @@
     },
     {
       "id": "US-002",
-      "title": "nft burn and nft modify commands",
-      "description": "As a developer, I want to burn an NFT and update a mutable NFT's URI to manage token lifecycle.",
+      "title": "ticket list command",
+      "description": "As a developer, I want to query the current ticket list for an account so I can see which sequence numbers are reserved.",
       "acceptanceCriteria": [
-        "Read NFTokenBurn docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/nftokenburn.md before implementing",
-        "Read NFTokenModify docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/nftokenmodify.md before implementing",
-        "xrpl nft burn subcommand with: --nft hex (required, 64-char NFTokenID), --owner address (optional, for issuer burning a burnable token they don't hold)",
-        "xrpl nft modify subcommand with: --nft hex (required), --uri string (optional, plain string hex-encoded), --clear-uri flag (explicitly deletes existing URI), --owner address (optional)",
-        "CLI exits with error if neither --uri nor --clear-uri is provided",
-        "CLI exits with error if both --uri and --clear-uri are provided",
-        "Standard key material options: --seed, --mnemonic, --account/--keystore/--password",
-        "Standard output options: --node, --json, --dry-run, --no-wait",
-        "tests/e2e/nft/nft.burn.test.ts: mint then burn an NFT, --json, --dry-run",
-        "tests/e2e/nft/nft.modify.test.ts: mint with --mutable, modify URI, verify via account nfts, --json, --dry-run",
+        "xrpl ticket list <address> subcommand using account_objects RPC with type: 'ticket'",
+        "Default output: each ticket on its own line as 'Ticket sequence: <n>'",
+        "Shows 'No tickets.' if the account has none",
+        "--json outputs raw JSON",
+        "--node supported",
+        "Paginates if account_objects returns a marker (follow marker until exhausted)",
+        "tests/e2e/ticket/ticket.list.test.ts: create tickets, verify ticket list shows correct sequences; verify count matches --count; --json",
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-003",
-      "title": "nft offer create command",
-      "description": "As a developer, I want to create buy or sell offers for NFTs from the CLI to participate in the marketplace.",
-      "acceptanceCriteria": [
-        "Read NFTokenCreateOffer docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/nftokencreateoffer.md before implementing",
-        "xrpl nft offer create subcommand with: --nft hex (required), --amount amount (required, XRP decimal or value/CURRENCY/issuer; '0' valid for XRP sell giveaways), --sell flag (sets tfSellNFToken; absence = buy offer), --owner address (required for buy offers — CLI validates), --expiration ISO8601 (optional, converted to XRPL epoch), --destination address (optional)",
-        "Standard key material options: --seed, --mnemonic, --account/--keystore/--password",
-        "Standard output options: --node, --json, --dry-run, --no-wait",
-        "CLI exits with error if creating a buy offer (no --sell) without --owner",
-        "On success, output prints the NFTokenOfferID from AffectedNodes CreatedNode with LedgerEntryType NFTokenOffer",
-        "Reuse parseAmount and toXrplAmount from src/utils/amount.ts",
-        "tests/e2e/nft/nft.offer.create.test.ts: create sell offer, create buy offer, --expiration, --json, --dry-run",
-        "Typecheck passes"
-      ],
-      "priority": 3,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-004",
-      "title": "nft offer accept and nft offer cancel commands",
-      "description": "As a developer, I want to accept NFT offers in direct or brokered mode and cancel outstanding offers.",
-      "acceptanceCriteria": [
-        "Read NFTokenAcceptOffer docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/nftokenacceptoffer.md before implementing",
-        "Read NFTokenCancelOffer docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/nftokencanceloffer.md before implementing",
-        "xrpl nft offer accept subcommand with: --sell-offer hex (optional), --buy-offer hex (optional), --broker-fee amount (optional, XRP or IOU, only valid with both offer IDs)",
-        "CLI exits with error if neither --sell-offer nor --buy-offer is provided",
-        "CLI exits with error if --broker-fee is provided without both --sell-offer and --buy-offer",
-        "xrpl nft offer cancel subcommand with: --offer hex (repeatable), e.g. --offer <id1> --offer <id2>",
-        "CLI exits with error if no --offer is provided",
-        "Standard key material options: --seed, --mnemonic, --account/--keystore/--password",
-        "Standard output options: --node, --json, --dry-run, --no-wait",
-        "tests/e2e/nft/nft.offer.accept.test.ts: accept a sell offer (direct), accept a buy offer (direct), brokered mode accept, --json, --dry-run",
-        "tests/e2e/nft/nft.offer.cancel.test.ts: cancel a single offer, cancel multiple offers in one tx, --json, --dry-run",
-        "Typecheck passes"
-      ],
-      "priority": 4,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-005",
-      "title": "nft offer list query command",
-      "description": "As a developer, I want to list all buy and sell offers for a specific NFT so I can decide which to accept or cancel.",
-      "acceptanceCriteria": [
-        "xrpl nft offer list <nft-id> subcommand fetching both nft_sell_offers and nft_buy_offers RPCs in parallel",
-        "Default human-readable output has two sections 'Sell Offers' and 'Buy Offers'; each offer shows: offer ID, amount (XRP decimal or IOU), owner, expiration (ISO8601 or 'none'), destination (address or 'any')",
-        "--json outputs { sellOffers: [...], buyOffers: [...] }",
-        "--node supported",
-        "tests/e2e/nft/nft.offer.list.test.ts: mint NFT, create sell and buy offers, verify both appear in list; --json output",
-        "Typecheck passes"
-      ],
-      "priority": 5,
-      "passes": true,
+      "passes": false,
       "notes": ""
     }
   ]
