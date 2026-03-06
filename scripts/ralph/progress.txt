@@ -1,4 +1,6 @@
 ## Codebase Patterns
+- EscrowCreate with CancelAfter: xrpl.js requires Condition OR FinishAfter even when CancelAfter is set. CancelAfter alone is rejected with ValidationError. Always pair CancelAfter with FinishAfter (and ensure CancelAfter > FinishAfter per XRPL protocol).
+- temBAD_EXPIRATION error on EscrowCreate: usually means CancelAfter <= FinishAfter (protocol enforces strict ordering).
 - PREIMAGE-SHA-256 fulfillment for 32-byte zero preimage: `A02280200000000000000000000000000000000000000000000000000000000000000000` (72 hex chars = 36 bytes); condition: `A025802066687AADF862BD776C8FC18B8E9F8E20089714856EE233B3902A591D0D5F2925810120`
 - EscrowFinish fee with fulfillment: Math.ceil((fulfillmentBytes + 15) / 16) * 10 + 330 drops; set as max(calculated, autofill)
 - In beforeAll, always compute `finishAfter` fresh inside each create call (not once at the top) since faucet calls take 20-30s and the timestamp can expire before the tx is submitted
@@ -39,4 +41,16 @@ Started: Fri Mar  6 07:58:31 AM Universal 2026
   - Compute `finishAfter` inside each escrow create call in beforeAll, not once at the top; faucet + prior submits consume 20-30s
   - For condition-based escrows, always pair --condition with --cancel-after (xrpl.js requires at least one time field)
   - EscrowFinish fee is auto-set to max(autofill_fee, calculated_fee) to ensure ledger acceptance
+---
+
+## 2026-03-06 - US-003
+- Implemented `xrpl escrow cancel` subcommand in src/commands/escrow.ts
+- Added 3 cancel validation tests to tests/e2e/escrow/escrow.validation.test.ts
+- Created tests/e2e/escrow/escrow.cancel.test.ts (5 E2E tests: basic cancel, --json, --dry-run, --no-wait, --account/--keystore)
+- Files changed: src/commands/escrow.ts, tests/e2e/escrow/escrow.validation.test.ts, tests/e2e/escrow/escrow.cancel.test.ts
+- **Learnings for future iterations:**
+  - EscrowCreate with CancelAfter requires Condition or FinishAfter (xrpl.js constraint). CancelAfter alone throws ValidationError.
+  - XRPL protocol: CancelAfter must be strictly greater than FinishAfter (temBAD_EXPIRATION otherwise)
+  - Cancel test timing: FinishAfter=+60s, CancelAfter=+90s per create call, wait 100s after all creates
+  - After CancelAfter passes, the escrow can be cancelled even if FinishAfter has also passed
 ---
