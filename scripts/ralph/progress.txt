@@ -1,3 +1,13 @@
+## 2026-03-06 - US-003
+- Implemented `xrpl credential delete` subcommand
+- Files changed: src/commands/credential.ts (added CredentialDeleteOptions, credentialDeleteCommand, registered it; added isDeletedNode import), tests/e2e/credential/credential.validation.test.ts (added 3 delete validation tests), tests/e2e/credential/credential.delete.test.ts (new, 6 E2E tests)
+- **Learnings for future iterations:**
+  - CredentialDelete type exported from xrpl.js v4; fields: Account, CredentialType (hex), Subject? (defaults to sender), Issuer? (defaults to sender)
+  - xrpl.js validation requires at least one of Subject or Issuer in the tx; easiest fix is to default both to the sender's address when not provided
+  - `isDeletedNode` is exported from `xrpl` (same as `isCreatedNode`) — use `n.DeletedNode.LedgerIndex` to get the deleted entry ID
+  - Tests sequential: issuer creates then deletes; subject creates+accepts then deletes; on-chain verification via account_objects with type "credential"
+---
+
 ## Codebase Patterns
 - `resolveWallet()` helper in escrow.ts is the canonical pattern for key material resolution — replicate it in new commands
 - `--no-wait` option: NEVER pass `false` as default; use `.option("--no-wait", ...)` with no third arg; property is `options.wait` (bool); check `!options.wait`
