@@ -1,10 +1,14 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 <<<<<<< HEAD
+<<<<<<< HEAD
 import { accountCommand, walletCommand, paymentCommand, trustCommand, offerCommand, channelCommand, escrowCommand, checkCommand, clawbackCommand, credentialCommand, nftCommand, multisigCommand } from "./commands/index.js";
 =======
 import { accountCommand, walletCommand, paymentCommand, trustCommand, offerCommand, channelCommand, escrowCommand, checkCommand, clawbackCommand, credentialCommand, nftCommand, oracleCommand } from "./commands/index.js";
 >>>>>>> ralph/oracle
+=======
+import { accountCommand, walletCommand, paymentCommand, trustCommand, offerCommand, channelCommand, escrowCommand, checkCommand, clawbackCommand, credentialCommand, nftCommand, ticketCommand } from "./commands/index.js";
+>>>>>>> ralph/ticket
 
 const program = new Command();
 
@@ -30,9 +34,13 @@ program.addCommand(clawbackCommand);
 program.addCommand(credentialCommand);
 program.addCommand(nftCommand);
 <<<<<<< HEAD
+<<<<<<< HEAD
 program.addCommand(multisigCommand);
 =======
 program.addCommand(oracleCommand);
 >>>>>>> ralph/oracle
+=======
+program.addCommand(ticketCommand);
+>>>>>>> ralph/ticket
 
 program.parse();
