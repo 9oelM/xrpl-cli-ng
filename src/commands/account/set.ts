@@ -2,7 +2,8 @@ import { Command } from "commander";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { Wallet } from "xrpl";
-import type { AccountSet, AccountSetAsfFlags } from "xrpl";
+import type { AccountSet } from "xrpl";
+import { AccountSetAsfFlags } from "xrpl";
 import { deriveKeypair } from "ripple-keypairs";
 import { withClient } from "../../utils/client.js";
 import { getNodeUrl } from "../../utils/node.js";
@@ -38,6 +39,8 @@ interface SetOptions {
   tickSize?: string;
   setFlag?: string;
   clearFlag?: string;
+  allowClawback: boolean;
+  confirm: boolean;
   json: boolean;
   dryRun: boolean;
 }
@@ -61,6 +64,8 @@ export const setCommand = new Command("set")
     "--clear-flag <name>",
     "Account flag to clear (requireDestTag|requireAuth|disallowXRP|disableMaster|noFreeze|globalFreeze|defaultRipple|depositAuth)"
   )
+  .option("--allow-clawback", "Enable clawback on this account (irreversible — requires --confirm)", false)
+  .option("--confirm", "Acknowledge irreversible operations (required with --allow-clawback)", false)
   .option("--json", "Output as JSON", false)
   .option("--dry-run", "Print unsigned tx JSON without submitting", false)
   .action(async (options: SetOptions, cmd: Command) => {
@@ -75,6 +80,14 @@ export const setCommand = new Command("set")
       process.exit(1);
     }
 
+    // Validate --allow-clawback requires --confirm
+    if (options.allowClawback && !options.confirm) {
+      process.stderr.write(
+        "Error: --allow-clawback is irreversible. Once enabled it cannot be disabled. To proceed, add --confirm to your command.\n"
+      );
+      process.exit(1);
+    }
+
     // Validate at least one setting is provided
     const hasSettable =
       options.domain !== undefined ||
@@ -82,10 +95,11 @@ export const setCommand = new Command("set")
       options.transferRate !== undefined ||
       options.tickSize !== undefined ||
       options.setFlag !== undefined ||
-      options.clearFlag !== undefined;
+      options.clearFlag !== undefined ||
+      options.allowClawback;
     if (!hasSettable) {
       process.stderr.write(
-        "Error: provide at least one setting to change (--domain, --email-hash, --transfer-rate, --tick-size, --set-flag, --clear-flag)\n"
+        "Error: provide at least one setting to change (--domain, --email-hash, --transfer-rate, --tick-size, --set-flag, --clear-flag, --allow-clawback)\n"
       );
       process.exit(1);
     }
@@ -182,6 +196,9 @@ export const setCommand = new Command("set")
     }
     if (options.clearFlag !== undefined) {
       tx.ClearFlag = ASF_FLAG_MAP[options.clearFlag];
+    }
+    if (options.allowClawback) {
+      tx.SetFlag = AccountSetAsfFlags.asfAllowTrustLineClawback;
     }
 
     if (options.dryRun) {

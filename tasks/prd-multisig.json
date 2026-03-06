@@ -1,0 +1,51 @@
+{
+  "project": "xrpl-cli",
+  "branchName": "ralph/multisig",
+  "description": "Multisig commands — set, delete, and list multi-signature signer lists on XRPL accounts",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "multisig set command",
+      "description": "As a developer, I want to configure a multi-signature signer list on my account from the CLI so I can require multiple parties to authorise transactions.",
+      "acceptanceCriteria": [
+        "Read SignerListSet docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/signerlistset.md before implementing",
+        "Create src/commands/multisig.ts and register it in src/commands/index.ts and src/index.ts",
+        "xrpl multisig set subcommand with: --quorum n (required, SignerQuorum > 0), --signer address:weight (repeatable, at least 1 required); help text example: --signer rAlice...XYZ:3 --signer rBob...ABC:2 --quorum 4",
+        "Standard key material options: --seed, --mnemonic, --account/--keystore/--password",
+        "Standard output options: --node, --json, --dry-run, --no-wait",
+        "CLI exits with error if no --signer is provided",
+        "CLI exits with error if --quorum exceeds sum of all signer weights",
+        "CLI exits with error if --quorum is 0 (suggest using multisig delete instead)",
+        "CLI exits with error if more than 32 signers are provided",
+        "CLI exits with error if a signer address appears more than once",
+        "CLI exits with error if address:weight format is invalid (missing colon, non-integer weight, weight <= 0)",
+        "Parse --signer by splitting on last colon; validate address with isValidAddress() from xrpl.js",
+        "tests/e2e/multisig/multisig.validation.test.ts: no signers, quorum > sum of weights, quorum=0, >32 signers, duplicate address, invalid format (no network)",
+        "tests/e2e/multisig/multisig.set.test.ts: set a 2-of-3 signer list and verify via multisig list; update existing list; --json, --dry-run",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "multisig delete and multisig list commands",
+      "description": "As a developer, I want to delete a signer list and query current signers to manage multi-sig lifecycle.",
+      "acceptanceCriteria": [
+        "xrpl multisig delete subcommand: sends SignerListSet with SignerQuorum=0 and no SignerEntries field; standard key material and output options",
+        "xrpl multisig list <address> subcommand: uses account_objects RPC with type 'signer_list'",
+        "multisig list default output: quorum value on first line, then each signer as 'address (weight: n)'",
+        "multisig list shows 'No signer list configured.' if account has no signer list",
+        "--json outputs raw JSON",
+        "--node supported",
+        "tests/e2e/multisig/multisig.delete.test.ts: set then delete signer list, verify multisig list shows no signer list after deletion; --json, --dry-run",
+        "tests/e2e/multisig/multisig.list.test.ts: set a signer list, verify multisig list shows correct quorum and signers with correct weights; --json",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

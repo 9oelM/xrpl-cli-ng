@@ -6,3 +6,4 @@ export { offerCommand } from "./offer.js";
 export { channelCommand } from "./channel.js";
 export { escrowCommand } from "./escrow.js";
 export { checkCommand } from "./check.js";
+export { clawbackCommand } from "./clawback.js";

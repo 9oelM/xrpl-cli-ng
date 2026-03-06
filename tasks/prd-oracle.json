@@ -1,0 +1,51 @@
+{
+  "project": "xrpl-cli",
+  "branchName": "ralph/oracle",
+  "description": "Oracle commands — publish, update, delete, and query on-chain price oracles on the XRP Ledger",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "oracle set command",
+      "description": "As a data provider, I want to publish or update asset prices on-chain from the CLI so DeFi applications can consume reliable price feeds.",
+      "acceptanceCriteria": [
+        "Read OracleSet docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/oracleset.md before implementing",
+        "Create src/commands/oracle.ts and register it in src/commands/index.ts and src/index.ts",
+        "xrpl oracle set with: --document-id n (required, UInt32), --price base/quote:price:scale (repeatable, e.g. --price BTC/USD:155000:6; scale optional defaults to 0; omit price to delete that pair on update), --price-data json (JSON array alternative to --price), --provider string (plain string auto hex-encoded), --provider-hex hex (raw hex, mutually exclusive with --provider), --asset-class string (auto hex-encoded), --asset-class-hex hex (mutually exclusive with --asset-class), --last-update-time unix-ts (optional, defaults to Math.floor(Date.now()/1000))",
+        "Standard key material options: --seed, --mnemonic, --account/--keystore/--password",
+        "Standard output options: --node, --json, --dry-run, --no-wait",
+        "CLI exits with error if both --price and --price-data are provided",
+        "CLI exits with error if neither --price nor --price-data is provided",
+        "CLI exits with error if --price format is invalid",
+        "CLI exits with error if both --provider and --provider-hex are provided",
+        "CLI exits with error if both --asset-class and --asset-class-hex are provided",
+        "CLI exits with error if more than 10 price pairs are provided",
+        "AssetPrice stored as UInt64 string (e.g. '155000' not 155000); Scale is 0-10 integer",
+        "tests/e2e/oracle/oracle.validation.test.ts: missing document-id, missing price data, both price flags, invalid format, >10 prices, conflicting provider flags (no network)",
+        "tests/e2e/oracle/oracle.set.test.ts: create oracle with --price, create with --price-data JSON, update oracle price, --last-update-time override, --json, --dry-run",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "oracle delete and oracle get commands",
+      "description": "As a data provider, I want to delete an oracle and query oracle price data to manage lifecycle and verify published prices.",
+      "acceptanceCriteria": [
+        "Read OracleDelete docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/oracledelete.md before implementing",
+        "xrpl oracle delete with: --document-id n (required); standard key material and output options",
+        "xrpl oracle get <owner-address> <document-id> using ledger_entry RPC: { command: 'ledger_entry', oracle: { account: ownerAddress, oracle_document_id: documentId } }",
+        "oracle get default output: document ID, provider (hex decoded to UTF-8), asset class (hex decoded), last update time (ISO8601), each price pair as 'BASE/QUOTE: <actualPrice>' where actualPrice = AssetPrice * 10^(-Scale)",
+        "--json outputs raw JSON ledger entry",
+        "--node supported on oracle get",
+        "tests/e2e/oracle/oracle.delete.test.ts: create then delete oracle, verify oracle get returns not-found error after deletion; --json, --dry-run",
+        "tests/e2e/oracle/oracle.get.test.ts: create oracle, verify oracle get returns correct price pairs with correct decoded values, provider, asset class; --json",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

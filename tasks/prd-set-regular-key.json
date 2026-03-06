@@ -1,0 +1,28 @@
+{
+  "project": "xrpl-cli",
+  "branchName": "ralph/set-regular-key",
+  "description": "account set-regular-key command — assign or remove a regular signing key on an XRPL account",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "account set-regular-key command",
+      "description": "As a developer, I want to assign or remove a regular signing key on my account from the CLI so I can sign future transactions without exposing my master key.",
+      "acceptanceCriteria": [
+        "Read SetRegularKey docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/setregularkey.md before implementing",
+        "Create src/commands/account/set-regular-key.ts and register it in src/commands/account/index.ts",
+        "xrpl account set-regular-key subcommand with: --key address (optional, base58 address of new regular key), --remove flag (removes existing regular key by omitting RegularKey field from tx)",
+        "Standard key material options: --seed, --mnemonic, --account/--keystore/--password",
+        "Standard output options: --node, --json, --dry-run, --no-wait",
+        "CLI exits with error if both --key and --remove are provided",
+        "CLI exits with error if neither --key nor --remove is provided",
+        "When --remove is used, RegularKey field is omitted entirely from the transaction (not set to empty)",
+        "tests/e2e/account/account.set-regular-key.validation.test.ts: both flags together errors, neither flag errors, missing key material errors (no network)",
+        "tests/e2e/account/account.set-regular-key.test.ts: set a regular key and verify via account info; remove the regular key and verify it is cleared via account info; --json, --dry-run",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
