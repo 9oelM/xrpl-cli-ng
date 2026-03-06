@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { spawnSync } from "child_process";
+import { runCLI } from "../../helpers/cli.js";
 import { resolve } from "path";
 import { mkdtempSync, rmSync } from "fs";
 import { tmpdir } from "os";
@@ -9,17 +9,7 @@ import { generateMnemonic } from "@scure/bip39";
 import { wordlist } from "@scure/bip39/wordlists/english";
 import { fundFromFaucet, TESTNET_URL } from "../../helpers/testnet.js";
 
-const CLI = resolve(process.cwd(), "src/index.ts");
-const TSX = resolve(process.cwd(), "node_modules/.bin/tsx");
-const E2E_PATH = `/home/vscode/.fnm/node-versions/v22.22.0/installation/bin:${process.env.PATH ?? ""}`;
 
-function runCLI(args: string[]) {
-  return spawnSync(TSX, [CLI, ...args], {
-    encoding: "utf-8",
-    env: { ...process.env, PATH: E2E_PATH },
-    timeout: 120_000,
-  });
-}
 
 let client: Client;
 let maker: Wallet;

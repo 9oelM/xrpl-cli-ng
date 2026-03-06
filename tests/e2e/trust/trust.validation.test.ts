@@ -1,22 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { spawnSync } from "child_process";
-import { resolve } from "path";
+import { runCLI } from "../../helpers/cli.js";
 
-const CLI = resolve(process.cwd(), "src/index.ts");
-const TSX = resolve(process.cwd(), "node_modules/.bin/tsx");
-const E2E_PATH = `/home/vscode/.fnm/node-versions/v22.22.0/installation/bin:${process.env.PATH ?? ""}`;
 
 // Static dummy values — these tests exit before any network call
 const DUMMY_ADDRESS = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
 const DUMMY_SEED = "snoPBrXtMeMyMHUVTgbuqAfg1SUTb";
 
-function runCLI(args: string[]) {
-  return spawnSync(TSX, [CLI, ...args], {
-    encoding: "utf-8",
-    env: { ...process.env, PATH: E2E_PATH },
-    timeout: 15_000,
-  });
-}
 
 describe("trust set validation (no network)", () => {
   it("invalid currency exits 1 with descriptive error", () => {

@@ -1,21 +1,10 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { spawnSync } from "child_process";
-import { resolve } from "path";
+import { runCLI } from "../../helpers/cli.js";
 import { Client, Wallet, xrpToDrops } from "xrpl";
 import type { TrustSet, Payment as XrplPayment } from "xrpl";
 import { fundFromFaucet, TESTNET_URL } from "../../helpers/testnet.js";
 
-const CLI = resolve(process.cwd(), "src/index.ts");
-const TSX = resolve(process.cwd(), "node_modules/.bin/tsx");
-const E2E_PATH = `/home/vscode/.fnm/node-versions/v22.22.0/installation/bin:${process.env.PATH ?? ""}`;
 
-function runCLI(args: string[], extraEnv: Record<string, string> = {}) {
-  return spawnSync(TSX, [CLI, ...args], {
-    encoding: "utf-8",
-    env: { ...process.env, PATH: E2E_PATH, ...extraEnv },
-    timeout: 120_000,
-  });
-}
 
 let iouIssuer: Wallet;
 let iouReceiver: Wallet;

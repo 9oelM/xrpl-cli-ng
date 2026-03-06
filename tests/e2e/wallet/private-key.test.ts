@@ -1,19 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { spawnSync } from "child_process";
-import { resolve } from "path";
+import { runCLI } from "../../helpers/cli.js";
 
-const CLI = resolve(process.cwd(), "src/index.ts");
-const TSX = resolve(process.cwd(), "node_modules/.bin/tsx");
 
-function runCLI(args: string[]) {
-  return spawnSync(TSX, [CLI, ...args], {
-    encoding: "utf-8",
-    env: {
-      ...process.env,
-      PATH: `/home/vscode/.fnm/node-versions/v22.22.0/installation/bin:${process.env.PATH ?? ""}`,
-    },
-  });
-}
 
 describe("wallet private-key", () => {
   it("derives private key from seed as non-empty hex string", () => {

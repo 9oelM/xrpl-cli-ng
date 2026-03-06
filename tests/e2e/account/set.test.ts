@@ -1,28 +1,11 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { spawnSync, exec } from "child_process";
-import { promisify } from "util";
-import { resolve } from "path";
+import { runCLI } from "../../helpers/cli.js";
 import { Client, Wallet } from "xrpl";
 import { fundFromFaucet } from "../../helpers/testnet.js";
 
-const CLI = resolve(process.cwd(), "src/index.ts");
-const TSX = resolve(process.cwd(), "node_modules/.bin/tsx");
 const TESTNET_URL = "wss://s.altnet.rippletest.net:51233";
-const execAsync = promisify(exec);
 
-const E2E_PATH = `/home/vscode/.fnm/node-versions/v22.22.0/installation/bin:${process.env.PATH ?? ""}`;
 
-function runCLI(args: string[], extraEnv: Record<string, string> = {}) {
-  return spawnSync(TSX, [CLI, ...args], {
-    encoding: "utf-8",
-    env: {
-      ...process.env,
-      PATH: E2E_PATH,
-      ...extraEnv,
-    },
-    timeout: 60_000,
-  });
-}
 
 let testWallet: Wallet;
 
@@ -36,14 +19,8 @@ beforeAll(async () => {
     await client.disconnect();
   }
 
-  // Set domain via CLI asynchronously (avoids blocking the event loop)
-  await execAsync(
-    `"${TSX}" "${CLI}" --node testnet account set --seed "${testWallet.seed!}" --domain example.com`,
-    {
-      timeout: 30_000,
-      env: { ...process.env, PATH: E2E_PATH },
-    }
-  );
+  // Set domain via CLI
+  runCLI(["--node", "testnet", "account", "set", "--seed", testWallet.seed!, "--domain", "example.com"]);
 
   // Wait for the transaction to be included in a validated ledger (~3-4s on testnet)
   await new Promise<void>((res) => setTimeout(res, 8_000));

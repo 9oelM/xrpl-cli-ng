@@ -1,23 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { spawnSync } from "child_process";
-import { resolve } from "path";
+import { runCLI } from "../../helpers/cli.js";
 import { mkdtempSync, readFileSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 
-const CLI = resolve(process.cwd(), "src/index.ts");
-const TSX = resolve(process.cwd(), "node_modules/.bin/tsx");
 
-function runCLI(args: string[], extraEnv?: Record<string, string>) {
-  return spawnSync(TSX, [CLI, ...args], {
-    encoding: "utf-8",
-    env: {
-      ...process.env,
-      PATH: `/home/vscode/.fnm/node-versions/v22.22.0/installation/bin:${process.env.PATH ?? ""}`,
-      ...extraEnv,
-    },
-  });
-}
 
 describe("wallet alias set / remove", () => {
   it("sets an alias on an imported wallet and removes it", () => {

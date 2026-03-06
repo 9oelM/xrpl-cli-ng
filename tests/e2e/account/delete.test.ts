@@ -1,26 +1,11 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { spawnSync } from "child_process";
-import { resolve } from "path";
+import { runCLI } from "../../helpers/cli.js";
 import { Client, Wallet } from "xrpl";
 import { fundFromFaucet } from "../../helpers/testnet.js";
 
-const CLI = resolve(process.cwd(), "src/index.ts");
-const TSX = resolve(process.cwd(), "node_modules/.bin/tsx");
 const TESTNET_URL = "wss://s.altnet.rippletest.net:51233";
 
-const E2E_PATH = `/home/vscode/.fnm/node-versions/v22.22.0/installation/bin:${process.env.PATH ?? ""}`;
 
-function runCLI(args: string[], extraEnv: Record<string, string> = {}) {
-  return spawnSync(TSX, [CLI, ...args], {
-    encoding: "utf-8",
-    env: {
-      ...process.env,
-      PATH: E2E_PATH,
-      ...extraEnv,
-    },
-    timeout: 60_000,
-  });
-}
 
 let fundedWallet: Wallet;
 // A wallet that is generated but NOT funded on testnet — account info will return actNotFound
