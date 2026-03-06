@@ -9,6 +9,16 @@
 Started: Fri Mar  6 10:24:13 AM Universal 2026
 ---
 
+## 2026-03-06 - US-002
+- Added `--allow-clawback` and `--confirm` flags to `xrpl account set` command
+- Files changed: src/commands/account/set.ts, tests/e2e/account/account.set.clawback.test.ts (new)
+- **Learnings for future iterations:**
+  - Import `AccountSetAsfFlags` as a value (not just a type) to use enum members at runtime.
+  - The `lsfAllowTrustLineClawback` flag bit is `0x80000000` — check it via bitwise AND on `AccountRoot.Flags`.
+  - Adding irreversibility guards: check the guard flag first, exit with clear message before any network call.
+  - Validation test for the "no --confirm" path doesn't need network since it exits before touching the wallet.
+---
+
 ## 2026-03-06 - US-001
 - Implemented `xrpl clawback` command supporting both IOU and MPT modes
 - Files changed: src/commands/clawback.ts (new), src/commands/index.ts, src/index.ts, tests/e2e/clawback/clawback.validation.test.ts (new), tests/e2e/clawback/clawback.iou.test.ts (new), tests/e2e/clawback/clawback.mpt.test.ts (new)
