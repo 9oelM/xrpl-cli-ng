@@ -89,7 +89,7 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "This is the hardest file. The beforeAll currently creates 9 escrows with shared sequences — each test must instead create its own escrow inline. Time-based finish tests each independently wait 16s, but since they run concurrently the file total wait is still ~16s not 16s×N. Use runCLI with --json to extract sequence numbers from escrow create output."
     }
   ]

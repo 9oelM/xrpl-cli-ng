@@ -70,3 +70,20 @@ Started: Sat Mar  7 08:01:31 AM Universal 2026
   - Budget comments already existed in nft.offers and check files (pre-computed) — just needed it( conversion
   - All four files had per-test createFunded patterns already in place — no refactoring needed
 ---
+
+## 2026-03-07 - US-005
+- Fully refactored escrow.network.test.ts and split into two files
+- Removed all shared file-level variables: sender, receiver, finishTimeSeq1, finishCondSeq, finishJsonSeq, finishNoWaitSeq, finishAccountSeq, cancelBasicSeq, cancelJsonSeq, cancelNoWaitSeq, cancelAccountSeq, listEscrowSeq
+- escrow.network.test.ts (escrow create + escrow list = 11 tests): TICKET_COUNT=24; budget 70.8 ≤ 99 ✓
+- escrow.network2.test.ts (escrow finish + escrow cancel = 12 tests): TICKET_COUNT=26; budget 77.2 ≤ 99 ✓
+- All 23 original tests preserved across both files (11 + 12 = 23)
+- Each it.concurrent creates inline: wallets via createFunded + escrow via runCLI --json + waits 16s when needed
+- Cancel tests use only --cancel-after (no --finish-after) with 15s timeout, then wait 16s and cancel — avoids 90s+ waits
+- Condition-based finish tests create inline with --condition; no time wait needed since no FinishAfter
+- Files changed: tests/e2e/escrow/escrow.network.test.ts (full rewrite), tests/e2e/escrow/escrow.network2.test.ts (new), scripts/ralph/prd.json, scripts/ralph/progress.txt
+- **Learnings for future iterations:**
+  - Cancel tests don't need FinishAfter — use only CancelAfter = now+15s; wait 16s; cancel. Avoids the 90s wait the original used.
+  - Condition-based finish needs no time wait — just create with --condition --cancel-after far-future, then immediately finish with --fulfillment
+  - For it.concurrent escrow tests: inline sequence extraction from --json output is essential; no pre-created sequences possible
+  - 23-test escrow file splits naturally into create/list (11) + finish/cancel (12) = perfect budget split
+---
