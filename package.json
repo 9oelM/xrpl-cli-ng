@@ -1,5 +1,5 @@
 {
-  "name": "xrpl-cli",
+  "name": "xrpl-cli-ng",
   "version": "0.1.0",
   "description": "A CLI for interacting with the XRP Ledger",
   "author": "9oelM <messagejoel@outlook.com>",
