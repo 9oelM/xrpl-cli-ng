@@ -31,7 +31,7 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "TimeoutError from xrpl.js has message matching 'Timeout for request'. Only retry on timeout — do not catch tecNO_PERMISSION, temBAD_FEE, or other XRPL error codes. The fallback client is ephemeral: connect, use, disconnect."
     }
   ]
