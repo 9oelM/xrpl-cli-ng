@@ -1,6 +1,6 @@
 {
   "name": "xrpl-cli-ng",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "A CLI for interacting with the XRP Ledger",
   "author": "9oelM <messagejoel@outlook.com>",
   "type": "module",

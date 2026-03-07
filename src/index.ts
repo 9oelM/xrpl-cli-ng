@@ -2,7 +2,7 @@
 import { Command } from "commander";
 import { accountCommand, ammCommand, walletCommand, paymentCommand, trustCommand, offerCommand, channelCommand, escrowCommand, checkCommand, clawbackCommand, credentialCommand, nftCommand, multisigCommand, oracleCommand, ticketCommand, depositPreauthCommand, mptokenCommand, permissionedDomainCommand, vaultCommand, didCommand } from "./commands/index.js";
 
-const VERSION = "0.1.2";
+const VERSION = "0.1.3";
 
 const BANNER = `             _         _ _             
  _ _ ___ ___| |___ ___| |_|___ ___ ___ 

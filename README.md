@@ -189,6 +189,22 @@ Options:
   -h, --help              display help for command
 ```
 
+#### `account mptokens`
+```text
+Usage: xrpl account mptokens|mpt [options] <address-or-alias>
+
+List Multi-Purpose Tokens (MPT) held by an account
+
+Arguments:
+  address-or-alias        Account address or alias
+
+Options:
+  --limit <n>             Number of tokens to return (default: "20")
+  --marker <json-string>  Pagination marker from a previous --json response
+  --json                  Output raw JSON tokens array (default: false)
+  -h, --help              display help for command
+```
+
 #### `account set`
 ```text
 Usage: xrpl account set [options]
