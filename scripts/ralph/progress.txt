@@ -1,89 +1,26 @@
-## Codebase Patterns
-- `resolveWallet` helper is duplicated per command file (not shared util) — copy from credential.ts
-- `AuthorizeCredential` from xrpl.js wraps each entry: `{ Credential: { Issuer, CredentialType } }`
-- For `deposit-preauth set`, `AuthorizeCredentials`/`UnauthorizeCredentials` each take exactly one entry array
-- Enable DepositAuth with `AccountSet` `SetFlag: 9` (asfDepositAuth) in beforeAll for preauth tests
-- Credential-based preauth requires funded issuer address on testnet
-
-Started: Fri Mar  6 11:22:04 AM Universal 2026
----
-
-## 2026-03-06 - US-001
-- Implemented `deposit-preauth set` subcommand in `src/commands/deposit-preauth.ts`
-- Registered command in `src/commands/index.ts` and `src/index.ts`
-- Created `tests/e2e/deposit-preauth/deposit-preauth.validation.test.ts` (10 no-network tests)
-- Created `tests/e2e/deposit-preauth/deposit-preauth.set.test.ts` (9 funded E2E tests)
-- Files changed: src/commands/deposit-preauth.ts, src/commands/index.ts, src/index.ts, tests/e2e/deposit-preauth/deposit-preauth.validation.test.ts, tests/e2e/deposit-preauth/deposit-preauth.set.test.ts
-- **Learnings for future iterations:**
-  - `AuthorizeCredential` type from xrpl.js: `{ Credential: { Issuer: string; CredentialType: string } }` — the inner `Credential` wrapper is required
-  - Set `SetFlag: 9` (asfDepositAuth) on the owner wallet in beforeAll to make preauth semantically meaningful on testnet
-  - Must fund credential issuer separately (not just owner+other) for credential-based preauth tests
-  - The `--no-wait` test should unauthorize an already-authorized account to avoid duplicate preauth error
----
-
-## 2026-03-06 - US-002
-- Implemented `deposit-preauth list <address>` subcommand in `src/commands/deposit-preauth.ts`
-- Added pagination support via `account_objects` with `type: 'deposit_preauth'`
-- Default output: `Account: <address>` for account-based, `Credential: <issuer> / <decoded-type>` for credential-based
-- Uses `convertHexToString` from xrpl.js to decode credential type hex
-- Created `tests/e2e/deposit-preauth/deposit-preauth.list.test.ts` (5 tests including --json and removal after unauthorize)
-- Files changed: src/commands/deposit-preauth.ts, tests/e2e/deposit-preauth/deposit-preauth.list.test.ts
-- **Learnings for future iterations:**
-  - `account_objects` with `type: 'deposit_preauth'` returns entries with `Authorize` (account) or `AuthorizeCredentials` (credential) fields
-  - Tests must be sequential (authorize → list → unauthorize → list) since they share the same owner account state
-  - `convertHexToString` from xrpl.js decodes hex credential type; wrap in try/catch for resilience
----
-
-
-
 # Ralph Progress Log
-Started: Sat Mar  7 08:01:31 AM Universal 2026
+Started: Sat Mar  7 08:28:44 AM Universal 2026
 ---
 
-## 2026-03-07 - US-003
-- Converted 5 medium network test files to it.concurrent with per-test wallet isolation
-- oracle.network.test.ts: 18 tests × 1 wallet × 4 XRP; TICKET_COUNT=20; budget 76 ≤ 99 ✓
-- deposit-preauth.network.test.ts: 14 tests × ~2 wallets × 2 XRP; TICKET_COUNT=30; budget 60 ≤ 99 ✓
-- trust.network.test.ts: 13 tests × 2 wallets × 3 XRP; TICKET_COUNT=30; budget 87 ≤ 99 ✓
-- offer.network.test.ts: 16 tests × 2 wallets × 2 XRP; TICKET_COUNT=32; budget 70.4 ≤ 99 ✓
-- nft.core.test.ts: split into nft.core.test.ts (9 mint) + nft.core2.test.ts (4 burn + 5 modify); each 11 tickets × 0.2 + 9 × 3 = 29.2 ≤ 99 ✓
-- Removed shared file-level wallet/state variables; each it.concurrent creates fresh wallets via createFunded
-- Added { timeout: 90_000 } on all it.concurrent tests
-- Files changed: tests/e2e/oracle/oracle.network.test.ts, tests/e2e/deposit-preauth/deposit-preauth.network.test.ts, tests/e2e/trust/trust.network.test.ts, tests/e2e/offer/offer.network.test.ts, tests/e2e/nft/nft.core.test.ts, tests/e2e/nft/nft.core2.test.ts (new), scripts/ralph/prd.json, scripts/ralph/progress.txt
+## Codebase Patterns
+- vitest concurrency is controlled via `poolOptions.forks.maxForks` (file-level) and `maxConcurrency` (test-case level within a file)
+- fund.ts fallback pattern: catch err, check `msg.includes("Timeout")`, create fresh Client(XRPL_WS_FALLBACK), connect/use/disconnect in try/finally, rethrow original error if fallback also fails
+
+## 2026-03-07 - US-001
+- Added `maxConcurrency: 3` and `poolOptions: { forks: { maxForks: 3 } }` to vitest.config.ts
+- Files changed: vitest.config.ts
 - **Learnings for future iterations:**
-  - nft.core.test.ts originally had 18 tests (9 mint + 4 burn + 5 modify) — split evenly into two files of 9
-  - enableDepositAuth helper must be called inside each test body (not beforeAll) when converted to it.concurrent
-  - setupMakerIssuer() helper in offer.network.test.ts correctly creates per-test wallets + trust line
-  - offer tests with it.concurrent need setupMakerIssuer() to also use tickets — it calls createFunded internally
+  - `poolOptions.forks.maxForks` caps concurrent worker processes (test files); `maxConcurrency` caps concurrent `it.concurrent` cases within one file
+  - Together they create 3×3 = 9 max simultaneous test cases
 ---
 
-## 2026-03-07 - US-004
-- Converted 4 large network test files to it.concurrent
-- channel.network.test.ts: 22 tests × 2 wallets; TICKET_COUNT=48; budget 97.6 ≤ 99 ✓; updated budget comment format
-- credential.network.test.ts: 20 tests × 2 wallets; TICKET_COUNT=42; budget 88.4 ≤ 99 ✓
-- nft.offers.test.ts: 31 wallets total; TICKET_COUNT=35; budget 69 ≤ 99 ✓
-- check.network.test.ts: 34 wallets; TICKET_COUNT=38; budget 75.6 ≤ 99 ✓; updated 60_000 timeouts to 90_000
-- All tests already used createFunded per test — no shared wallet state to move; purely mechanical it( → it.concurrent( conversions
-- Files changed: tests/e2e/channel/channel.network.test.ts, tests/e2e/credential/credential.network.test.ts, tests/e2e/nft/nft.offers.test.ts, tests/e2e/check/check.network.test.ts, scripts/ralph/prd.json, scripts/ralph/progress.txt
+## 2026-03-07 - US-002
+- Added `XRPL_WS_FALLBACK` export and `FAUCET_URL_FALLBACK` constant to fund.ts
+- Added timeout-based retry logic in `fundMaster`, `initTicketPool`, and `createFunded`
+- Fallback client is ephemeral: freshly created, connected before use, disconnected in finally block
+- Files changed: tests/e2e/helpers/fund.ts
 - **Learnings for future iterations:**
-  - channel.network.test.ts was already near budget limit (97.6/99 XRP) — no budget headroom for additional tests
-  - Budget comments already existed in nft.offers and check files (pre-computed) — just needed it( conversion
-  - All four files had per-test createFunded patterns already in place — no refactoring needed
----
-
-## 2026-03-07 - US-005
-- Fully refactored escrow.network.test.ts and split into two files
-- Removed all shared file-level variables: sender, receiver, finishTimeSeq1, finishCondSeq, finishJsonSeq, finishNoWaitSeq, finishAccountSeq, cancelBasicSeq, cancelJsonSeq, cancelNoWaitSeq, cancelAccountSeq, listEscrowSeq
-- escrow.network.test.ts (escrow create + escrow list = 11 tests): TICKET_COUNT=24; budget 70.8 ≤ 99 ✓
-- escrow.network2.test.ts (escrow finish + escrow cancel = 12 tests): TICKET_COUNT=26; budget 77.2 ≤ 99 ✓
-- All 23 original tests preserved across both files (11 + 12 = 23)
-- Each it.concurrent creates inline: wallets via createFunded + escrow via runCLI --json + waits 16s when needed
-- Cancel tests use only --cancel-after (no --finish-after) with 15s timeout, then wait 16s and cancel — avoids 90s+ waits
-- Condition-based finish tests create inline with --condition; no time wait needed since no FinishAfter
-- Files changed: tests/e2e/escrow/escrow.network.test.ts (full rewrite), tests/e2e/escrow/escrow.network2.test.ts (new), scripts/ralph/prd.json, scripts/ralph/progress.txt
-- **Learnings for future iterations:**
-  - Cancel tests don't need FinishAfter — use only CancelAfter = now+15s; wait 16s; cancel. Avoids the 90s wait the original used.
-  - Condition-based finish needs no time wait — just create with --condition --cancel-after far-future, then immediately finish with --fulfillment
-  - For it.concurrent escrow tests: inline sequence extraction from --json output is essential; no pre-created sequences possible
-  - 23-test escrow file splits naturally into create/list (11) + finish/cancel (12) = perfect budget split
+  - Only catch errors where `msg.includes("Timeout")` — do not swallow XRPL transaction errors
+  - `Awaited<ReturnType<typeof client.submitAndWait>>` is the correct type for capturing the result before a try/catch split
+  - The fallback faucet URL for xrpl-labs testnet is `https://testnet.xrpl-labs.com/accounts`
 ---
