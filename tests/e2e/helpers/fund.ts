@@ -2,8 +2,10 @@ import { Client, Wallet, xrpToDrops } from "xrpl";
 import type { TicketCreate, Payment as XrplPayment } from "xrpl";
 
 export const XRPL_WS = "wss://s.altnet.rippletest.net:51233";
+export const XRPL_WS_FALLBACK = "wss://testnet.xrpl-labs.com/";
 
 const FAUCET_URL = "https://faucet.altnet.rippletest.net/accounts";
+const FAUCET_URL_FALLBACK = "https://testnet.xrpl-labs.com/accounts";
 const FAUCET_MAX_RETRIES = 30;
 const FAUCET_RETRY_BASE_MS = 5000;
 
@@ -14,27 +16,58 @@ const ticketPool: number[] = [];
 /**
  * Fund a master wallet from the testnet faucet (1 faucet call).
  * Returns a wallet with ~1000 XRP ready to distribute.
+ * On TimeoutError, retries once using the fallback node and faucet.
  */
 export async function fundMaster(client: Client): Promise<Wallet> {
   const wallet = Wallet.generate();
   let lastStatus = 0;
+  let originalError: Error | undefined;
 
-  for (let attempt = 0; attempt < FAUCET_MAX_RETRIES; attempt++) {
-    if (attempt > 0) {
-      await new Promise((r) => setTimeout(r, FAUCET_RETRY_BASE_MS * attempt));
+  const tryFund = async (faucetUrl: string, waitClient: Client): Promise<Wallet | null> => {
+    for (let attempt = 0; attempt < FAUCET_MAX_RETRIES; attempt++) {
+      if (attempt > 0) {
+        await new Promise((r) => setTimeout(r, FAUCET_RETRY_BASE_MS * attempt));
+      }
+      const response = await fetch(faucetUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ destination: wallet.address }),
+      });
+      if (response.ok) {
+        await waitForAccount(waitClient, wallet.address);
+        return wallet;
+      }
+      lastStatus = response.status;
+      if (response.status !== 429 && response.status < 500) break;
     }
-    const response = await fetch(FAUCET_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ destination: wallet.address }),
-    });
-    if (response.ok) {
-      await waitForAccount(client, wallet.address);
-      return wallet;
+    return null;
+  };
+
+  try {
+    const result = await tryFund(FAUCET_URL, client);
+    if (result) return result;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!msg.includes("Timeout")) {
+      throw err;
     }
-    lastStatus = response.status;
-    if (response.status !== 429 && response.status < 500) break;
+    originalError = err instanceof Error ? err : new Error(msg);
   }
+
+  // Fallback: retry once using the fallback node
+  const fallbackClient = new Client(XRPL_WS_FALLBACK);
+  try {
+    await fallbackClient.connect();
+    const result = await tryFund(FAUCET_URL_FALLBACK, fallbackClient);
+    if (result) return result;
+  } catch (fallbackErr) {
+    if (originalError) throw originalError;
+    throw fallbackErr;
+  } finally {
+    await fallbackClient.disconnect();
+  }
+
+  if (originalError) throw originalError;
   throw new Error(
     `Faucet request failed after ${FAUCET_MAX_RETRIES} attempts: status ${lastStatus}`,
   );
@@ -56,7 +89,23 @@ export async function initTicketPool(
     TicketCount: count,
   });
   const signed = master.sign(ticketTx);
-  const result = await client.submitAndWait(signed.tx_blob);
+
+  let result: Awaited<ReturnType<typeof client.submitAndWait>>;
+  try {
+    result = await client.submitAndWait(signed.tx_blob);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!msg.includes("Timeout")) throw err;
+    const fallbackClient = new Client(XRPL_WS_FALLBACK);
+    try {
+      await fallbackClient.connect();
+      result = await fallbackClient.submitAndWait(signed.tx_blob);
+    } catch (fallbackErr) {
+      throw err;
+    } finally {
+      await fallbackClient.disconnect();
+    }
+  }
 
   const meta = result.result.meta;
   if (!meta || typeof meta === "string") {
@@ -128,7 +177,22 @@ export async function createFunded(
       (tx as typeof tx & { TicketSequence: number }).TicketSequence = ticket;
 
       const signed = master.sign(tx);
-      const res = await client.submitAndWait(signed.tx_blob);
+      let res: Awaited<ReturnType<typeof client.submitAndWait>>;
+      try {
+        res = await client.submitAndWait(signed.tx_blob);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (!msg.includes("Timeout")) throw err;
+        const fallbackClient = new Client(XRPL_WS_FALLBACK);
+        try {
+          await fallbackClient.connect();
+          res = await fallbackClient.submitAndWait(signed.tx_blob);
+        } catch (fallbackErr) {
+          throw err;
+        } finally {
+          await fallbackClient.disconnect();
+        }
+      }
       const txResult = (res.result.meta as { TransactionResult?: string })
         ?.TransactionResult;
       if (txResult !== "tesSUCCESS") {
