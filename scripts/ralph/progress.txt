@@ -47,6 +47,20 @@ Started: Fri Mar  6 11:22:04 AM Universal 2026
   - Always add result check after submitAndWait in funding helpers — otherwise tecUNFUNDED_PAYMENT causes confusing "account not found" timeout instead of clear error message.
 ---
 
+## 2026-03-07 - US-004
+- Consolidated check tests: check.create + check.cash + check.cancel + check.list → check.network.test.ts (20 tests, 1 faucet call)
+- Consolidated clawback tests: clawback.iou + clawback.mpt → clawback.network.test.ts (7 tests, 1 faucet call)
+- Consolidated multisig tests: multisig.set + multisig.delete + multisig.list → multisig.network.test.ts (12 tests, 1 faucet call)
+- Deleted 9 original test files
+- Files changed: tests/e2e/check/check.network.test.ts (new), tests/e2e/clawback/clawback.network.test.ts (new), tests/e2e/multisig/multisig.network.test.ts (new), deleted 9 originals
+- **Learnings for future iterations:**
+  - CheckCreate requires destination to be an activated (funded) account — `tecNO_DST` if using `Wallet.generate()` as destination in submit tests. Dry-run tests are fine with any address.
+  - For clawback setup inside each test, run 3-4 direct xrpl.js calls (AccountSet, TrustSet, Payment) before the CLI command — this keeps each test self-contained and avoids shared state.
+  - Multisig signer wallets don't need to be funded — XRPL only requires valid addresses in the SignerList. Use `Wallet.generate()` for signer addresses.
+  - `SignerList` counts as ONE owner object regardless of signer count — 0.2 XRP reserve for any size signer list.
+  - For clawback MPT dry-run: dummy MPT issuance ID must be 48 hex chars (4 bytes seq + 20 bytes account) — use `"00000001" + "AABBCCDD".repeat(5)`.
+---
+
 # Ralph Progress Log
 Started: Sat Mar  7 04:22:54 AM Universal 2026
 ---
