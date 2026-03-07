@@ -6,9 +6,11 @@ export default defineConfig({
     testTimeout: 30_000,
     hookTimeout: 30_000,
     maxConcurrency: 3,
+    pool: "forks",
     poolOptions: {
       forks: {
-        maxForks: 3,
+        minForks: 1,
+        maxForks: 4,
       },
     },
   },
