@@ -134,7 +134,7 @@
         "Tests pass"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "Only the token/MPT issuer can call VaultClawback — not for XRP vaults. The issuer must have enabled clawback on the asset. E2E setup: issuer creates IOU vault, holder deposits, issuer claws back holder's shares."
     }
   ]

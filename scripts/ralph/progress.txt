@@ -1,32 +1,25 @@
 # Ralph Progress Log
-Started: Sat Mar  7 08:49:21 AM Universal 2026
+Started: Sat Mar  7 10:31:40 AM Universal 2026
 ---
 
-## 2026-03-07 - US-003
-- Implemented E2E network tests for `vault deposit` command
-- The vault command implementation was already complete in `src/commands/vault.ts`; validation tests were already in `vault.create.validation.test.ts`
-- Created `tests/e2e/vault/vault.deposit.network.test.ts` with 5 tests: XRP deposit, --json, --dry-run, --no-wait, --account/--keystore/--password
-- **Learnings for future iterations:**
-  - vault.create.validation.test.ts already contains validation tests for ALL vault subcommands (deposit, withdraw, delete, clawback) — only network tests are missing for US-004 through US-006
-  - Devnet faucet pattern for vault tests: `fundFromDevnetFaucet(client)` in beforeAll (single call), create vault in beforeAll, each test deposits/withdraws from the same shared vault
-  - VaultDeposit accepts amount in drops (string) for XRP; `parseAmount("1")` returns drops as string
+## Codebase Patterns
+- Vault commands use devnet (`wss://s.devnet.rippletest.net:51233`), not testnet — SingleAssetVault amendment not on testnet
+- Devnet faucet helper: `tests/helpers/devnet.ts` → `fundFromDevnetFaucet(client)` returns a funded wallet
+- Vault network tests use sequential `it()` (not `it.concurrent`) with a shared issuer/vault in `beforeAll` and distinct holders for each test case
+- VaultClawback `Amount` field: devnet requires it even though xrpl.js types mark it optional — always specify Amount; omitting causes `tecWRONG_ASSET`
+- Vault share token ownership is held via MPT in the holder's account objects
+- All vault commands are in `src/commands/vault.ts`; validation tests in `vault.create.validation.test.ts`
+
 ---
 
-## 2026-03-07 - US-004
-- Created `tests/e2e/vault/vault.withdraw.network.test.ts` with 6 tests: basic XRP withdraw, --destination, --json, --dry-run, --no-wait, --account/--keystore/--password
-- vault withdraw implementation was already complete in `src/commands/vault.ts`; validation tests already in `vault.create.validation.test.ts`
+## 2026-03-07 - US-006
+- Implemented vault clawback command (`vault clawback --vault-id <hash> --holder <address>`)
+- Command already existed in `src/commands/vault.ts` (vaultClawbackCommand) and validation tests in `vault.create.validation.test.ts`
+- Created `tests/e2e/vault/vault.clawback.network.test.ts` with 6 devnet tests
+- Files changed: `tests/e2e/vault/vault.clawback.network.test.ts`
 - **Learnings for future iterations:**
-  - For `--destination` test: fund receiver using `client.submitAndWait` directly in the async `it()` block — no CLI payment command needed
-  - Each test deposits 2 XRP then withdraws 1 XRP to keep vault state consistent; tests are sequential so sharing the vault across tests works
-  - Devnet faucet provides ~100 XRP; 6 tests × ~2 XRP deposits = ~12 XRP, well within budget
----
-
-## 2026-03-07 - US-005
-- Created `tests/e2e/vault/vault.delete.network.test.ts` with 5 tests: create+delete+verify-gone, --json, --dry-run, --no-wait, --account/--keystore/--password
-- vault delete implementation was already complete in `src/commands/vault.ts`; validation tests already in `vault.create.validation.test.ts`
-- **Learnings for future iterations:**
-  - Use `ledger_entry` with `index: vaultId` (direct LedgerIndex lookup) to verify a vault was deleted — NOT `vault: { account, vault_id }` which requires an 'owner' field that the RPC doesn't accept
-  - The `ledger_entry` error for a deleted/missing entry is `data.error === "entryNotFound"`
-  - For dry-run existence check: same `index: vaultId` pattern works to verify vault still exists
-  - Each test creates its own vault (vault delete consumes the vault), so no shared vault across tests
+  - VaultClawback requires `Amount` on the XRPL devnet even though the xrpl.js type and docs say it's optional — omitting Amount always returns `tecWRONG_ASSET` on devnet; always specify the amount explicitly
+  - VaultClawback only works for IOU/MPT vaults (not XRP); the issuer must have `asfAllowTrustLineClawback` enabled BEFORE any trust lines are created
+  - IOU vault test setup: issuer must enable `asfDefaultRipple` + `asfAllowTrustLineClawback`, create vault, fund holders, set up trust lines, issue tokens — all sequentially due to devnet
+  - Use `tests/helpers/devnet.ts` `fundFromDevnetFaucet` for a single faucet call; then fund sub-wallets via direct Payment transactions from the issuer
 ---
