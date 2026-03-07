@@ -262,3 +262,27 @@ describe("amm vote validation (no network)", () => {
     expect(result.stderr).toContain("--trading-fee");
   });
 });
+
+describe("amm clawback validation (no network)", () => {
+  it("--asset XRP exits 1 with error message", () => {
+    const result = runCLI([
+      "amm", "clawback",
+      "--asset", "XRP",
+      "--asset2", `USD/${DUMMY_ISSUER}`,
+      "--holder", DUMMY_ISSUER,
+      "--seed", DUMMY_SEED,
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("IOU");
+  });
+
+  it("missing --holder exits 1", () => {
+    const result = runCLI([
+      "amm", "clawback",
+      "--asset", `USD/${DUMMY_ISSUER}`,
+      "--asset2", "XRP",
+      "--seed", DUMMY_SEED,
+    ]);
+    expect(result.status).toBe(1);
+  });
+});

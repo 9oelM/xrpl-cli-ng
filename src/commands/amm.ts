@@ -1,13 +1,15 @@
 import { Command } from "commander";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
-import { Wallet, AMMDepositFlags, AMMWithdrawFlags } from "xrpl";
+import { Wallet, AMMDepositFlags, AMMWithdrawFlags, AMMClawbackFlags } from "xrpl";
 import type {
   AMMCreate,
   AMMDeposit,
   AMMWithdraw,
   AMMBid,
   AMMVote,
+  AMMDelete,
+  AMMClawback,
   AMMInfoRequest,
   AMMInfoResponse,
   IssuedCurrencyAmount,
@@ -395,7 +397,7 @@ const ammInfoCommand = new Command("info")
 async function submitTx(
   client: Client,
   signerWallet: Wallet,
-  baseTx: AMMDeposit | AMMWithdraw | AMMBid | AMMVote,
+  baseTx: AMMDeposit | AMMWithdraw | AMMBid | AMMVote | AMMDelete | AMMClawback,
   options: { wait: boolean; json: boolean; dryRun: boolean }
 ): Promise<void> {
   const filled = await client.autofill(baseTx);
@@ -896,6 +898,172 @@ const ammVoteCommand = new Command("vote")
     });
   });
 
+// ── amm delete ───────────────────────────────────────────────────────────────
+
+interface AmmDeleteOptions {
+  asset: string;
+  asset2: string;
+  seed?: string;
+  mnemonic?: string;
+  account?: string;
+  password?: string;
+  keystore?: string;
+  wait: boolean;
+  json: boolean;
+  dryRun: boolean;
+}
+
+const ammDeleteCommand = new Command("delete")
+  .description("Delete an empty AMM pool (all LP tokens must have been returned first)")
+  .requiredOption("--asset <spec>", 'First asset: "XRP" or "CURRENCY/issuer"')
+  .requiredOption("--asset2 <spec>", 'Second asset: "XRP" or "CURRENCY/issuer"')
+  .option("--seed <seed>", "Family seed for signing")
+  .option("--mnemonic <phrase>", "BIP39 mnemonic for signing")
+  .option("--account <address-or-alias>", "Account address or alias from keystore")
+  .option("--password <password>", "Keystore decryption password (insecure)")
+  .option("--keystore <dir>", "Keystore directory (default: ~/.xrpl/keystore/)")
+  .option("--no-wait", "Submit without waiting for validation")
+  .option("--json", "Output as JSON", false)
+  .option("--dry-run", "Print signed tx without submitting", false)
+  .action(async (options: AmmDeleteOptions, cmd: Command) => {
+    let assetSpec: AssetSpec;
+    let assetSpec2: AssetSpec;
+    try {
+      assetSpec = parseAssetSpec(options.asset);
+    } catch (e: unknown) {
+      process.stderr.write(`Error: --asset: ${(e as Error).message}\n`);
+      process.exit(1);
+    }
+    try {
+      assetSpec2 = parseAssetSpec(options.asset2);
+    } catch (e: unknown) {
+      process.stderr.write(`Error: --asset2: ${(e as Error).message}\n`);
+      process.exit(1);
+    }
+
+    const keyMaterialCount = [options.seed, options.mnemonic, options.account].filter(Boolean).length;
+    if (keyMaterialCount === 0) {
+      process.stderr.write("Error: provide key material via --seed, --mnemonic, or --account\n");
+      process.exit(1);
+    }
+    if (keyMaterialCount > 1) {
+      process.stderr.write("Error: provide only one of --seed, --mnemonic, or --account\n");
+      process.exit(1);
+    }
+
+    const signerWallet = await resolveWallet(options);
+    const url = getNodeUrl(cmd);
+
+    await withClient(url, async (client) => {
+      const baseTx: AMMDelete = {
+        TransactionType: "AMMDelete",
+        Account: signerWallet.address,
+        Asset: assetSpecToXrplCurrency(assetSpec!),
+        Asset2: assetSpecToXrplCurrency(assetSpec2!),
+      };
+
+      await submitTx(client, signerWallet, baseTx, options);
+    });
+  });
+
+// ── amm clawback ─────────────────────────────────────────────────────────────
+
+interface AmmClawbackOptions {
+  asset: string;
+  asset2: string;
+  holder: string;
+  amount?: string;
+  bothAssets: boolean;
+  seed?: string;
+  mnemonic?: string;
+  account?: string;
+  password?: string;
+  keystore?: string;
+  wait: boolean;
+  json: boolean;
+  dryRun: boolean;
+}
+
+const ammClawbackCommand = new Command("clawback")
+  .description("Claw back IOU assets from an AMM pool (issuer only)")
+  .requiredOption("--asset <spec>", 'IOU asset to claw back: "CURRENCY/issuer" (issuer must match signing account)')
+  .requiredOption("--asset2 <spec>", 'Other asset in the pool: "XRP" or "CURRENCY/issuer"')
+  .requiredOption("--holder <address>", "Account holding the asset to be clawed back")
+  .option("--amount <value>", "Maximum amount to claw back (default: all available)")
+  .option("--both-assets", "Claw back both assets proportionally (tfClawTwoAssets)", false)
+  .option("--seed <seed>", "Family seed for signing")
+  .option("--mnemonic <phrase>", "BIP39 mnemonic for signing")
+  .option("--account <address-or-alias>", "Account address or alias from keystore")
+  .option("--password <password>", "Keystore decryption password (insecure)")
+  .option("--keystore <dir>", "Keystore directory (default: ~/.xrpl/keystore/)")
+  .option("--no-wait", "Submit without waiting for validation")
+  .option("--json", "Output as JSON", false)
+  .option("--dry-run", "Print signed tx without submitting", false)
+  .action(async (options: AmmClawbackOptions, cmd: Command) => {
+    let assetSpec: AssetSpec;
+    let assetSpec2: AssetSpec;
+    try {
+      assetSpec = parseAssetSpec(options.asset);
+    } catch (e: unknown) {
+      process.stderr.write(`Error: --asset: ${(e as Error).message}\n`);
+      process.exit(1);
+    }
+    try {
+      assetSpec2 = parseAssetSpec(options.asset2);
+    } catch (e: unknown) {
+      process.stderr.write(`Error: --asset2: ${(e as Error).message}\n`);
+      process.exit(1);
+    }
+
+    // AMMClawback Asset must be an IOU, not XRP
+    if (assetSpec!.currency === "XRP" || !assetSpec!.issuer) {
+      process.stderr.write("Error: --asset must be an IOU (CURRENCY/issuer), not XRP\n");
+      process.exit(1);
+    }
+
+    const keyMaterialCount = [options.seed, options.mnemonic, options.account].filter(Boolean).length;
+    if (keyMaterialCount === 0) {
+      process.stderr.write("Error: provide key material via --seed, --mnemonic, or --account\n");
+      process.exit(1);
+    }
+    if (keyMaterialCount > 1) {
+      process.stderr.write("Error: provide only one of --seed, --mnemonic, or --account\n");
+      process.exit(1);
+    }
+
+    const signerWallet = await resolveWallet(options);
+    const url = getNodeUrl(cmd);
+
+    await withClient(url, async (client) => {
+      const baseTx: AMMClawback = {
+        TransactionType: "AMMClawback",
+        Account: signerWallet.address,
+        Asset: { currency: assetSpec!.currency, issuer: assetSpec!.issuer! },
+        Asset2: assetSpecToXrplCurrency(assetSpec2!),
+        Holder: options.holder,
+      };
+
+      if (options.amount) {
+        const value = Number(options.amount);
+        if (isNaN(value) || value <= 0) {
+          process.stderr.write(`Error: --amount: must be a positive number\n`);
+          process.exit(1);
+        }
+        baseTx.Amount = {
+          currency: assetSpec!.currency,
+          issuer: assetSpec!.issuer!,
+          value: options.amount,
+        };
+      }
+
+      if (options.bothAssets) {
+        baseTx.Flags = AMMClawbackFlags.tfClawTwoAssets;
+      }
+
+      await submitTx(client, signerWallet, baseTx, options);
+    });
+  });
+
 // ── export ───────────────────────────────────────────────────────────────────
 
 export const ammCommand = new Command("amm")
@@ -905,4 +1073,6 @@ export const ammCommand = new Command("amm")
   .addCommand(ammDepositCommand)
   .addCommand(ammWithdrawCommand)
   .addCommand(ammBidCommand)
-  .addCommand(ammVoteCommand);
+  .addCommand(ammVoteCommand)
+  .addCommand(ammDeleteCommand)
+  .addCommand(ammClawbackCommand);
