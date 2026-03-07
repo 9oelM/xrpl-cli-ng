@@ -17,3 +17,4 @@ export { mptokenCommand } from "./mptoken.js";
 export { permissionedDomainCommand } from "./permissioned-domain.js";
 export { vaultCommand } from "./vault.js";
 export { didCommand } from "./did.js";
+export { ammCommand } from "./amm.js";
