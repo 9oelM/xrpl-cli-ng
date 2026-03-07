@@ -2,12 +2,25 @@
 import { Command } from "commander";
 import { accountCommand, walletCommand, paymentCommand, trustCommand, offerCommand, channelCommand, escrowCommand, checkCommand, clawbackCommand, credentialCommand, nftCommand, multisigCommand, oracleCommand, ticketCommand, depositPreauthCommand, mptokenCommand, permissionedDomainCommand, vaultCommand, didCommand } from "./commands/index.js";
 
+const VERSION = "0.1.0";
+
+const BANNER = `
+____  _______________________.____              _________ .____    .___
+\\   \\/  /\\______   \\______   \\    |             \\_   ___ \\|    |   |   |
+ \\     /  |       _/|     ___/    |      ______ /    \\  \\/|    |   |   |
+ /     \\  |    |   \\|    |   |    |___  /_____/ \\     \\___|    |___|   |
+/___/\\  \\ |____|_  /|____|   |_______ \\          \\______  /_______ \\___|
+      \\_/        \\/                  \\/                 \\/        \\/
+v${VERSION}
+`;
+
 const program = new Command();
 
 program
   .name("xrpl")
   .description("CLI for interacting with the XRP Ledger")
-  .version("0.1.0")
+  .version(VERSION)
+  .addHelpText("beforeAll", BANNER)
   .option(
     "-n, --node <url>",
     "XRPL node URL or network name (mainnet|testnet|devnet)",

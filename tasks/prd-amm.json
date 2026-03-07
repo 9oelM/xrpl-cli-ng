@@ -39,7 +39,7 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Deposit and withdraw share one test file. For withdraw tests, the xrpl.js AMMDeposit setup call uses the shared client. Never spawn a separate WebSocket connection."
     },
     {
@@ -58,7 +58,7 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "LP tokens are automatically received by the pool creator at AMMCreate time. No extra deposit step needed before bid/vote."
     },
     {
