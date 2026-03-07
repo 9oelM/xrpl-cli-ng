@@ -1,23 +1,17 @@
-## Codebase Patterns
-- Test helpers are in `tests/helpers/` (not `tests/e2e/helpers/`): `cli.ts` for `runCLI`, `testnet.ts` for `fundFromFaucet`
-- Network tests use `fundFromFaucet` in beforeAll (old pattern, not ticket-based fund.ts from MEMORY)
-- Import paths in tests use `../../helpers/cli.js` and `../../helpers/testnet.js`
-- DID fields (URI, Data, DIDDocument) are hex blobs; use `convertStringToHex` to encode; empty string clears a field
-
 # Ralph Progress Log
-Started: Fri Mar  6 04:35:56 PM Universal 2026
+Started: Sat Mar  7 08:49:20 AM Universal 2026
 ---
 
-## 2026-03-06 - US-001
-- Implemented `did set` command in `src/commands/did.ts`
-- Command supports: --uri, --uri-hex, --data, --data-hex, --did-document, --did-document-hex, --clear-uri, --clear-data, --clear-did-document
-- Standard key material (--seed, --mnemonic, --account/--keystore/--password) and output options (--json, --dry-run, --no-wait)
-- Validation: at least one field required, mutually exclusive plain/hex pairs, mutually exclusive value/clear pairs
-- Registered in src/commands/index.ts and src/index.ts
-- Files changed: src/commands/did.ts, src/commands/index.ts, src/index.ts, tests/e2e/did/did.validation.test.ts, tests/e2e/did/did.set.test.ts
+## 2026-03-07 - US-002
+- Implemented `xrpl did delete` and `xrpl did get <address>` commands
+- Files changed:
+  - `src/commands/did.ts` — added `DIDDelete` import, generalized `submitTx` to accept `DIDSet | DIDDelete`, added `didDeleteCommand` and `didGetCommand`, registered both on the `did` parent command
+  - `tests/e2e/did/did.delete.test.ts` — 4 tests: create+delete+verify-gone, --json, --dry-run, --no-wait
+  - `tests/e2e/did/did.get.test.ts` — 4 tests: decoded URI/hex data output, --json raw ledger entry, not-found message, --node option
+- All 20 DID tests pass (including US-001 set tests)
 - **Learnings for future iterations:**
-  - Test helpers in `tests/helpers/` not `tests/e2e/helpers/` — MEMORY has incorrect path
-  - DIDSet type from xrpl.js has optional fields: URI, Data, DIDDocument (all hex blobs)
-  - To clear a field, submit it as empty string `""`
-  - `--uri ''` (empty string) and `--clear-uri` are treated equivalently in the implementation
+  - `account_objects` with `type: 'did'` returns the DID ledger entry; check `account_objects[0]` for presence
+  - DID ledger entry has `LedgerEntryType: "DID"`, `URI` (hex), `Data` (hex), `DIDDocument` (hex)
+  - For "not-found" with account_objects: if account doesn't exist, the RPC throws; if account exists but has no DID object, returns empty array (status 0 with "No DID found" message)
+  - Test pattern for "not-found" account: use a fresh generated wallet (unfunded) — its address is valid but will throw or return empty objects
 ---

@@ -2,7 +2,7 @@ import { Command } from "commander";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { Wallet, convertStringToHex } from "xrpl";
-import type { DIDSet } from "xrpl";
+import type { DIDSet, DIDDelete } from "xrpl";
 import { deriveKeypair } from "ripple-keypairs";
 import { withClient } from "../utils/client.js";
 import { getNodeUrl } from "../utils/node.js";
@@ -81,7 +81,7 @@ async function resolveWallet(options: {
 async function submitTx(
   client: import("xrpl").Client,
   wallet: Wallet,
-  tx: DIDSet,
+  tx: DIDSet | DIDDelete,
   options: { wait: boolean; json: boolean; dryRun: boolean }
 ): Promise<void> {
   const filled = await client.autofill(tx);
@@ -295,6 +295,122 @@ const didSetCommand = new Command("set")
     });
   });
 
+// ---------- did delete ----------
+
+interface DIDDeleteOptions {
+  seed?: string;
+  mnemonic?: string;
+  account?: string;
+  password?: string;
+  keystore?: string;
+  wait: boolean;
+  json: boolean;
+  dryRun: boolean;
+}
+
+const didDeleteCommand = new Command("delete")
+  .description("Delete the sender's on-chain Decentralized Identifier (DIDDelete)")
+  .option("--seed <seed>", "Family seed for signing")
+  .option("--mnemonic <phrase>", "BIP39 mnemonic for signing")
+  .option("--account <address-or-alias>", "Account address or alias to load from keystore")
+  .option("--password <password>", "Keystore decryption password (insecure, prefer interactive prompt)")
+  .option("--keystore <dir>", "Keystore directory (default: ~/.xrpl/keystore/; XRPL_KEYSTORE env var also accepted)")
+  .option("--no-wait", "Submit without waiting for validation")
+  .option("--json", "Output as JSON", false)
+  .option("--dry-run", "Print signed tx without submitting", false)
+  .action(async (options: DIDDeleteOptions, cmd: Command) => {
+    const keyMaterialCount = [options.seed, options.mnemonic, options.account].filter(Boolean).length;
+    if (keyMaterialCount === 0) {
+      process.stderr.write("Error: provide key material via --seed, --mnemonic, or --account\n");
+      process.exit(1);
+    }
+    if (keyMaterialCount > 1) {
+      process.stderr.write("Error: provide only one of --seed, --mnemonic, or --account\n");
+      process.exit(1);
+    }
+
+    const signerWallet = await resolveWallet(options);
+
+    const tx: DIDDelete = {
+      TransactionType: "DIDDelete",
+      Account: signerWallet.address,
+    };
+
+    const url = getNodeUrl(cmd);
+
+    await withClient(url, async (client) => {
+      await submitTx(client, signerWallet, tx, options);
+    });
+  });
+
+// ---------- did get ----------
+
+interface DIDGetOptions {
+  json: boolean;
+}
+
+interface DIDLedgerEntry {
+  LedgerEntryType?: string;
+  Account?: string;
+  URI?: string;
+  Data?: string;
+  DIDDocument?: string;
+}
+
+function hexToUtf8(hex: string): string {
+  try {
+    return Buffer.from(hex, "hex").toString("utf-8");
+  } catch {
+    return hex;
+  }
+}
+
+const didGetCommand = new Command("get")
+  .description("Query the on-chain DID for an account")
+  .argument("<address>", "Account address to query")
+  .option("--json", "Output raw JSON ledger entry", false)
+  .action(async (address: string, options: DIDGetOptions, cmd: Command) => {
+    const url = getNodeUrl(cmd);
+
+    await withClient(url, async (client) => {
+      let result: unknown;
+      try {
+        result = await client.request({
+          command: "account_objects",
+          account: address,
+          type: "did",
+        } as Parameters<typeof client.request>[0]);
+      } catch (e: unknown) {
+        const err = e as Error;
+        process.stderr.write(`Error: ${err.message}\n`);
+        process.exit(1);
+      }
+
+      const accountObjects = (result as { result?: { account_objects?: DIDLedgerEntry[] } }).result?.account_objects ?? [];
+      const didEntry = accountObjects[0];
+
+      if (!didEntry) {
+        console.log(`No DID found for ${address}.`);
+        return;
+      }
+
+      if (options.json) {
+        console.log(JSON.stringify(didEntry));
+        return;
+      }
+
+      const uri = didEntry.URI ? hexToUtf8(didEntry.URI) : "(none)";
+      const data = didEntry.Data ?? "(none)";
+      const didDocument = didEntry.DIDDocument ? hexToUtf8(didEntry.DIDDocument) : "(none)";
+
+      console.log(`URI:         ${uri}`);
+      console.log(`Data:        ${data}`);
+      console.log(`DIDDocument: ${didDocument}`);
+    });
+  });
+
 export const didCommand = new Command("did")
   .description("Manage Decentralized Identifiers (DIDs) on the XRP Ledger")
-  .addCommand(didSetCommand);
+  .addCommand(didSetCommand)
+  .addCommand(didDeleteCommand)
+  .addCommand(didGetCommand);
