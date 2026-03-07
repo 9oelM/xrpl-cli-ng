@@ -12,10 +12,10 @@ const TSX = resolve(process.cwd(), "node_modules/.bin/tsx");
  */
 const E2E_PATH = dirname(process.execPath) + delimiter + (process.env.PATH ?? "");
 
-export function runCLI(args: string[], extraEnv: Record<string, string> = {}) {
+export function runCLI(args: string[], extraEnv: Record<string, string> = {}, timeout = 120_000) {
   return spawnSync(TSX, [CLI, ...args], {
     encoding: "utf-8",
     env: { ...process.env, PATH: E2E_PATH, ...extraEnv },
-    timeout: 120_000,
+    timeout,
   });
 }

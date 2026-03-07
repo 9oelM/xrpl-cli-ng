@@ -25,7 +25,9 @@ export async function withClient<T>(
   nodeUrl: string,
   fn: (client: Client) => Promise<T>
 ): Promise<T> {
-  const client = new Client(nodeUrl);
+  // 60s per-request timeout: gives submitAndWait enough time to resolve
+  // on slow testnet without hitting the 20s xrpl.js default prematurely.
+  const client = new Client(nodeUrl, { timeout: 60_000 });
   await client.connect();
   try {
     return await fn(client);

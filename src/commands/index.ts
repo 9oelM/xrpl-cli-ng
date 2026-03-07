@@ -13,3 +13,4 @@ export { multisigCommand } from "./multisig.js";
 export { oracleCommand } from "./oracle.js";
 export { ticketCommand } from "./ticket.js";
 export { depositPreauthCommand } from "./deposit-preauth.js";
+export { ammCommand } from "./amm.js";
