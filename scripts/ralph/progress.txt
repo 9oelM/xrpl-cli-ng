@@ -11,3 +11,12 @@ Started: Sat Mar  7 08:49:21 AM Universal 2026
   - Devnet faucet pattern for vault tests: `fundFromDevnetFaucet(client)` in beforeAll (single call), create vault in beforeAll, each test deposits/withdraws from the same shared vault
   - VaultDeposit accepts amount in drops (string) for XRP; `parseAmount("1")` returns drops as string
 ---
+
+## 2026-03-07 - US-004
+- Created `tests/e2e/vault/vault.withdraw.network.test.ts` with 6 tests: basic XRP withdraw, --destination, --json, --dry-run, --no-wait, --account/--keystore/--password
+- vault withdraw implementation was already complete in `src/commands/vault.ts`; validation tests already in `vault.create.validation.test.ts`
+- **Learnings for future iterations:**
+  - For `--destination` test: fund receiver using `client.submitAndWait` directly in the async `it()` block — no CLI payment command needed
+  - Each test deposits 2 XRP then withdraws 1 XRP to keep vault state consistent; tests are sequential so sharing the vault across tests works
+  - Devnet faucet provides ~100 XRP; 6 tests × ~2 XRP deposits = ~12 XRP, well within budget
+---

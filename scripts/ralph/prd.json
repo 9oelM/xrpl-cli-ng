@@ -92,7 +92,7 @@
         "Tests pass"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "VaultWithdraw does not respect PermissionedDomain rules — any shareholder can withdraw regardless. No transfer fees apply."
     },
     {
