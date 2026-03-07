@@ -51,3 +51,19 @@ Started: Sat Mar  7 06:07:48 AM Universal 2026
   - Credential tests need extra wallet count (2 per test) since both issuer and subject are separate wallets
   - deposit-preauth list tests with 1 wallet still need TICKET_COUNT accounting — make sure budget covers them
 ---
+
+## 2026-03-07 - US-006
+- Consolidated nft and account tests into single network test files
+- nft: merged nft.mint/burn/modify into nft.core.test.ts (22 tickets, 18 wallets × 3 XRP, 1 wallet per test)
+- nft: merged nft.offer.create/cancel/accept/list into nft.offers.test.ts (35 tickets, 31 wallets × 2 XRP)
+- account set: merged account.set.fields/flags/clawback + set.test.ts into account.set.network.test.ts (15 tickets, 12 wallets × 2 XRP); includes mnemonic + keystore tests
+- account keys: merged account.set-regular-key + account.delete into account.keys.test.ts (22 tickets, 18 wallets × 2 XRP); merged sequential set/verify and remove/verify tests into single it() blocks
+- account query: merged info + balance + transactions + trust-lines + offers + channels + nfts into account.query.test.ts (no faucet needed — all tests use well-known KNOWN_TESTNET_ADDRESS)
+- Deleted 20 original test files; all new files use fundMaster + initTicketPool + createFunded pattern
+- Files changed: 5 new test files; deleted 20 old files; scripts/ralph/prd.json (US-006 marked passes: true)
+- **Learnings for future iterations:**
+  - nft.offer accept tests that pay for NFTs need small amounts (0.01 XRP) so buyer can afford the purchase with only 2 XRP funded
+  - set.test.ts (the original account set test) was not mentioned in the PRD merge list but had a faucet call — include it in the account.set.network.test.ts merge and delete it
+  - Sequential tests that verify on-chain state (set-then-verify) should be merged into a single it() block with sleep() in between; this avoids wallet-sharing across test cases
+  - account.query.test.ts needs no faucet call at all — all tests query the testnet genesis address which already has state
+---
