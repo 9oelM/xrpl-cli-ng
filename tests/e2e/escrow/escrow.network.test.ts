@@ -54,10 +54,11 @@ beforeAll(async () => {
   master = await fundMaster(client);
   await initTicketPool(client, master, TICKET_COUNT);
 
-  // Fund sender with 30 XRP: testnet base_reserve=1 XRP, owner_reserve=0.2 XRP per object.
-  // 10 escrows × (2 XRP lock + 0.2 owner reserve) + 5 test-body creates × (1 XRP + 0.2) ≈ 28 XRP.
-  // 30 XRP leaves 2 XRP buffer. Receiver needs only base reserve + fees.
-  [sender, receiver] = await createFunded(client, master, 2, 30);
+  // Fund sender with 20 XRP: testnet base_reserve=1 XRP, owner_reserve=0.2 XRP per object.
+  // 9 pre-created escrows × 2 XRP lock + ~5 test-body creates × 1 XRP = 23 XRP locked at peak.
+  // 20 XRP is sufficient since escrows finish/cancel releasing XRP. Receiver needs only base reserve + fees.
+  // Budget: 5 × 0.2 + 2 × 20 = 41 ≤ 99 ✓
+  [sender, receiver] = await createFunded(client, master, 2, 20);
 
   // ------------------------------------------------------------------
   // Pre-create escrows for escrow finish tests

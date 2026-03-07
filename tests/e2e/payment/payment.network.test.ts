@@ -39,7 +39,7 @@ function getBalanceDrops(address: string): number {
 
 describe("payment network", () => {
   it("sends 1 XRP between testnet accounts and prints tesSUCCESS", async () => {
-    const [sender, receiver] = await createFunded(client, master, 2, 25);
+    const [sender, receiver] = await createFunded(client, master, 2, 3);
 
     const senderBefore = getBalanceDrops(sender.address);
     const receiverBefore = getBalanceDrops(receiver.address);
@@ -62,7 +62,7 @@ describe("payment network", () => {
   }, 60_000);
 
   it("alias 'send' works", async () => {
-    const [sender, receiver] = await createFunded(client, master, 2, 25);
+    const [sender, receiver] = await createFunded(client, master, 2, 3);
 
     const result = runCLI([
       "--node", "testnet",
@@ -76,7 +76,7 @@ describe("payment network", () => {
   }, 60_000);
 
   it("--dry-run outputs JSON with TransactionType Payment and does not submit", async () => {
-    const [sender, receiver] = await createFunded(client, master, 2, 25);
+    const [sender, receiver] = await createFunded(client, master, 2, 3);
 
     const txsBefore = runCLI([
       "--node", "testnet",
@@ -107,7 +107,7 @@ describe("payment network", () => {
   }, 60_000);
 
   it("--no-wait exits 0 and output contains a 64-char hex hash", async () => {
-    const [sender, receiver] = await createFunded(client, master, 2, 25);
+    const [sender, receiver] = await createFunded(client, master, 2, 3);
 
     const result = runCLI([
       "--node", "testnet",
@@ -122,7 +122,7 @@ describe("payment network", () => {
   }, 60_000);
 
   it("--destination-tag sets DestinationTag on the submitted tx", async () => {
-    const [sender, receiver] = await createFunded(client, master, 2, 25);
+    const [sender, receiver] = await createFunded(client, master, 2, 3);
 
     const result = runCLI([
       "--node", "testnet",
@@ -149,7 +149,7 @@ describe("payment network", () => {
   }, 60_000);
 
   it("--memo attaches a Memos entry to the tx", async () => {
-    const [sender, receiver] = await createFunded(client, master, 2, 25);
+    const [sender, receiver] = await createFunded(client, master, 2, 3);
 
     const result = runCLI([
       "--node", "testnet",
@@ -168,7 +168,7 @@ describe("payment network", () => {
   }, 60_000);
 
   it("--memo-type and --memo-format are included in dry-run tx Memos", async () => {
-    const [sender, receiver] = await createFunded(client, master, 2, 25);
+    const [sender, receiver] = await createFunded(client, master, 2, 3);
     const memoTypeHex = Buffer.from("text/plain").toString("hex").toUpperCase();
     const memoFormatHex = Buffer.from("text/plain").toString("hex").toUpperCase();
 
@@ -201,8 +201,8 @@ describe("payment network", () => {
       mnemonicEncoding: "bip39",
       derivationPath: "m/44'/144'/0'/0/0",
     });
-    const [receiver] = await createFunded(client, master, 1, 15);
-    await fundAddress(client, master, mnemonicWallet.address, 20);
+    const [receiver] = await createFunded(client, master, 1, 3);
+    await fundAddress(client, master, mnemonicWallet.address, 3);
 
     const result = runCLI([
       "--node", "testnet",
@@ -216,7 +216,7 @@ describe("payment network", () => {
   }, 60_000);
 
   it("--account + --keystore + --password key material sends successfully", async () => {
-    const [sender, receiver] = await createFunded(client, master, 2, 25);
+    const [sender, receiver] = await createFunded(client, master, 2, 3);
     const tmpDir = mkdtempSync(resolve(tmpdir(), "xrpl-test-keystore-"));
     try {
       const importResult = runCLI([
@@ -244,7 +244,7 @@ describe("payment network", () => {
   }, 60_000);
 
   it("--no-ripple-direct sets tfNoRippleDirect bit in dry-run tx Flags", async () => {
-    const [sender, receiver] = await createFunded(client, master, 2, 25);
+    const [sender, receiver] = await createFunded(client, master, 2, 3);
 
     const result = runCLI([
       "--node", "testnet",
@@ -263,7 +263,7 @@ describe("payment network", () => {
   }, 60_000);
 
   it("--limit-quality sets tfLimitQuality bit in dry-run tx Flags", async () => {
-    const [sender, receiver] = await createFunded(client, master, 2, 25);
+    const [sender, receiver] = await createFunded(client, master, 2, 3);
 
     const result = runCLI([
       "--node", "testnet",

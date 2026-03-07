@@ -28,7 +28,7 @@ afterAll(async () => {
 
 describe("payment tokens", () => {
   it("sends IOU payment (direct issuance) and verifies trust-line balance", async () => {
-    const [iouIssuer, iouReceiver] = await createFunded(client, master, 2, 25);
+    const [iouIssuer, iouReceiver] = await createFunded(client, master, 2, 3);
 
     // Receiver sets up trust line to issuer
     const trustTx: TrustSet = await client.autofill({
@@ -66,7 +66,7 @@ describe("payment tokens", () => {
   }, 90_000);
 
   it("sends MPT payment from issuer to receiver and gets tesSUCCESS", async () => {
-    const [mptIssuer, mptReceiver] = await createFunded(client, master, 2, 25);
+    const [mptIssuer, mptReceiver] = await createFunded(client, master, 2, 3);
 
     // Create MPToken issuance
     const createTx: MPTokenIssuanceCreate = await client.autofill({
@@ -102,7 +102,7 @@ describe("payment tokens", () => {
   }, 90_000);
 
   it("--paths '[]' (empty array) is accepted without error", async () => {
-    const [sender, receiver] = await createFunded(client, master, 2, 25);
+    const [sender, receiver] = await createFunded(client, master, 2, 3);
 
     const result = runCLI([
       "--node", "testnet",
@@ -117,7 +117,7 @@ describe("payment tokens", () => {
   }, 60_000);
 
   it("--partial --json output includes deliveredAmount (IOU partial payment)", async () => {
-    const [flagIssuer, flagHolder] = await createFunded(client, master, 2, 25);
+    const [flagIssuer, flagHolder] = await createFunded(client, master, 2, 3);
 
     const trustTx: TrustSet = await client.autofill({
       TransactionType: "TrustSet",
@@ -143,7 +143,7 @@ describe("payment tokens", () => {
   }, 90_000);
 
   it("--partial --deliver-min --send-max IOU payment asserts deliveredAmount >= deliver-min", async () => {
-    const [flagIssuer, flagHolder] = await createFunded(client, master, 2, 25);
+    const [flagIssuer, flagHolder] = await createFunded(client, master, 2, 3);
 
     const trustTx: TrustSet = await client.autofill({
       TransactionType: "TrustSet",
