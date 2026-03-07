@@ -1,7 +1,7 @@
 {
   "project": "xrpl-cli",
   "branchName": "ralph/concurrent-tests",
-  "description": "Convert all E2E test cases to it.concurrent for parallel execution within files. Eliminate shared mutable state between tests. Split files when faucet budget exceeds 99 XRP.",
+  "description": "Convert all E2E test cases to it.concurrent for parallel execution within files. Eliminate shared mutable state between tests. Split files when faucet budget exceeds 99 XRP. DO NOT run any tests at any point — just make the code changes and verify typecheck only.",
   "userStories": [
     {
       "id": "US-001",
@@ -12,8 +12,8 @@
         "Change every `it(` to `it.concurrent(` in ALL wallet test files: tests/e2e/wallet/*.test.ts (address, alias, change-password, decrypt-keystore, fund, import, list, new, new-mnemonic, private-key, public-key, remove, sign, verify)",
         "Change every `it(` to `it.concurrent(` in tests/e2e/channel/channel.sign.test.ts (offline crypto, no shared state)",
         "No beforeAll or test logic changes needed — isolation already exists (validation: no network; wallet: mkdtempSync per test; sign: pure crypto)",
-        "Typecheck passes",
-        "Tests pass"
+        "DO NOT run any tests (no `npm test`, no `npx vitest`, no test commands of any kind)",
+        "Typecheck passes"
       ],
       "priority": 1,
       "passes": true,
@@ -30,8 +30,8 @@
         "For each file: add budget comment above TICKET_COUNT: `// N tests × W wallets × A XRP + T tickets × 0.2 = X ≤ 99 ✓`",
         "For each file: verify budget constraint: TICKET_COUNT × 0.2 + total_funded_XRP ≤ 99 XRP; if exceeded split into two files each with own beforeAll",
         "Set timeout on each it.concurrent that funds wallets inside the body: { timeout: 90_000 }",
-        "Typecheck passes",
-        "Tests pass"
+        "DO NOT run any tests (no `npm test`, no `npx vitest`, no test commands of any kind)",
+        "Typecheck passes"
       ],
       "priority": 2,
       "passes": true,
@@ -47,11 +47,11 @@
         "For each file: recalculate TICKET_COUNT = total wallets across all concurrent tests; add budget comment showing calculation",
         "For each file: verify budget ≤ 99 XRP; if exceeded split into two files each with own beforeAll and faucet call",
         "Set { timeout: 90_000 } on each it.concurrent that creates wallets or submits transactions inside the body",
-        "Typecheck passes",
-        "Tests pass"
+        "DO NOT run any tests (no `npm test`, no `npx vitest`, no test commands of any kind)",
+        "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "These files have 13–18 tests each. Main work: move any wallet/state creation from beforeAll into each test, change it( to it.concurrent(, recalculate budget. If a wallet was shared in beforeAll, each test now calls createFunded for its own copy."
     },
     {
@@ -64,8 +64,8 @@
         "For each file: recalculate TICKET_COUNT for all-concurrent execution; add budget comment",
         "For each file: if budget exceeds 99 XRP, split into file + file2 (e.g. check.network.test.ts + check.network2.test.ts), distributing tests evenly, each with own beforeAll",
         "Set { timeout: 90_000 } on each it.concurrent that funds wallets or submits transactions",
-        "Typecheck passes",
-        "Tests pass"
+        "DO NOT run any tests (no `npm test`, no `npx vitest`, no test commands of any kind)",
+        "Typecheck passes"
       ],
       "priority": 4,
       "passes": false,
@@ -84,9 +84,9 @@
         "Budget calculation: 23 tests × avg 2 wallets × avg 5 XRP = 230 XRP → exceeds 99; split into escrow.network.test.ts (~10 tests) and escrow.network2.test.ts (~13 tests) each with own beforeAll and faucet call",
         "Each split file has its own TICKET_COUNT with budget comment showing: N tests × W wallets × A XRP + T × 0.2 ≤ 99 ✓",
         "Set { timeout: 90_000 } on all escrow it.concurrent tests (network + optional wait)",
-        "All 23 original escrow tests still exist and pass across both files",
-        "Typecheck passes",
-        "Tests pass"
+        "All 23 original escrow tests still exist across both files (do not delete any test cases)",
+        "DO NOT run any tests (no `npm test`, no `npx vitest`, no test commands of any kind)",
+        "Typecheck passes"
       ],
       "priority": 5,
       "passes": false,

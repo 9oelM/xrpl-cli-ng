@@ -1,40 +1,58 @@
+## Codebase Patterns
+- `resolveWallet` helper is duplicated per command file (not shared util) — copy from credential.ts
+- `AuthorizeCredential` from xrpl.js wraps each entry: `{ Credential: { Issuer, CredentialType } }`
+- For `deposit-preauth set`, `AuthorizeCredentials`/`UnauthorizeCredentials` each take exactly one entry array
+- Enable DepositAuth with `AccountSet` `SetFlag: 9` (asfDepositAuth) in beforeAll for preauth tests
+- Credential-based preauth requires funded issuer address on testnet
+
+Started: Fri Mar  6 11:22:04 AM Universal 2026
+---
+
+## 2026-03-06 - US-001
+- Implemented `deposit-preauth set` subcommand in `src/commands/deposit-preauth.ts`
+- Registered command in `src/commands/index.ts` and `src/index.ts`
+- Created `tests/e2e/deposit-preauth/deposit-preauth.validation.test.ts` (10 no-network tests)
+- Created `tests/e2e/deposit-preauth/deposit-preauth.set.test.ts` (9 funded E2E tests)
+- Files changed: src/commands/deposit-preauth.ts, src/commands/index.ts, src/index.ts, tests/e2e/deposit-preauth/deposit-preauth.validation.test.ts, tests/e2e/deposit-preauth/deposit-preauth.set.test.ts
+- **Learnings for future iterations:**
+  - `AuthorizeCredential` type from xrpl.js: `{ Credential: { Issuer: string; CredentialType: string } }` — the inner `Credential` wrapper is required
+  - Set `SetFlag: 9` (asfDepositAuth) on the owner wallet in beforeAll to make preauth semantically meaningful on testnet
+  - Must fund credential issuer separately (not just owner+other) for credential-based preauth tests
+  - The `--no-wait` test should unauthorize an already-authorized account to avoid duplicate preauth error
+---
+
+## 2026-03-06 - US-002
+- Implemented `deposit-preauth list <address>` subcommand in `src/commands/deposit-preauth.ts`
+- Added pagination support via `account_objects` with `type: 'deposit_preauth'`
+- Default output: `Account: <address>` for account-based, `Credential: <issuer> / <decoded-type>` for credential-based
+- Uses `convertHexToString` from xrpl.js to decode credential type hex
+- Created `tests/e2e/deposit-preauth/deposit-preauth.list.test.ts` (5 tests including --json and removal after unauthorize)
+- Files changed: src/commands/deposit-preauth.ts, tests/e2e/deposit-preauth/deposit-preauth.list.test.ts
+- **Learnings for future iterations:**
+  - `account_objects` with `type: 'deposit_preauth'` returns entries with `Authorize` (account) or `AuthorizeCredentials` (credential) fields
+  - Tests must be sequential (authorize → list → unauthorize → list) since they share the same owner account state
+  - `convertHexToString` from xrpl.js decodes hex credential type; wrap in try/catch for resilience
+---
+
+
+
 # Ralph Progress Log
-Started: Sat Mar  7 07:30:14 AM Universal 2026
+Started: Sat Mar  7 08:01:31 AM Universal 2026
 ---
 
-## 2026-03-07 - US-002
-- Converted all `it(` to `it.concurrent(` in:
-  - tests/e2e/payment/payment.network.test.ts
-  - tests/e2e/payment/payment.tokens.test.ts
-  - tests/e2e/clawback/clawback.network.test.ts
-  - tests/e2e/ticket/ticket.network.test.ts
-  - tests/e2e/multisig/multisig.network.test.ts
-  - tests/e2e/account/account.set.network.test.ts
-  - tests/e2e/account/account.keys.test.ts
-  - tests/e2e/account/account.query.test.ts
-- Updated budget comments to reflect concurrent execution in all 8 files
-- Changed `}, 60_000)` to `}, 90_000)` in payment.network.test.ts and multisig.network.test.ts
-- All files already had createFunded inside each test body — zero shared wallet state to move
-- All TICKET_COUNTs were already adequate for concurrent execution
-- 94 tests pass; typecheck passes
+## 2026-03-07 - US-003
+- Converted 5 medium network test files to it.concurrent with per-test wallet isolation
+- oracle.network.test.ts: 18 tests × 1 wallet × 4 XRP; TICKET_COUNT=20; budget 76 ≤ 99 ✓
+- deposit-preauth.network.test.ts: 14 tests × ~2 wallets × 2 XRP; TICKET_COUNT=30; budget 60 ≤ 99 ✓
+- trust.network.test.ts: 13 tests × 2 wallets × 3 XRP; TICKET_COUNT=30; budget 87 ≤ 99 ✓
+- offer.network.test.ts: 16 tests × 2 wallets × 2 XRP; TICKET_COUNT=32; budget 70.4 ≤ 99 ✓
+- nft.core.test.ts: split into nft.core.test.ts (9 mint) + nft.core2.test.ts (4 burn + 5 modify); each 11 tickets × 0.2 + 9 × 3 = 29.2 ≤ 99 ✓
+- Removed shared file-level wallet/state variables; each it.concurrent creates fresh wallets via createFunded
+- Added { timeout: 90_000 } on all it.concurrent tests
+- Files changed: tests/e2e/oracle/oracle.network.test.ts, tests/e2e/deposit-preauth/deposit-preauth.network.test.ts, tests/e2e/trust/trust.network.test.ts, tests/e2e/offer/offer.network.test.ts, tests/e2e/nft/nft.core.test.ts, tests/e2e/nft/nft.core2.test.ts (new), scripts/ralph/prd.json, scripts/ralph/progress.txt
 - **Learnings for future iterations:**
-  - All target files already had per-test wallet isolation — the previous US that created these tests followed the pattern correctly
-  - `it.concurrent` + per-test createFunded works seamlessly with the ticket pool pattern
-  - Tests that previously had `}, 60_000)` needed bumping to `}, 90_000)` since concurrent tests can queue behind each other
----
-
-## 2026-03-07 - US-001
-- Converted all `it(` to `it.concurrent(` in:
-  - 14 validation test files (tests/e2e/**/*.validation.test.ts)
-  - 14 wallet test files (tests/e2e/wallet/*.test.ts)
-  - tests/e2e/channel/channel.sign.test.ts
-- Used `sed -i 's/^  it(/  it.concurrent(/g'` for mechanical replacement
-- No beforeAll/logic changes needed — isolation already existed
-- All 279 tests pass (typecheck passes, vitest passes)
-- Files changed: 29 test files
-- **Learnings for future iterations:**
-  - The `sed` pattern `s/^  it(/  it.concurrent(/g` handles all cases (indented with 2 spaces at line start)
-  - Validation files have no shared state so it.concurrent is safe with zero other changes
-  - Wallet tests use mkdtempSync per test — already isolated, safe for concurrent
-  - channel.sign.test.ts is pure offline crypto — safe for concurrent
+  - nft.core.test.ts originally had 18 tests (9 mint + 4 burn + 5 modify) — split evenly into two files of 9
+  - enableDepositAuth helper must be called inside each test body (not beforeAll) when converted to it.concurrent
+  - setupMakerIssuer() helper in offer.network.test.ts correctly creates per-test wallets + trust line
+  - offer tests with it.concurrent need setupMakerIssuer() to also use tickets — it calls createFunded internally
 ---

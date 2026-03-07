@@ -15,7 +15,7 @@ import {
   fundAddress,
 } from "../helpers/fund.js";
 
-// 16 tests × 2 wallets = 32 tickets (32 × 0.2 + 32 × 2 = 70.4 ≤ 99 XRP budget)
+// 16 tests concurrent × 2 wallets each = 32 tickets; 32 × 0.2 + 32 × 2 = 70.4 ≤ 99 ✓
 const TICKET_COUNT = 32;
 
 let client: Client;
@@ -45,7 +45,7 @@ async function setupMakerIssuer(): Promise<{ maker: Wallet; issuer: Wallet }> {
 }
 
 describe("offer core", () => {
-  it("offer create XRP→IOU: offer appears in account_offers and order book", async () => {
+  it.concurrent("offer create XRP→IOU: offer appears in account_offers and order book", async () => {
     const { maker, issuer } = await setupMakerIssuer();
 
     const result = runCLI([
@@ -86,7 +86,7 @@ describe("offer core", () => {
     expect(bookOffers.length).toBeGreaterThan(0);
   }, 90_000);
 
-  it("offer cancel: cancels offer and removes from account_offers", async () => {
+  it.concurrent("offer cancel: cancels offer and removes from account_offers", async () => {
     const { maker, issuer } = await setupMakerIssuer();
 
     const createTx: XrplOfferCreate = await client.autofill({
@@ -115,7 +115,7 @@ describe("offer core", () => {
     expect(offers.find((o) => o.seq === seq)).toBeUndefined();
   }, 90_000);
 
-  it("offer cancel --json: output has hash and tesSUCCESS result", async () => {
+  it.concurrent("offer cancel --json: output has hash and tesSUCCESS result", async () => {
     const { maker, issuer } = await setupMakerIssuer();
 
     const createTx: XrplOfferCreate = await client.autofill({
@@ -140,7 +140,7 @@ describe("offer core", () => {
     expect(out.result).toBe("tesSUCCESS");
   }, 90_000);
 
-  it("offer cancel --dry-run: outputs OfferCancel tx JSON without cancelling", async () => {
+  it.concurrent("offer cancel --dry-run: outputs OfferCancel tx JSON without cancelling", async () => {
     const { maker, issuer } = await setupMakerIssuer();
 
     const createTx: XrplOfferCreate = await client.autofill({
@@ -178,7 +178,7 @@ describe("offer core", () => {
     expect(countAfter).toBe(countBefore);
   }, 90_000);
 
-  it("offer cancel --no-wait: exits 0 and stdout is 64-char hex", async () => {
+  it.concurrent("offer cancel --no-wait: exits 0 and stdout is 64-char hex", async () => {
     const { maker, issuer } = await setupMakerIssuer();
 
     const createTx: XrplOfferCreate = await client.autofill({
@@ -201,7 +201,7 @@ describe("offer core", () => {
     expect(result.stdout.trim()).toMatch(/^[0-9A-Fa-f]{64}$/);
   }, 90_000);
 
-  it("--json output: hash, result tesSUCCESS, offerSequence > 0", async () => {
+  it.concurrent("--json output: hash, result tesSUCCESS, offerSequence > 0", async () => {
     const { maker, issuer } = await setupMakerIssuer();
 
     const result = runCLI([
@@ -219,7 +219,7 @@ describe("offer core", () => {
     expect(out.offerSequence).toBeGreaterThan(0);
   }, 90_000);
 
-  it("--dry-run: outputs OfferCreate tx JSON without submitting", async () => {
+  it.concurrent("--dry-run: outputs OfferCreate tx JSON without submitting", async () => {
     const { maker, issuer } = await setupMakerIssuer();
 
     const countBefore = (
@@ -249,7 +249,7 @@ describe("offer core", () => {
     expect(countAfter).toBe(countBefore);
   }, 90_000);
 
-  it("--no-wait: exits 0 and stdout is a 64-char hex hash", async () => {
+  it.concurrent("--no-wait: exits 0 and stdout is a 64-char hex hash", async () => {
     const { maker, issuer } = await setupMakerIssuer();
 
     const result = runCLI([
@@ -264,7 +264,7 @@ describe("offer core", () => {
     expect(result.stdout.trim()).toMatch(/^[0-9A-Fa-f]{64}$/);
   }, 90_000);
 
-  it("--sell flag: offer create with --sell appears in account_offers", async () => {
+  it.concurrent("--sell flag: offer create with --sell appears in account_offers", async () => {
     const { maker, issuer } = await setupMakerIssuer();
 
     const result = runCLI([
@@ -293,7 +293,7 @@ describe("offer core", () => {
 });
 
 describe("offer flags", () => {
-  it("--passive flag: offer appears in account_offers", async () => {
+  it.concurrent("--passive flag: offer appears in account_offers", async () => {
     const { maker, issuer } = await setupMakerIssuer();
 
     const result = runCLI([
@@ -320,7 +320,7 @@ describe("offer flags", () => {
     expect(offers.find((o) => o.seq === seq)).toBeDefined();
   }, 90_000);
 
-  it("--replace flag: replaces original offer and new offer is present", async () => {
+  it.concurrent("--replace flag: replaces original offer and new offer is present", async () => {
     const { maker, issuer } = await setupMakerIssuer();
 
     const createTx: XrplOfferCreate = await client.autofill({
@@ -356,7 +356,7 @@ describe("offer flags", () => {
     expect(offers.find((o) => o.seq === newSeq)).toBeDefined();
   }, 90_000);
 
-  it("--expiration flag: offer entry has a positive expiration number", async () => {
+  it.concurrent("--expiration flag: offer entry has a positive expiration number", async () => {
     const { maker, issuer } = await setupMakerIssuer();
 
     const result = runCLI([
@@ -385,7 +385,7 @@ describe("offer flags", () => {
     expect(offer!.expiration).toBeGreaterThan(0);
   }, 90_000);
 
-  it("--immediate-or-cancel flag: exits 0 (offer may be consumed or cancelled)", async () => {
+  it.concurrent("--immediate-or-cancel flag: exits 0 (offer may be consumed or cancelled)", async () => {
     const { maker, issuer } = await setupMakerIssuer();
 
     const countBefore = (
@@ -413,7 +413,7 @@ describe("offer flags", () => {
     expect(countAfter).toBeLessThanOrEqual(countBefore);
   }, 90_000);
 
-  it("--fill-or-kill flag: exits 0 (tecKILLED is non-fatal) and offer is not placed", async () => {
+  it.concurrent("--fill-or-kill flag: exits 0 (tecKILLED is non-fatal) and offer is not placed", async () => {
     const { maker, issuer } = await setupMakerIssuer();
 
     const countBefore = (
@@ -441,7 +441,7 @@ describe("offer flags", () => {
     expect(countAfter).toBeLessThanOrEqual(countBefore);
   }, 90_000);
 
-  it("--mnemonic key material: creates offer successfully", async () => {
+  it.concurrent("--mnemonic key material: creates offer successfully", async () => {
     const testMnemonic = generateMnemonic(wordlist);
     const mnemonicWallet = Wallet.fromMnemonic(testMnemonic, {
       mnemonicEncoding: "bip39",
@@ -469,7 +469,7 @@ describe("offer flags", () => {
     expect(result.stdout).toContain("Sequence:");
   }, 90_000);
 
-  it("--account + --keystore + --password: creates offer successfully", async () => {
+  it.concurrent("--account + --keystore + --password: creates offer successfully", async () => {
     const { maker, issuer } = await setupMakerIssuer();
     const tmpDir = mkdtempSync(resolve(tmpdir(), "xrpl-test-keystore-"));
     try {
