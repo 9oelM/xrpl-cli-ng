@@ -133,3 +133,33 @@ describe("permissioned-domain update validation (no network)", () => {
     expect(result.stderr).toContain("Error:");
   });
 });
+
+describe("permissioned-domain delete validation (no network)", () => {
+  it("missing --domain-id exits 1 with error", () => {
+    const result = runCLI([
+      "permissioned-domain", "delete",
+      "--seed", DUMMY_SEED,
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("domain-id");
+  });
+
+  it("invalid --domain-id format (not 64 hex chars) exits 1", () => {
+    const result = runCLI([
+      "permissioned-domain", "delete",
+      "--domain-id", "notahexhash",
+      "--seed", DUMMY_SEED,
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("64-character hex");
+  });
+
+  it("missing key material exits 1 with error", () => {
+    const result = runCLI([
+      "permissioned-domain", "delete",
+      "--domain-id", DUMMY_DOMAIN_ID,
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Error:");
+  });
+});

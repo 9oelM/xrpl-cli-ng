@@ -1,8 +1,8 @@
 import { Command } from "commander";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
-import { Wallet, isCreatedNode, convertStringToHex, isValidClassicAddress } from "xrpl";
-import type { PermissionedDomainSet, AuthorizeCredential, TransactionMetadataBase } from "xrpl";
+import { Wallet, isCreatedNode, isDeletedNode, convertStringToHex, isValidClassicAddress } from "xrpl";
+import type { PermissionedDomainSet, PermissionedDomainDelete, AuthorizeCredential, TransactionMetadataBase } from "xrpl";
 import { deriveKeypair } from "ripple-keypairs";
 import { withClient } from "../utils/client.js";
 import { getNodeUrl } from "../utils/node.js";
@@ -461,7 +461,121 @@ const permissionedDomainUpdateCommand = new Command("update")
     });
   });
 
+interface PermissionedDomainDeleteOptions {
+  domainId: string;
+  seed?: string;
+  mnemonic?: string;
+  account?: string;
+  password?: string;
+  keystore?: string;
+  wait: boolean;
+  json: boolean;
+  dryRun: boolean;
+}
+
+const permissionedDomainDeleteCommand = new Command("delete")
+  .description("Delete a permissioned domain you own, removing it from the ledger and reclaiming the reserve")
+  .requiredOption("--domain-id <hash>", "64-hex-char domain ID of the permissioned domain to delete")
+  .option("--seed <seed>", "Family seed for signing")
+  .option("--mnemonic <phrase>", "BIP39 mnemonic for signing")
+  .option("--account <address-or-alias>", "Account address or alias to load from keystore")
+  .option("--password <password>", "Keystore decryption password (insecure, prefer interactive prompt)")
+  .option("--keystore <dir>", "Keystore directory (default: ~/.xrpl/keystore/; XRPL_KEYSTORE env var also accepted)")
+  .option("--no-wait", "Submit without waiting for validation")
+  .option("--json", "Output as JSON", false)
+  .option("--dry-run", "Print signed tx without submitting", false)
+  .action(async (options: PermissionedDomainDeleteOptions, cmd: Command) => {
+    // Validate domain-id format
+    if (!/^[0-9A-Fa-f]{64}$/.test(options.domainId)) {
+      process.stderr.write("Error: --domain-id must be a 64-character hex string\n");
+      process.exit(1);
+    }
+
+    // Validate key material
+    const keyMaterialCount = [options.seed, options.mnemonic, options.account].filter(Boolean).length;
+    if (keyMaterialCount === 0) {
+      process.stderr.write("Error: provide key material via --seed, --mnemonic, or --account\n");
+      process.exit(1);
+    }
+    if (keyMaterialCount > 1) {
+      process.stderr.write("Error: provide only one of --seed, --mnemonic, or --account\n");
+      process.exit(1);
+    }
+
+    const signerWallet = await resolveWallet(options);
+
+    const tx: PermissionedDomainDelete = {
+      TransactionType: "PermissionedDomainDelete",
+      Account: signerWallet.address,
+      DomainID: options.domainId.toUpperCase(),
+    };
+
+    const url = getNodeUrl(cmd);
+
+    await withClient(url, async (client) => {
+      const filled = await client.autofill(tx);
+
+      if (options.dryRun) {
+        const signed = signerWallet.sign(filled);
+        console.log(JSON.stringify({ tx_blob: signed.tx_blob, tx: filled }));
+        return;
+      }
+
+      const signed = signerWallet.sign(filled);
+
+      if (!options.wait) {
+        await client.submit(signed.tx_blob);
+        if (options.json) {
+          console.log(JSON.stringify({ hash: signed.hash }));
+        } else {
+          console.log(`Transaction: ${signed.hash}`);
+        }
+        return;
+      }
+
+      let response;
+      try {
+        response = await client.submitAndWait(signed.tx_blob);
+      } catch (e: unknown) {
+        const err = e as Error;
+        if (err.constructor.name === "TimeoutError" || err.message?.includes("LastLedgerSequence")) {
+          process.stderr.write("Error: transaction expired (LastLedgerSequence exceeded)\n");
+          process.exit(1);
+        }
+        throw e;
+      }
+
+      const txResult = response.result as {
+        hash?: string;
+        ledger_index?: number;
+        meta?: TransactionMetadataBase & { TransactionResult?: string };
+        tx_json?: { Fee?: string };
+      };
+
+      const resultCode = txResult.meta?.TransactionResult ?? "unknown";
+      const txHash = txResult.hash ?? signed.hash;
+
+      if (/^te[cfm]/i.test(resultCode)) {
+        process.stderr.write(`Error: transaction failed with ${resultCode}\n`);
+        if (options.json) {
+          console.log(JSON.stringify({ result: resultCode, tx: txHash }));
+        }
+        process.exit(1);
+      }
+
+      const domainId = options.domainId.toUpperCase();
+
+      if (options.json) {
+        console.log(JSON.stringify({ result: "success", domainId, tx: txHash }));
+      } else {
+        console.log(`Deleted domain: ${domainId}`);
+        console.log(`Tx: ${txHash}`);
+      }
+    });
+  });
+
 export const permissionedDomainCommand = new Command("permissioned-domain")
   .description("Manage XRPL permissioned domains")
   .addCommand(permissionedDomainCreateCommand)
-  .addCommand(permissionedDomainUpdateCommand);
+  .addCommand(permissionedDomainUpdateCommand)
+  .addCommand(permissionedDomainDeleteCommand);
