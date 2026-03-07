@@ -19,3 +19,15 @@ Started: Sat Mar  7 08:49:20 AM Universal 2026
   - Tests run sequentially in describe block — `globalIssuanceId` is set by first test and reused by later tests
   - Existing `tests/helpers/testnet.ts` exports `fundFromFaucet` and `TESTNET_URL`; the `fund.ts` pattern from MEMORY.md doesn't exist in this project
 ---
+
+## 2026-03-07 - US-003
+- Implemented `tests/e2e/mptoken/mptoken.authorize.test.ts` with 7 tests covering all authorize command options
+- The `authorize` command was already implemented in `src/commands/mptoken.ts`; only the E2E tests were missing
+- Tests cover: holder opts in, holder opts out (--unauthorize), issuer authorizes holder on require-auth issuance (--holder), issuer revokes (--holder --unauthorize), --json, --dry-run, --no-wait
+- Files changed: `tests/e2e/mptoken/mptoken.authorize.test.ts` (new), `scripts/ralph/prd.json`
+- **Learnings for future iterations:**
+  - CRITICAL: `MPTokenIssuanceID` in transactions is 24 bytes (4-byte Sequence BE + 20-byte AccountID) — NOT the 32-byte `LedgerIndex` from `AffectedNodes`. Use the Sequence+AccountID formula (same as `mptoken.issuance.test.ts`) when creating issuances directly via xrpl.js in tests.
+  - The CLI's LedgerIndex fallback in `mptoken.ts` would produce a wrong 32-byte value; in practice `meta.mpt_issuance_id` is always present on testnet so the fallback is never hit.
+  - For require-auth issuances: holder must opt in FIRST (MPTokenAuthorize from holder), then issuer authorizes (MPTokenAuthorize from issuer with Holder field). Both steps are needed before the holder can receive tokens.
+  - `fundFromFaucet` is the only faucet call pattern in this project (testnet.ts); there is no `fund.ts` helper with ticket pools.
+---
