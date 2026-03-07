@@ -146,3 +146,88 @@ describe("channel fund validation (no network)", () => {
     expect(result.stderr).toContain("Error:");
   });
 });
+
+describe("channel claim validation (no network)", () => {
+  it("missing --channel exits 1 with error", () => {
+    const result = runCLI([
+      "channel", "claim",
+      "--seed", DUMMY_SEED,
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("--channel");
+  });
+
+  it("missing key material exits 1 with error", () => {
+    const result = runCLI([
+      "channel", "claim",
+      "--channel", DUMMY_CHANNEL,
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Error:");
+  });
+
+  it("multiple key materials exits 1 with error", () => {
+    const result = runCLI([
+      "channel", "claim",
+      "--channel", DUMMY_CHANNEL,
+      "--seed", DUMMY_SEED,
+      "--mnemonic", "test test test test test test test test test test test junk",
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Error:");
+  });
+
+  it("invalid --channel (not 64 hex chars) exits 1", () => {
+    const result = runCLI([
+      "channel", "claim",
+      "--channel", "notahex",
+      "--seed", DUMMY_SEED,
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Error:");
+  });
+
+  it("--signature without --public-key exits 1 with error", () => {
+    const SIG = "DEADBEEF".repeat(16);
+    const result = runCLI([
+      "channel", "claim",
+      "--channel", DUMMY_CHANNEL,
+      "--amount", "5",
+      "--balance", "5",
+      "--signature", SIG,
+      "--seed", DUMMY_SEED,
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("--public-key");
+  });
+
+  it("--signature without --amount exits 1 with error", () => {
+    const SIG = "DEADBEEF".repeat(16);
+    const PK = "0330E7FC9D56BB25D6893BA3F317AE5BCF33B3291BD63DB32654A313222F7FD020";
+    const result = runCLI([
+      "channel", "claim",
+      "--channel", DUMMY_CHANNEL,
+      "--balance", "5",
+      "--signature", SIG,
+      "--public-key", PK,
+      "--seed", DUMMY_SEED,
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("--amount");
+  });
+
+  it("--signature without --balance exits 1 with error", () => {
+    const SIG = "DEADBEEF".repeat(16);
+    const PK = "0330E7FC9D56BB25D6893BA3F317AE5BCF33B3291BD63DB32654A313222F7FD020";
+    const result = runCLI([
+      "channel", "claim",
+      "--channel", DUMMY_CHANNEL,
+      "--amount", "5",
+      "--signature", SIG,
+      "--public-key", PK,
+      "--seed", DUMMY_SEED,
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("--balance");
+  });
+});

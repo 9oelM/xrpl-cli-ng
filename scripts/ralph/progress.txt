@@ -1,39 +1,52 @@
-# Ralph Progress Log
-Started: Fri Mar  6 04:00:10 PM Universal 2026
+## Codebase Patterns
+- `resolveWallet` helper is duplicated per command file (not shared util) — copy from credential.ts
+- `AuthorizeCredential` from xrpl.js wraps each entry: `{ Credential: { Issuer, CredentialType } }`
+- For `deposit-preauth set`, `AuthorizeCredentials`/`UnauthorizeCredentials` each take exactly one entry array
+- Enable DepositAuth with `AccountSet` `SetFlag: 9` (asfDepositAuth) in beforeAll for preauth tests
+- Credential-based preauth requires funded issuer address on testnet
+
+Started: Fri Mar  6 11:22:04 AM Universal 2026
 ---
 
-## Codebase Patterns
-- Ticket-based parallel funding: use `initTicketPool` + `nextTicket()` + `Sequence:0, TicketSequence:n` to fund N wallets concurrently from master without sequence conflicts
-- Each `it()` block must call `createFunded` to get fresh wallets — never share across test cases
-- `tests/e2e/helpers/fund.ts` exports: `XRPL_WS`, `fundMaster`, `initTicketPool`, `nextTicket`, `generateWallets`, `createFunded`
-- Existing testnet helper at `tests/helpers/testnet.ts` exports `fundFromFaucet` (1 faucet per call) and `TESTNET_URL`
-- `fundAddress(client, master, address, amountXrp)` in fund.ts funds a specific wallet address (e.g. mnemonic-derived) using a ticket — use when `createFunded` (random wallets) won't work
-- For tests needing an active client (xrpl.js calls inside it()), keep `client` as file-level variable connected in beforeAll / disconnected in afterAll
-- Fund wallets with 25-30 XRP (not the default 10) — testnet base reserve is 10 XRP, leaving 0 available for transactions with the 10 XRP default
-- Use a local helper function (e.g. `setupMakerIssuer()`) within the test file to DRY up repeated wallet+trustline setup, while still creating fresh wallets per test
-
 ## 2026-03-06 - US-001
-- Implemented `tests/e2e/helpers/fund.ts` with: `fundMaster` (faucet call), `initTicketPool` (TicketCreate + extract TicketSequence from meta.AffectedNodes), `nextTicket` (sync pool pop), `generateWallets`, `createFunded` (parallel Promise.all payments using Sequence:0+TicketSequence)
-- Exported `XRPL_WS = "wss://s.altnet.rippletest.net:51233"` constant
-- Files changed: `tests/e2e/helpers/fund.ts` (new)
+- Implemented `deposit-preauth set` subcommand in `src/commands/deposit-preauth.ts`
+- Registered command in `src/commands/index.ts` and `src/index.ts`
+- Created `tests/e2e/deposit-preauth/deposit-preauth.validation.test.ts` (10 no-network tests)
+- Created `tests/e2e/deposit-preauth/deposit-preauth.set.test.ts` (9 funded E2E tests)
+- Files changed: src/commands/deposit-preauth.ts, src/commands/index.ts, src/index.ts, tests/e2e/deposit-preauth/deposit-preauth.validation.test.ts, tests/e2e/deposit-preauth/deposit-preauth.set.test.ts
 - **Learnings for future iterations:**
-  - autofill can override Sequence — explicitly reset `tx.Sequence = 0` and `tx.TicketSequence = ticket` after autofill
-  - `meta.AffectedNodes` for TicketCreate contains `CreatedNode` entries with `LedgerEntryType === "Ticket"` and `NewFields.TicketSequence`
-  - ticketPool is module-level array; safe in single-threaded JS even with concurrent async code
+  - `AuthorizeCredential` type from xrpl.js: `{ Credential: { Issuer: string; CredentialType: string } }` — the inner `Credential` wrapper is required
+  - Set `SetFlag: 9` (asfDepositAuth) on the owner wallet in beforeAll to make preauth semantically meaningful on testnet
+  - Must fund credential issuer separately (not just owner+other) for credential-based preauth tests
+  - The `--no-wait` test should unauthorize an already-authorized account to avoid duplicate preauth error
 ---
 
 ## 2026-03-06 - US-002
-- Consolidated 8 test files into 4:
-  - `payment.core/iou/mpt/paths` → `payment.network.test.ts` + `payment.tokens.test.ts`
-  - `trust.core/issuer` → `trust.network.test.ts`
-  - `offer.core/flags` → `offer.network.test.ts`
-- Added `fundAddress(client, master, targetAddress, amountXrp)` to `tests/e2e/helpers/fund.ts` for funding specific (e.g. mnemonic-derived) wallets using a ticket
-- Each consolidated file: one `beforeAll` with `fundMaster` + `initTicketPool`; each `it()` calls `createFunded` for fresh wallets
-- Files changed: `tests/e2e/helpers/fund.ts` (updated), 4 new test files created, 8 old files deleted
+- Implemented `deposit-preauth list <address>` subcommand in `src/commands/deposit-preauth.ts`
+- Added pagination support via `account_objects` with `type: 'deposit_preauth'`
+- Default output: `Account: <address>` for account-based, `Credential: <issuer> / <decoded-type>` for credential-based
+- Uses `convertHexToString` from xrpl.js to decode credential type hex
+- Created `tests/e2e/deposit-preauth/deposit-preauth.list.test.ts` (5 tests including --json and removal after unauthorize)
+- Files changed: src/commands/deposit-preauth.ts, tests/e2e/deposit-preauth/deposit-preauth.list.test.ts
 - **Learnings for future iterations:**
-  - Fund wallets with 25-30 XRP minimum (testnet base reserve is 10 XRP so default amountXrp=10 leaves 0 available)
-  - For offer tests that call xrpl.js directly inside it() blocks, keep `client` as file-level variable in beforeAll/afterAll
-  - A local `setupMakerIssuer()` helper inside a test file can create fresh wallets + trust line per test without sharing state
-  - Ticket count = (number of tests × wallets per test) + extras for mnemonic/special wallets; add ~20% buffer
-  - Individual tests that do network setup (trust lines, offer creation) inside the body can take up to 30-90 seconds; use `it("...", async () => {...}, 60_000)` to set per-test timeout
+  - `account_objects` with `type: 'deposit_preauth'` returns entries with `Authorize` (account) or `AuthorizeCredentials` (credential) fields
+  - Tests must be sequential (authorize → list → unauthorize → list) since they share the same owner account state
+  - `convertHexToString` from xrpl.js decodes hex credential type; wrap in try/catch for resilience
+---
+
+## 2026-03-07 - US-003
+- Consolidated channel tests: channel.create + channel.fund + channel.list + channel.claim → channel.network.test.ts (22 tests, 1 faucet call)
+- Consolidated escrow tests: escrow.create + escrow.finish + escrow.cancel + escrow.list → escrow.network.test.ts (23 tests, 1 faucet call)
+- Updated tests/e2e/helpers/fund.ts: added TransactionResult check in createFunded/fundAddress to surface tecUNFUNDED_PAYMENT errors clearly
+- Files changed: tests/e2e/channel/channel.network.test.ts (new), tests/e2e/escrow/escrow.network.test.ts (new), tests/e2e/helpers/fund.ts, deleted 8 original test files
+- **Learnings for future iterations:**
+  - XRPL testnet faucet gives ~100 XRP (NOT 1000). Budget formula: available = 100 - 1(base_reserve) - TICKET_COUNT×0.2(owner_reserve). Net cost per wallet = amountXrp - 0.2 (ticket reserve freed on use)
+  - Testnet base_reserve = 1 XRP, owner_reserve = 0.2 XRP per object (confirmed via server_info). Old notes saying 10 XRP base were wrong.
+  - For channel tests with 44 wallets: use FUND_AMOUNT=2 XRP and TICKET_COUNT=48. Channel amount=0.5 XRP, fund amount=0.2 XRP fits in 2 XRP wallet (1 base + 1 available).
+  - For escrow tests: shared sender/receiver wallets (TICKET_COUNT=5). Fund sender with 30 XRP — supports 10 pre-created escrows (2 XRP×10 locks + 0.2×10 reserves = 22 XRP) plus test-body creates.
+  - Always add result check after submitAndWait in funding helpers — otherwise tecUNFUNDED_PAYMENT causes confusing "account not found" timeout instead of clear error message.
+---
+
+# Ralph Progress Log
+Started: Sat Mar  7 04:22:54 AM Universal 2026
 ---

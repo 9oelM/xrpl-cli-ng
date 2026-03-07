@@ -128,7 +128,17 @@ export async function createFunded(
       (tx as typeof tx & { TicketSequence: number }).TicketSequence = ticket;
 
       const signed = master.sign(tx);
-      await client.submitAndWait(signed.tx_blob);
+      const res = await client.submitAndWait(signed.tx_blob);
+      const txResult = (res.result.meta as { TransactionResult?: string })
+        ?.TransactionResult;
+      if (txResult !== "tesSUCCESS") {
+        throw new Error(
+          `Funding payment failed: ${txResult} (ticket ${ticket}, dest ${wallet.address})`,
+        );
+      }
+      // Verify the account is visible before returning (guards against
+      // propagation delay between validated ledger and account_info visibility)
+      await waitForAccount(client, wallet.address);
     }),
   );
 
@@ -158,6 +168,7 @@ export async function fundAddress(
   (tx as typeof tx & { TicketSequence: number }).TicketSequence = ticket;
   const signed = master.sign(tx);
   await client.submitAndWait(signed.tx_blob);
+  await waitForAccount(client, targetAddress);
 }
 
 async function waitForAccount(
