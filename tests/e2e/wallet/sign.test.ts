@@ -7,7 +7,7 @@ import { join } from "path";
 
 
 describe("wallet sign", () => {
-  it("signs a message with a known seed and returns a non-empty hex signature", () => {
+  it.concurrent("signs a message with a known seed and returns a non-empty hex signature", () => {
     const wallet = runCLI(["wallet", "new", "--json"]);
     const { seed } = JSON.parse(wallet.stdout) as { seed: string };
 
@@ -19,7 +19,7 @@ describe("wallet sign", () => {
     expect(/^[0-9A-F]+$/i.test(signature)).toBe(true);
   });
 
-  it("produces deterministic signatures for the same message and seed", () => {
+  it.concurrent("produces deterministic signatures for the same message and seed", () => {
     const wallet = runCLI(["wallet", "new", "--json"]);
     const { seed } = JSON.parse(wallet.stdout) as { seed: string };
 
@@ -31,7 +31,7 @@ describe("wallet sign", () => {
     expect(result1.stdout.trim()).toBe(result2.stdout.trim());
   });
 
-  it("--from-hex treats message as hex input", () => {
+  it.concurrent("--from-hex treats message as hex input", () => {
     const wallet = runCLI(["wallet", "new", "--json"]);
     const { seed } = JSON.parse(wallet.stdout) as { seed: string };
 
@@ -53,7 +53,7 @@ describe("wallet sign", () => {
     expect(resultHex.stdout.trim()).toBe(resultUtf8.stdout.trim());
   });
 
-  it("signs a minimal Payment tx JSON and returns tx_blob starting with '12'", () => {
+  it.concurrent("signs a minimal Payment tx JSON and returns tx_blob starting with '12'", () => {
     const wallet = runCLI(["wallet", "new", "--json"]);
     const { seed, address } = JSON.parse(wallet.stdout) as { seed: string; address: string };
 
@@ -81,7 +81,7 @@ describe("wallet sign", () => {
     expect(txBlob.startsWith("12")).toBe(true);
   });
 
-  it("--tx with --json outputs {tx_blob, hash}", () => {
+  it.concurrent("--tx with --json outputs {tx_blob, hash}", () => {
     const wallet = runCLI(["wallet", "new", "--json"]);
     const { seed, address } = JSON.parse(wallet.stdout) as { seed: string; address: string };
 
@@ -104,7 +104,7 @@ describe("wallet sign", () => {
     expect(parsed.hash).toBeTruthy();
   });
 
-  it("signs a tx from a file path", () => {
+  it.concurrent("signs a tx from a file path", () => {
     const wallet = runCLI(["wallet", "new", "--json"]);
     const { seed, address } = JSON.parse(wallet.stdout) as { seed: string; address: string };
 
@@ -133,7 +133,7 @@ describe("wallet sign", () => {
     }
   });
 
-  it("signs using --account from keystore", () => {
+  it.concurrent("signs using --account from keystore", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const wallet = runCLI(["wallet", "new", "--json"]);
@@ -163,7 +163,7 @@ describe("wallet sign", () => {
     }
   });
 
-  it("exits 1 when neither --message nor --tx is provided", () => {
+  it.concurrent("exits 1 when neither --message nor --tx is provided", () => {
     const wallet = runCLI(["wallet", "new", "--json"]);
     const { seed } = JSON.parse(wallet.stdout) as { seed: string };
 
@@ -173,14 +173,14 @@ describe("wallet sign", () => {
     expect(result.stderr).toContain("Error:");
   });
 
-  it("exits 1 when no key material is provided", () => {
+  it.concurrent("exits 1 when no key material is provided", () => {
     const result = runCLI(["wallet", "sign", "--message", "hello"]);
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("Error:");
   });
 
-  it("alias 's' works", () => {
+  it.concurrent("alias 's' works", () => {
     const wallet = runCLI(["wallet", "new", "--json"]);
     const { seed } = JSON.parse(wallet.stdout) as { seed: string };
 

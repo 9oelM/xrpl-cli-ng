@@ -5,7 +5,7 @@ import { runCLI } from "../../helpers/cli.js";
 
 
 describe("wallet fund", () => {
-  it("funds a fresh address on testnet and prints Funded/Balance lines", () => {
+  it.concurrent("funds a fresh address on testnet and prints Funded/Balance lines", () => {
     // Generate a fresh wallet address
     const newResult = runCLI(["wallet", "new", "--json"]);
     expect(newResult.status).toBe(0);
@@ -19,7 +19,7 @@ describe("wallet fund", () => {
     expect(fundResult.stdout).toContain("Balance:");
   });
 
-  it("--json output contains address, balanceXrp, and balanceDrops fields with non-zero values", () => {
+  it.concurrent("--json output contains address, balanceXrp, and balanceDrops fields with non-zero values", () => {
     const newResult = runCLI(["wallet", "new", "--json"]);
     expect(newResult.status).toBe(0);
     const wallet = JSON.parse(newResult.stdout) as { address: string };
@@ -39,13 +39,13 @@ describe("wallet fund", () => {
     expect(Number(data.balanceDrops)).toBeGreaterThan(0);
   });
 
-  it("exits 1 with error on mainnet", () => {
+  it.concurrent("exits 1 with error on mainnet", () => {
     const result = runCLI(["--node", "wss://xrplcluster.com", "wallet", "fund", "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh"]);
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("only available on testnet and devnet");
   });
 
-  it("alias 'f' works", () => {
+  it.concurrent("alias 'f' works", () => {
     const newResult = runCLI(["wallet", "new", "--json"]);
     expect(newResult.status).toBe(0);
     const wallet = JSON.parse(newResult.stdout) as { address: string };

@@ -1,53 +1,96 @@
 {
   "project": "xrpl-cli",
-  "branchName": "ralph/e2e-budget-fix",
-  "description": "Fix E2E test wallet funding amounts — tests were written assuming 1000 XRP faucet but actual faucet gives 100 XRP with base reserve 1 XRP and owner reserve 0.2 XRP per object",
+  "branchName": "ralph/concurrent-tests",
+  "description": "Convert all E2E test cases to it.concurrent for parallel execution within files. Eliminate shared mutable state between tests. Split files when faucet budget exceeds 99 XRP.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Fix fund.ts default and high-amount test files",
-      "description": "As a developer, I want the shared funding helper and test files that hardcode 25–30 XRP per wallet to be fixed so tests don't fail with tecUNFUNDED_PAYMENT.",
+      "title": "Convert validation, wallet, and offline test files to it.concurrent",
+      "description": "As a developer, I want all no-network and filesystem-isolated test cases to run concurrently so that these fast test files finish even faster.",
       "acceptanceCriteria": [
-        "XRPL testnet facts to use throughout: faucet=100 XRP, base reserve=1 XRP, owner reserve=0.2 XRP per object. Budget formula: TICKET_COUNT × 0.2 + N_wallets × amountXrp ≤ 99",
-        "tests/e2e/helpers/fund.ts: change default amountXrp=10 → amountXrp=3",
-        "tests/e2e/payment/payment.network.test.ts: change all createFunded(..., 25) → createFunded(..., 3); change fundAddress(..., 20) → fundAddress(..., 3); change createFunded(..., 15) → createFunded(..., 3); verify budget passes",
-        "tests/e2e/payment/payment.tokens.test.ts: change all createFunded(..., 25) → createFunded(..., 3); verify budget passes",
-        "tests/e2e/trust/trust.network.test.ts: change all createFunded(..., 25) → createFunded(..., 3); change all fundAddress(..., 20) → fundAddress(..., 3); verify budget: 30 × 0.2 + N_wallets × 3 ≤ 99",
-        "tests/e2e/offer/offer.network.test.ts: change createFunded(client, master, 2, 30) in setupMakerIssuer → createFunded(client, master, 2, 3); change createFunded(..., 25) → createFunded(..., 3); change fundAddress(..., 25) → fundAddress(..., 3); do NOT change --taker-gets/--taker-pays values (XRPL allows placing offers for amounts above current balance); verify budget: TICKET_COUNT × 0.2 + N_wallets × 3 ≤ 99 — reduce TICKET_COUNT if needed",
-        "tests/e2e/escrow/escrow.network.test.ts: change createFunded(client, master, 2, 30) → createFunded(client, master, 2, 20) — escrow tests lock XRP so 20 XRP per wallet is necessary; verify budget: 5 × 0.2 + 2 × 20 = 41 ≤ 99",
-        "Typecheck passes"
+        "Change every `it(` to `it.concurrent(` in ALL validation test files: tests/e2e/*/**.validation.test.ts (check, channel, clawback, credential, deposit-preauth, escrow, multisig, nft, oracle)",
+        "Change every `it(` to `it.concurrent(` in ALL wallet test files: tests/e2e/wallet/*.test.ts (address, alias, change-password, decrypt-keystore, fund, import, list, new, new-mnemonic, private-key, public-key, remove, sign, verify)",
+        "Change every `it(` to `it.concurrent(` in tests/e2e/channel/channel.sign.test.ts (offline crypto, no shared state)",
+        "No beforeAll or test logic changes needed — isolation already exists (validation: no network; wallet: mkdtempSync per test; sign: pure crypto)",
+        "Typecheck passes",
+        "Tests pass"
       ],
       "priority": 1,
       "passes": true,
-      "notes": ""
+      "notes": "This is purely mechanical: s/^  it(/  it.concurrent(/ in each file. Wallet tests already create a fresh mkdtempSync tmpDir inside each test body. Validation tests have no shared state. channel.sign.test.ts is pure offline crypto."
     },
     {
       "id": "US-002",
-      "title": "Audit and fix remaining network test files",
-      "description": "As a developer, I want all remaining network test files audited so no file exceeds the 100 XRP budget.",
+      "title": "Convert simple network test files to it.concurrent",
+      "description": "As a developer, I want small network test files that already use createFunded per test converted to it.concurrent with recalculated ticket budgets.",
       "acceptanceCriteria": [
-        "XRPL testnet facts: faucet=100 XRP, base reserve=1 XRP, owner reserve=0.2 XRP per object. Budget formula: TICKET_COUNT × 0.2 + N_wallets × amountXrp ≤ 99",
-        "For each file, count N_wallets (sum of all createFunded count args + fundAddress calls across all it() blocks). Verify TICKET_COUNT × 0.2 + N_wallets × FUND_AMOUNT ≤ 99. Fix FUND_AMOUNT or TICKET_COUNT if over budget",
-        "Audit tests/e2e/account/account.keys.test.ts (FUND_AMOUNT=2)",
-        "Audit tests/e2e/account/account.set.network.test.ts (FUND_AMOUNT=2, TICKET_COUNT=15)",
-        "Audit tests/e2e/account/account.query.test.ts",
-        "Audit tests/e2e/channel/channel.network.test.ts (FUND_AMOUNT=2) — if any test funds a channel with >1 XRP, that wallet needs channel_amount + 2 XRP",
-        "Audit tests/e2e/check/check.network.test.ts (FUND_AMOUNT=2)",
-        "Audit tests/e2e/clawback/clawback.network.test.ts (FUND_AMOUNT=5)",
-        "Audit tests/e2e/credential/credential.network.test.ts (FUND_AMOUNT=2)",
-        "Audit tests/e2e/deposit-preauth/deposit-preauth.network.test.ts (FUND_AMOUNT=2, TICKET_COUNT=30) — reduce TICKET_COUNT if actual wallet count is lower",
-        "Audit tests/e2e/multisig/multisig.network.test.ts (FUND_AMOUNT=3)",
-        "Audit tests/e2e/nft/nft.core.test.ts (FUND_AMOUNT=3)",
-        "Audit tests/e2e/nft/nft.offers.test.ts (FUND_AMOUNT=2)",
-        "Audit tests/e2e/oracle/oracle.network.test.ts (FUND_AMOUNT=4, TICKET_COUNT=20)",
-        "Audit tests/e2e/ticket/ticket.network.test.ts (FUND_AMOUNT=5)",
-        "Reduce any TICKET_COUNT that is higher than actual N_wallets (excess tickets waste 0.2 XRP each)",
-        "Do NOT change test assertions or logic — only funding amounts and ticket counts",
-        "Typecheck passes"
+        "Change every `it(` to `it.concurrent(` in: tests/e2e/payment/payment.network.test.ts, tests/e2e/payment/payment.tokens.test.ts, tests/e2e/clawback/clawback.network.test.ts, tests/e2e/ticket/ticket.network.test.ts, tests/e2e/multisig/multisig.network.test.ts, tests/e2e/account/account.set.network.test.ts, tests/e2e/account/account.keys.test.ts, tests/e2e/account/account.query.test.ts",
+        "For each file: verify each it.concurrent creates its own wallets via createFunded inside the test body — no shared wallet variables consumed across tests",
+        "For each file: recalculate TICKET_COUNT = total wallets funded across ALL tests (concurrent means all run at once, all tickets consumed simultaneously)",
+        "For each file: add budget comment above TICKET_COUNT: `// N tests × W wallets × A XRP + T tickets × 0.2 = X ≤ 99 ✓`",
+        "For each file: verify budget constraint: TICKET_COUNT × 0.2 + total_funded_XRP ≤ 99 XRP; if exceeded split into two files each with own beforeAll",
+        "Set timeout on each it.concurrent that funds wallets inside the body: { timeout: 90_000 }",
+        "Typecheck passes",
+        "Tests pass"
       ],
       "priority": 2,
-      "passes": true,
-      "notes": ""
+      "passes": false,
+      "notes": "Most of these files already call createFunded per test. The main work is: (1) change it( to it.concurrent(, (2) recalculate TICKET_COUNT since all tests now run simultaneously, (3) verify budget. client and master are read-only after beforeAll — safe to share."
+    },
+    {
+      "id": "US-003",
+      "title": "Convert medium network test files to it.concurrent",
+      "description": "As a developer, I want medium-complexity network test files converted to it.concurrent with any shared wallet state moved into individual test bodies.",
+      "acceptanceCriteria": [
+        "Change every `it(` to `it.concurrent(` in: tests/e2e/oracle/oracle.network.test.ts, tests/e2e/deposit-preauth/deposit-preauth.network.test.ts, tests/e2e/nft/nft.core.test.ts, tests/e2e/trust/trust.network.test.ts, tests/e2e/offer/offer.network.test.ts",
+        "For each file: remove any file-level `let` variables holding wallets or object IDs (except client and master); move wallet creation into each test body using createFunded",
+        "For each file: recalculate TICKET_COUNT = total wallets across all concurrent tests; add budget comment showing calculation",
+        "For each file: verify budget ≤ 99 XRP; if exceeded split into two files each with own beforeAll and faucet call",
+        "Set { timeout: 90_000 } on each it.concurrent that creates wallets or submits transactions inside the body",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "These files have 13–18 tests each. Main work: move any wallet/state creation from beforeAll into each test, change it( to it.concurrent(, recalculate budget. If a wallet was shared in beforeAll, each test now calls createFunded for its own copy."
+    },
+    {
+      "id": "US-004",
+      "title": "Convert large network test files to it.concurrent",
+      "description": "As a developer, I want large network test files converted to it.concurrent with per-test isolation, splitting into multiple files where the faucet budget is exceeded.",
+      "acceptanceCriteria": [
+        "Change every `it(` to `it.concurrent(` in: tests/e2e/channel/channel.network.test.ts, tests/e2e/credential/credential.network.test.ts, tests/e2e/nft/nft.offers.test.ts, tests/e2e/check/check.network.test.ts",
+        "For each file: remove all shared sequence/ID/wallet let variables (except client and master); move all object creation inline into each test body",
+        "For each file: recalculate TICKET_COUNT for all-concurrent execution; add budget comment",
+        "For each file: if budget exceeds 99 XRP, split into file + file2 (e.g. check.network.test.ts + check.network2.test.ts), distributing tests evenly, each with own beforeAll",
+        "Set { timeout: 90_000 } on each it.concurrent that funds wallets or submits transactions",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "22–20 tests per file. check.network.test.ts pre-creates check IDs in beforeAll — move inline. channel.network.test.ts pre-creates channel IDs — move inline. Extract IDs from --json output of CLI calls. Budget likely requires splitting at least some of these files."
+    },
+    {
+      "id": "US-005",
+      "title": "Refactor escrow.network.test.ts and convert to it.concurrent",
+      "description": "As a developer, I want escrow.network.test.ts fully refactored from its shared-wallet/pre-created-sequence pattern to per-test isolation, then converted to it.concurrent.",
+      "acceptanceCriteria": [
+        "Remove all file-level `let` variables except `client` and `master` — specifically delete: sender, receiver, finishTimeSeq1, finishCondSeq, finishJsonSeq, finishNoWaitSeq, finishAccountSeq, cancelBasicSeq, cancelJsonSeq, cancelNoWaitSeq, cancelAccountSeq, listEscrowSeq",
+        "Each it.concurrent test creates its own sender and receiver wallets via createFunded inside the test body",
+        "Each it.concurrent test that needs an escrow creates it inline via runCLI(['escrow', 'create', ..., '--json']) and parses the sequence from the JSON output",
+        "For time-based finish tests: set FinishAfter = now + 15s inside the test body; wait inline with `await new Promise(r => setTimeout(r, 16000))` after submit; safe because all tests wait concurrently in parallel",
+        "For condition-based finish tests: create the escrow with --condition inline in the test body",
+        "Budget calculation: 23 tests × avg 2 wallets × avg 5 XRP = 230 XRP → exceeds 99; split into escrow.network.test.ts (~10 tests) and escrow.network2.test.ts (~13 tests) each with own beforeAll and faucet call",
+        "Each split file has its own TICKET_COUNT with budget comment showing: N tests × W wallets × A XRP + T × 0.2 ≤ 99 ✓",
+        "Set { timeout: 90_000 } on all escrow it.concurrent tests (network + optional wait)",
+        "All 23 original escrow tests still exist and pass across both files",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "This is the hardest file. The beforeAll currently creates 9 escrows with shared sequences — each test must instead create its own escrow inline. Time-based finish tests each independently wait 16s, but since they run concurrently the file total wait is still ~16s not 16s×N. Use runCLI with --json to extract sequence numbers from escrow create output."
     }
   ]
 }

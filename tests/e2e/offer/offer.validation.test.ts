@@ -8,7 +8,7 @@ const DUMMY_SEED = "snoPBrXtMeMyMHUVTgbuqAfg1SUTb";
 
 
 describe("offer validation (no network)", () => {
-  it("missing --taker-pays exits 1", () => {
+  it.concurrent("missing --taker-pays exits 1", () => {
     const result = runCLI([
       "offer", "create",
       "--taker-gets", "10",
@@ -17,7 +17,7 @@ describe("offer validation (no network)", () => {
     expect(result.status).toBe(1);
   });
 
-  it("missing --taker-gets exits 1", () => {
+  it.concurrent("missing --taker-gets exits 1", () => {
     const result = runCLI([
       "offer", "create",
       "--taker-pays", `1/USD/${DUMMY_ADDRESS}`,
@@ -26,7 +26,7 @@ describe("offer validation (no network)", () => {
     expect(result.status).toBe(1);
   });
 
-  it("missing key material exits 1 with error message", () => {
+  it.concurrent("missing key material exits 1 with error message", () => {
     const result = runCLI([
       "offer", "create",
       "--taker-pays", `1/USD/${DUMMY_ADDRESS}`,
@@ -36,7 +36,7 @@ describe("offer validation (no network)", () => {
     expect(result.stderr).toContain("Error:");
   });
 
-  it("--immediate-or-cancel and --fill-or-kill together exits 1 with mutual exclusion error", () => {
+  it.concurrent("--immediate-or-cancel and --fill-or-kill together exits 1 with mutual exclusion error", () => {
     const result = runCLI([
       "offer", "create",
       "--taker-pays", `1/USD/${DUMMY_ADDRESS}`,

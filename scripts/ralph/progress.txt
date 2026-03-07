@@ -1,77 +1,19 @@
-## Codebase Patterns
-- `resolveWallet` helper is duplicated per command file (not shared util) — copy from credential.ts
-- `AuthorizeCredential` from xrpl.js wraps each entry: `{ Credential: { Issuer, CredentialType } }`
-- For `deposit-preauth set`, `AuthorizeCredentials`/`UnauthorizeCredentials` each take exactly one entry array
-- Enable DepositAuth with `AccountSet` `SetFlag: 9` (asfDepositAuth) in beforeAll for preauth tests
-- Credential-based preauth requires funded issuer address on testnet
-
-Started: Fri Mar  6 11:22:04 AM Universal 2026
----
-
-## 2026-03-06 - US-001
-- Implemented `deposit-preauth set` subcommand in `src/commands/deposit-preauth.ts`
-- Registered command in `src/commands/index.ts` and `src/index.ts`
-- Created `tests/e2e/deposit-preauth/deposit-preauth.validation.test.ts` (10 no-network tests)
-- Created `tests/e2e/deposit-preauth/deposit-preauth.set.test.ts` (9 funded E2E tests)
-- Files changed: src/commands/deposit-preauth.ts, src/commands/index.ts, src/index.ts, tests/e2e/deposit-preauth/deposit-preauth.validation.test.ts, tests/e2e/deposit-preauth/deposit-preauth.set.test.ts
-- **Learnings for future iterations:**
-  - `AuthorizeCredential` type from xrpl.js: `{ Credential: { Issuer: string; CredentialType: string } }` — the inner `Credential` wrapper is required
-  - Set `SetFlag: 9` (asfDepositAuth) on the owner wallet in beforeAll to make preauth semantically meaningful on testnet
-  - Must fund credential issuer separately (not just owner+other) for credential-based preauth tests
-  - The `--no-wait` test should unauthorize an already-authorized account to avoid duplicate preauth error
----
-
-## 2026-03-06 - US-002
-- Implemented `deposit-preauth list <address>` subcommand in `src/commands/deposit-preauth.ts`
-- Added pagination support via `account_objects` with `type: 'deposit_preauth'`
-- Default output: `Account: <address>` for account-based, `Credential: <issuer> / <decoded-type>` for credential-based
-- Uses `convertHexToString` from xrpl.js to decode credential type hex
-- Created `tests/e2e/deposit-preauth/deposit-preauth.list.test.ts` (5 tests including --json and removal after unauthorize)
-- Files changed: src/commands/deposit-preauth.ts, tests/e2e/deposit-preauth/deposit-preauth.list.test.ts
-- **Learnings for future iterations:**
-  - `account_objects` with `type: 'deposit_preauth'` returns entries with `Authorize` (account) or `AuthorizeCredentials` (credential) fields
-  - Tests must be sequential (authorize → list → unauthorize → list) since they share the same owner account state
-  - `convertHexToString` from xrpl.js decodes hex credential type; wrap in try/catch for resilience
----
-
-
 # Ralph Progress Log
-Started: Sat Mar  7 07:12:15 AM Universal 2026
+Started: Sat Mar  7 07:30:14 AM Universal 2026
 ---
 
 ## 2026-03-07 - US-001
-- Changed default amountXrp from 10 to 3 in fund.ts (createFunded + fundAddress)
-- payment.network.test.ts: all createFunded(..., 25) → 3, createFunded(..., 15) → 3, fundAddress(..., 20) → 3
-- payment.tokens.test.ts: all createFunded(..., 25) → 3
-- trust.network.test.ts: all createFunded(..., 25) → 3, fundAddress(..., 20) → 3
-- offer.network.test.ts: createFunded(2, 30) → 2, createFunded(1, 25) → 2, fundAddress(..., 25) → 2; TICKET_COUNT 35 → 32 (budget: 32×0.2+32×2=70.4≤99)
-- escrow.network.test.ts: createFunded(2, 30) → createFunded(2, 20) (budget: 5×0.2+2×20=41≤99)
-- Files changed: tests/e2e/helpers/fund.ts, tests/e2e/payment/payment.network.test.ts, tests/e2e/payment/payment.tokens.test.ts, tests/e2e/trust/trust.network.test.ts, tests/e2e/offer/offer.network.test.ts, tests/e2e/escrow/escrow.network.test.ts
+- Converted all `it(` to `it.concurrent(` in:
+  - 14 validation test files (tests/e2e/**/*.validation.test.ts)
+  - 14 wallet test files (tests/e2e/wallet/*.test.ts)
+  - tests/e2e/channel/channel.sign.test.ts
+- Used `sed -i 's/^  it(/  it.concurrent(/g'` for mechanical replacement
+- No beforeAll/logic changes needed — isolation already existed
+- All 279 tests pass (typecheck passes, vitest passes)
+- Files changed: 29 test files
 - **Learnings for future iterations:**
-  - offer.network.test.ts has 16 tests each calling setupMakerIssuer (2 wallets each) = 32 wallets; at 3 XRP budget exceeds 99 XRP; must use 2 XRP for offer tests
-  - When budget is tight and can't go to 3 XRP, use 2 XRP — offers work above-balance in XRPL so no minimum wallet amount needed beyond base reserve
-  - Always verify TICKET_COUNT matches actual wallet count (not an inflated buffer) to minimize reserved XRP waste
----
-
-## 2026-03-07 - US-002
-- Audited all 13 remaining network test files for budget compliance
-- account.keys.test.ts: TICKET_COUNT=22, 18 wallets, 40.4 ≤ 99 ✓
-- account.set.network.test.ts: TICKET_COUNT=15, 11 wallets, 25 ≤ 99 ✓
-- account.query.test.ts: no funding needed ✓
-- channel.network.test.ts: TICKET_COUNT=48, 44 wallets, 97.6 ≤ 99 ✓ (tightest budget)
-- check.network.test.ts: TICKET_COUNT=38, 34 wallets, 75.6 ≤ 99 ✓
-- clawback.network.test.ts: TICKET_COUNT=14, 12 wallets, 62.8 ≤ 99 ✓
-- credential.network.test.ts: TICKET_COUNT=42, 40 wallets, 88.4 ≤ 99 ✓
-- deposit-preauth.network.test.ts: TICKET_COUNT=30, 27 wallets (not 28 as comment says), 60 ≤ 99 ✓
-- multisig.network.test.ts: TICKET_COUNT=14, 12 wallets, 38.8 ≤ 99 ✓
-- nft.core.test.ts: TICKET_COUNT=22, 18 wallets, 58.4 ≤ 99 ✓
-- nft.offers.test.ts: TICKET_COUNT=35, 31 wallets, 69 ≤ 99 ✓
-- oracle.network.test.ts: TICKET_COUNT=20, 18 wallets, 76 ≤ 99 ✓
-- ticket.network.test.ts: TICKET_COUNT=12, 10 wallets, 52.4 ≤ 99 ✓
-- All files already have correct budget comments and are within the 99 XRP limit
-- No code changes required; typecheck passes
-- **Learnings for future iterations:**
-  - channel.network.test.ts is the tightest at 97.6 XRP (TICKET_COUNT=48, 44 wallets × 2 XRP)
-  - deposit-preauth comment says 28 wallets but actual count is 27 (one list test uses 1 wallet, not 2)
-  - TICKET_COUNT buffers of 2-4 over actual wallet count are standard (each extra = 0.2 XRP wasted)
+  - The `sed` pattern `s/^  it(/  it.concurrent(/g` handles all cases (indented with 2 spaces at line start)
+  - Validation files have no shared state so it.concurrent is safe with zero other changes
+  - Wallet tests use mkdtempSync per test — already isolated, safe for concurrent
+  - channel.sign.test.ts is pure offline crypto — safe for concurrent
 ---

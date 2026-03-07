@@ -8,7 +8,7 @@ const ADDR_2 = "rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe";
 const ADDR_3 = "r9cZA1mLK5R5Am25ArfXFmqgNwjZgnfk59";
 
 describe("multisig set validation (no network)", () => {
-  it("missing --signer exits 1 with error", () => {
+  it.concurrent("missing --signer exits 1 with error", () => {
     const result = runCLI([
       "multisig", "set",
       "--quorum", "1",
@@ -18,7 +18,7 @@ describe("multisig set validation (no network)", () => {
     expect(result.stderr).toContain("Error:");
   });
 
-  it("quorum = 0 exits 1 with suggestion to use delete", () => {
+  it.concurrent("quorum = 0 exits 1 with suggestion to use delete", () => {
     const result = runCLI([
       "multisig", "set",
       "--quorum", "0",
@@ -29,7 +29,7 @@ describe("multisig set validation (no network)", () => {
     expect(result.stderr).toContain("multisig delete");
   });
 
-  it("quorum > sum of weights exits 1 with error", () => {
+  it.concurrent("quorum > sum of weights exits 1 with error", () => {
     const result = runCLI([
       "multisig", "set",
       "--quorum", "10",
@@ -41,7 +41,7 @@ describe("multisig set validation (no network)", () => {
     expect(result.stderr).toMatch(/quorum.*exceed|exceed.*quorum/i);
   });
 
-  it("more than 32 signers exits 1 with error", () => {
+  it.concurrent("more than 32 signers exits 1 with error", () => {
     // Count check fires before per-signer validation, so repeating one address 33 times
     // triggers the "at most 32" error (not a duplicate error).
     const signers: string[] = [];
@@ -58,7 +58,7 @@ describe("multisig set validation (no network)", () => {
     expect(result.stderr).toContain("at most 32");
   });
 
-  it("duplicate signer address exits 1 with error", () => {
+  it.concurrent("duplicate signer address exits 1 with error", () => {
     const result = runCLI([
       "multisig", "set",
       "--quorum", "1",
@@ -70,7 +70,7 @@ describe("multisig set validation (no network)", () => {
     expect(result.stderr).toContain("duplicate");
   });
 
-  it("invalid format (missing colon) exits 1 with error", () => {
+  it.concurrent("invalid format (missing colon) exits 1 with error", () => {
     const result = runCLI([
       "multisig", "set",
       "--quorum", "1",
@@ -81,7 +81,7 @@ describe("multisig set validation (no network)", () => {
     expect(result.stderr).toContain("invalid --signer format");
   });
 
-  it("non-integer weight exits 1 with error", () => {
+  it.concurrent("non-integer weight exits 1 with error", () => {
     const result = runCLI([
       "multisig", "set",
       "--quorum", "1",
@@ -92,7 +92,7 @@ describe("multisig set validation (no network)", () => {
     expect(result.stderr).toContain("invalid weight");
   });
 
-  it("weight <= 0 exits 1 with error", () => {
+  it.concurrent("weight <= 0 exits 1 with error", () => {
     const result = runCLI([
       "multisig", "set",
       "--quorum", "1",
@@ -103,7 +103,7 @@ describe("multisig set validation (no network)", () => {
     expect(result.stderr).toContain("invalid weight");
   });
 
-  it("missing key material exits 1 with error", () => {
+  it.concurrent("missing key material exits 1 with error", () => {
     const result = runCLI([
       "multisig", "set",
       "--quorum", "1",
@@ -113,7 +113,7 @@ describe("multisig set validation (no network)", () => {
     expect(result.stderr).toContain("Error:");
   });
 
-  it("missing --quorum exits 1 with required option error", () => {
+  it.concurrent("missing --quorum exits 1 with required option error", () => {
     const result = runCLI([
       "multisig", "set",
       "--signer", `${ADDR_1}:1`,
@@ -123,7 +123,7 @@ describe("multisig set validation (no network)", () => {
     expect(result.stderr).toContain("required option");
   });
 
-  it("multiple key material sources exits 1 with error", () => {
+  it.concurrent("multiple key material sources exits 1 with error", () => {
     const result = runCLI([
       "multisig", "set",
       "--quorum", "1",
@@ -135,7 +135,7 @@ describe("multisig set validation (no network)", () => {
     expect(result.stderr).toContain("only one");
   });
 
-  it("invalid signer address exits 1 with error", () => {
+  it.concurrent("invalid signer address exits 1 with error", () => {
     const result = runCLI([
       "multisig", "set",
       "--quorum", "1",
@@ -146,7 +146,7 @@ describe("multisig set validation (no network)", () => {
     expect(result.stderr).toContain("invalid address");
   });
 
-  it("float weight exits 1 with error", () => {
+  it.concurrent("float weight exits 1 with error", () => {
     const result = runCLI([
       "multisig", "set",
       "--quorum", "1",
@@ -157,7 +157,7 @@ describe("multisig set validation (no network)", () => {
     expect(result.stderr).toContain("invalid weight");
   });
 
-  it("negative quorum exits 1 with error", () => {
+  it.concurrent("negative quorum exits 1 with error", () => {
     const result = runCLI([
       "multisig", "set",
       "--quorum", "-1",
@@ -168,13 +168,13 @@ describe("multisig set validation (no network)", () => {
     expect(result.stderr).toContain("Error:");
   });
 
-  it("multisig delete missing key material exits 1 with error", () => {
+  it.concurrent("multisig delete missing key material exits 1 with error", () => {
     const result = runCLI(["multisig", "delete"]);
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("Error:");
   });
 
-  it("multisig list missing address argument exits 1", () => {
+  it.concurrent("multisig list missing address argument exits 1", () => {
     const result = runCLI(["multisig", "list"]);
     expect(result.status).toBe(1);
   });

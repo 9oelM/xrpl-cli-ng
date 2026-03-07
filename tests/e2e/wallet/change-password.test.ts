@@ -7,7 +7,7 @@ import { join } from "path";
 
 
 describe("wallet change-password", () => {
-  it("changes password and allows decrypt with new password", () => {
+  it.concurrent("changes password and allows decrypt with new password", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const wallet = runCLI(["wallet", "new", "--json"]);
@@ -50,7 +50,7 @@ describe("wallet change-password", () => {
     }
   });
 
-  it("exits 1 with error on wrong current password", () => {
+  it.concurrent("exits 1 with error on wrong current password", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const wallet = runCLI(["wallet", "new", "--json"]);
@@ -80,7 +80,7 @@ describe("wallet change-password", () => {
     }
   });
 
-  it("original password no longer works after change", () => {
+  it.concurrent("original password no longer works after change", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const wallet = runCLI(["wallet", "new", "--json"]);
@@ -120,7 +120,7 @@ describe("wallet change-password", () => {
     }
   });
 
-  it("alias 'cp' works", () => {
+  it.concurrent("alias 'cp' works", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const wallet = runCLI(["wallet", "new", "--json"]);
@@ -150,7 +150,7 @@ describe("wallet change-password", () => {
     }
   });
 
-  it("exits 1 when keystore file not found", () => {
+  it.concurrent("exits 1 when keystore file not found", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const result = runCLI([
@@ -172,7 +172,7 @@ describe("wallet change-password", () => {
     }
   });
 
-  it("seed remains unchanged after password change", () => {
+  it.concurrent("seed remains unchanged after password change", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const wallet = runCLI(["wallet", "new", "--json"]);

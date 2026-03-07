@@ -4,7 +4,7 @@ import { runCLI } from "../../helpers/cli.js";
 
 
 describe("wallet address", () => {
-  it("derives address from seed that matches wallet new output", () => {
+  it.concurrent("derives address from seed that matches wallet new output", () => {
     // Generate a new wallet and capture its seed + address
     const newResult = runCLI(["wallet", "new", "--json"]);
     expect(newResult.status).toBe(0);
@@ -20,7 +20,7 @@ describe("wallet address", () => {
     expect(derived.address).toBe(newWallet.address);
   });
 
-  it("returns address starting with 'r'", () => {
+  it.concurrent("returns address starting with 'r'", () => {
     const newResult = runCLI(["wallet", "new", "--json"]);
     const { seed } = JSON.parse(newResult.stdout) as { seed: string };
 
@@ -29,7 +29,7 @@ describe("wallet address", () => {
     expect(result.stdout).toMatch(/Address:\s+r/);
   });
 
-  it("--json outputs address, publicKey, and keyType", () => {
+  it.concurrent("--json outputs address, publicKey, and keyType", () => {
     const newResult = runCLI(["wallet", "new", "--json"]);
     const { seed } = JSON.parse(newResult.stdout) as { seed: string };
 
@@ -45,7 +45,7 @@ describe("wallet address", () => {
     expect(data.keyType).toBe("ed25519");
   });
 
-  it("derives correct address from --private-key", () => {
+  it.concurrent("derives correct address from --private-key", () => {
     const newResult = runCLI(["wallet", "new", "--json"]);
     const wallet = JSON.parse(newResult.stdout) as {
       address: string;
@@ -58,13 +58,13 @@ describe("wallet address", () => {
     expect(derived.address).toBe(wallet.address);
   });
 
-  it("exits 1 with error when no key material is provided", () => {
+  it.concurrent("exits 1 with error when no key material is provided", () => {
     const result = runCLI(["wallet", "address"]);
     expect(result.status).toBe(1);
     expect(result.stderr).toMatch(/Error/);
   });
 
-  it("exits 1 with error when multiple key materials are provided", () => {
+  it.concurrent("exits 1 with error when multiple key materials are provided", () => {
     const newResult = runCLI(["wallet", "new", "--json"]);
     const { seed } = JSON.parse(newResult.stdout) as { seed: string };
 
@@ -80,7 +80,7 @@ describe("wallet address", () => {
     expect(result.stderr).toMatch(/Error/);
   });
 
-  it("alias 'a' works", () => {
+  it.concurrent("alias 'a' works", () => {
     const newResult = runCLI(["wallet", "new", "--json"]);
     const { seed } = JSON.parse(newResult.stdout) as { seed: string };
 
@@ -90,7 +90,7 @@ describe("wallet address", () => {
     expect(data.address).toMatch(/^r/);
   });
 
-  it("alias 'addr' works", () => {
+  it.concurrent("alias 'addr' works", () => {
     const newResult = runCLI(["wallet", "new", "--json"]);
     const { seed } = JSON.parse(newResult.stdout) as { seed: string };
 
@@ -100,7 +100,7 @@ describe("wallet address", () => {
     expect(data.address).toMatch(/^r/);
   });
 
-  it("derives correct address from secp256k1 seed", () => {
+  it.concurrent("derives correct address from secp256k1 seed", () => {
     const newResult = runCLI(["wallet", "new", "--key-type", "secp256k1", "--json"]);
     const wallet = JSON.parse(newResult.stdout) as {
       address: string;

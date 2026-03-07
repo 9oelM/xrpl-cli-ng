@@ -5,7 +5,7 @@ import { runCLI } from "../../helpers/cli.js";
 const DUMMY_SEED = "snoPBrXtMeMyMHUVTgbuqAfg1SUTb";
 
 describe("ticket create validation (no network)", () => {
-  it("missing --count exits 1", () => {
+  it.concurrent("missing --count exits 1", () => {
     const result = runCLI([
       "ticket", "create",
       "--seed", DUMMY_SEED,
@@ -13,7 +13,7 @@ describe("ticket create validation (no network)", () => {
     expect(result.status).toBe(1);
   });
 
-  it("--count=0 exits 1 with error message", () => {
+  it.concurrent("--count=0 exits 1 with error message", () => {
     const result = runCLI([
       "ticket", "create",
       "--count", "0",
@@ -23,7 +23,7 @@ describe("ticket create validation (no network)", () => {
     expect(result.stderr).toContain("Error:");
   });
 
-  it("--count=251 exits 1 with error message", () => {
+  it.concurrent("--count=251 exits 1 with error message", () => {
     const result = runCLI([
       "ticket", "create",
       "--count", "251",
@@ -33,7 +33,7 @@ describe("ticket create validation (no network)", () => {
     expect(result.stderr).toContain("Error:");
   });
 
-  it("--count=-1 exits 1 with error message", () => {
+  it.concurrent("--count=-1 exits 1 with error message", () => {
     const result = runCLI([
       "ticket", "create",
       "--count", "-1",
@@ -43,7 +43,7 @@ describe("ticket create validation (no network)", () => {
     expect(result.stderr).toContain("Error:");
   });
 
-  it("non-integer --count exits 1 with error message", () => {
+  it.concurrent("non-integer --count exits 1 with error message", () => {
     const result = runCLI([
       "ticket", "create",
       "--count", "1.5",
@@ -53,7 +53,7 @@ describe("ticket create validation (no network)", () => {
     expect(result.stderr).toContain("Error:");
   });
 
-  it("missing key material exits 1 with error message", () => {
+  it.concurrent("missing key material exits 1 with error message", () => {
     const result = runCLI([
       "ticket", "create",
       "--count", "1",
@@ -62,7 +62,7 @@ describe("ticket create validation (no network)", () => {
     expect(result.stderr).toContain("Error:");
   });
 
-  it("multiple key material sources exits 1 with error message", () => {
+  it.concurrent("multiple key material sources exits 1 with error message", () => {
     const result = runCLI([
       "ticket", "create",
       "--count", "1",

@@ -8,7 +8,7 @@ const DUMMY_SEED = "snoPBrXtMeMyMHUVTgbuqAfg1SUTb";
 
 
 describe("trust set validation (no network)", () => {
-  it("invalid currency exits 1 with descriptive error", () => {
+  it.concurrent("invalid currency exits 1 with descriptive error", () => {
     const result = runCLI([
       "trust", "set",
       "--currency", "TOOLONG",
@@ -20,7 +20,7 @@ describe("trust set validation (no network)", () => {
     expect(result.stderr).toContain("Invalid currency");
   });
 
-  it("missing key material exits 1", () => {
+  it.concurrent("missing key material exits 1", () => {
     const result = runCLI([
       "trust", "set",
       "--currency", "USD",
@@ -31,7 +31,7 @@ describe("trust set validation (no network)", () => {
     expect(result.stderr).toContain("Error:");
   });
 
-  it("multiple key material options exits 1", () => {
+  it.concurrent("multiple key material options exits 1", () => {
     const result = runCLI([
       "trust", "set",
       "--currency", "USD",
@@ -44,7 +44,7 @@ describe("trust set validation (no network)", () => {
     expect(result.stderr).toContain("Error:");
   });
 
-  it("--no-ripple and --clear-no-ripple together exits 1", () => {
+  it.concurrent("--no-ripple and --clear-no-ripple together exits 1", () => {
     const result = runCLI([
       "trust", "set",
       "--currency", "USD",
@@ -58,7 +58,7 @@ describe("trust set validation (no network)", () => {
     expect(result.stderr).toContain("mutually exclusive");
   });
 
-  it("--freeze and --unfreeze together exits 1", () => {
+  it.concurrent("--freeze and --unfreeze together exits 1", () => {
     const result = runCLI([
       "trust", "set",
       "--currency", "USD",
