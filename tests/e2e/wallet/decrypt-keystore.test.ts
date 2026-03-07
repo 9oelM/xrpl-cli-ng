@@ -10,7 +10,7 @@ describe("wallet decrypt-keystore", () => {
   it.concurrent("decrypts an imported wallet and returns the original seed", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
-      const wallet = runCLI(["wallet", "new", "--json"]);
+      const wallet = runCLI(["wallet", "new", "--json", "--show-secret"]);
       const { seed, address } = JSON.parse(wallet.stdout) as {
         seed: string;
         address: string;
@@ -38,7 +38,7 @@ describe("wallet decrypt-keystore", () => {
   it.concurrent("exits 1 with error message on wrong password", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
-      const wallet = runCLI(["wallet", "new", "--json"]);
+      const wallet = runCLI(["wallet", "new", "--json", "--show-secret"]);
       const { seed, address } = JSON.parse(wallet.stdout) as {
         seed: string;
         address: string;
@@ -66,7 +66,7 @@ describe("wallet decrypt-keystore", () => {
   it.concurrent("--json outputs address, seed, privateKey, and keyType", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
-      const wallet = runCLI(["wallet", "new", "--json"]);
+      const wallet = runCLI(["wallet", "new", "--json", "--show-secret"]);
       const {
         seed,
         address,
@@ -111,7 +111,7 @@ describe("wallet decrypt-keystore", () => {
   it.concurrent("--show-private-key prints private key line", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
-      const wallet = runCLI(["wallet", "new", "--json"]);
+      const wallet = runCLI(["wallet", "new", "--json", "--show-secret"]);
       const { seed, address, privateKey } = JSON.parse(wallet.stdout) as {
         seed: string;
         address: string;
@@ -143,7 +143,7 @@ describe("wallet decrypt-keystore", () => {
   it.concurrent("alias 'dk' works", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
-      const wallet = runCLI(["wallet", "new", "--json"]);
+      const wallet = runCLI(["wallet", "new", "--json", "--show-secret"]);
       const { seed, address } = JSON.parse(wallet.stdout) as {
         seed: string;
         address: string;
@@ -171,7 +171,7 @@ describe("wallet decrypt-keystore", () => {
   it.concurrent("--file flag accepts explicit file path", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
-      const wallet = runCLI(["wallet", "new", "--json"]);
+      const wallet = runCLI(["wallet", "new", "--json", "--show-secret"]);
       const { seed, address } = JSON.parse(wallet.stdout) as {
         seed: string;
         address: string;

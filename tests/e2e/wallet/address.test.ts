@@ -6,7 +6,7 @@ import { runCLI } from "../../helpers/cli.js";
 describe("wallet address", () => {
   it.concurrent("derives address from seed that matches wallet new output", () => {
     // Generate a new wallet and capture its seed + address
-    const newResult = runCLI(["wallet", "new", "--json"]);
+    const newResult = runCLI(["wallet", "new", "--json", "--show-secret"]);
     expect(newResult.status).toBe(0);
     const newWallet = JSON.parse(newResult.stdout) as {
       address: string;
@@ -21,7 +21,7 @@ describe("wallet address", () => {
   });
 
   it.concurrent("returns address starting with 'r'", () => {
-    const newResult = runCLI(["wallet", "new", "--json"]);
+    const newResult = runCLI(["wallet", "new", "--json", "--show-secret"]);
     const { seed } = JSON.parse(newResult.stdout) as { seed: string };
 
     const result = runCLI(["wallet", "address", "--seed", seed]);
@@ -30,7 +30,7 @@ describe("wallet address", () => {
   });
 
   it.concurrent("--json outputs address, publicKey, and keyType", () => {
-    const newResult = runCLI(["wallet", "new", "--json"]);
+    const newResult = runCLI(["wallet", "new", "--json", "--show-secret"]);
     const { seed } = JSON.parse(newResult.stdout) as { seed: string };
 
     const result = runCLI(["wallet", "address", "--seed", seed, "--json"]);
@@ -46,7 +46,7 @@ describe("wallet address", () => {
   });
 
   it.concurrent("derives correct address from --private-key", () => {
-    const newResult = runCLI(["wallet", "new", "--json"]);
+    const newResult = runCLI(["wallet", "new", "--json", "--show-secret"]);
     const wallet = JSON.parse(newResult.stdout) as {
       address: string;
       privateKey: string;
@@ -65,7 +65,7 @@ describe("wallet address", () => {
   });
 
   it.concurrent("exits 1 with error when multiple key materials are provided", () => {
-    const newResult = runCLI(["wallet", "new", "--json"]);
+    const newResult = runCLI(["wallet", "new", "--json", "--show-secret"]);
     const { seed } = JSON.parse(newResult.stdout) as { seed: string };
 
     const result = runCLI([
@@ -81,7 +81,7 @@ describe("wallet address", () => {
   });
 
   it.concurrent("alias 'a' works", () => {
-    const newResult = runCLI(["wallet", "new", "--json"]);
+    const newResult = runCLI(["wallet", "new", "--json", "--show-secret"]);
     const { seed } = JSON.parse(newResult.stdout) as { seed: string };
 
     const result = runCLI(["wallet", "a", "--seed", seed, "--json"]);
@@ -91,7 +91,7 @@ describe("wallet address", () => {
   });
 
   it.concurrent("alias 'addr' works", () => {
-    const newResult = runCLI(["wallet", "new", "--json"]);
+    const newResult = runCLI(["wallet", "new", "--json", "--show-secret"]);
     const { seed } = JSON.parse(newResult.stdout) as { seed: string };
 
     const result = runCLI(["wallet", "addr", "--seed", seed, "--json"]);
@@ -101,7 +101,7 @@ describe("wallet address", () => {
   });
 
   it.concurrent("derives correct address from secp256k1 seed", () => {
-    const newResult = runCLI(["wallet", "new", "--key-type", "secp256k1", "--json"]);
+    const newResult = runCLI(["wallet", "new", "--key-type", "secp256k1", "--json", "--show-secret"]);
     const wallet = JSON.parse(newResult.stdout) as {
       address: string;
       seed: string;

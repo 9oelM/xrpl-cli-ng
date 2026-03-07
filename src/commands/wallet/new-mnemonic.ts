@@ -17,6 +17,7 @@ interface NewMnemonicOptions {
   keyType: KeyType;
   json: boolean;
   save: boolean;
+  showSecret: boolean;
   password?: string;
   alias?: string;
   keystore?: string;
@@ -95,6 +96,7 @@ export const newMnemonicCommand = new Command("new-mnemonic")
   .option("--key-type <type>", "Key algorithm: secp256k1 or ed25519", "ed25519")
   .option("--json", "Output as JSON", false)
   .option("--save", "Encrypt and save the wallet to the keystore", false)
+  .option("--show-secret", "Show the mnemonic and private key (hidden by default)", false)
   .option("--password <password>", "Encryption password for --save (insecure, prefer interactive prompt)")
   .option("--alias <name>", "Set a human-readable alias when saving to keystore")
   .option(
@@ -111,24 +113,34 @@ export const newMnemonicCommand = new Command("new-mnemonic")
 
     if (options.json) {
       const output: Record<string, unknown> = {
-        mnemonic,
         derivationPath: options.derivationPath,
         address: wallet.address,
         publicKey: wallet.publicKey,
-        privateKey: wallet.privateKey,
         keyType: options.keyType,
       };
+      if (options.showSecret) {
+        output.mnemonic = mnemonic;
+        output.privateKey = wallet.privateKey;
+      }
       if (options.save) {
         const filePath = await saveToKeystore(wallet.address, mnemonic, options.keyType, options);
         output["keystorePath"] = filePath;
       }
       console.log(JSON.stringify(output));
     } else {
-      console.log(`Mnemonic:         ${mnemonic}`);
+      if (options.showSecret) {
+        console.log(`Mnemonic:         ${mnemonic}`);
+      } else {
+        console.log(`Mnemonic:         [hidden] (use --show-secret to see it)`);
+      }
       console.log(`Derivation Path:  ${options.derivationPath}`);
       console.log(`Address:          ${wallet.address}`);
       console.log(`Public Key:       ${wallet.publicKey}`);
-      console.log(`Private Key:      ${wallet.privateKey}`);
+      if (options.showSecret) {
+        console.log(`Private Key:      ${wallet.privateKey}`);
+      } else {
+        console.log(`Private Key:      [hidden] (use --show-secret to see it)`);
+      }
       if (options.save) {
         const filePath = await saveToKeystore(wallet.address, mnemonic, options.keyType, options);
         console.log(`Saved to ${filePath}`);

@@ -291,6 +291,7 @@ Options:
   --key-type <type>      Key algorithm: secp256k1 or ed25519 (default: "ed25519")
   --json                 Output as JSON (default: false)
   --save                 Encrypt and save the wallet to the keystore (default: false)
+  --show-secret          Show the seed and private key (hidden by default) (default: false)
   --password <password>  Encryption password for --save (insecure, prefer interactive prompt)
   --alias <name>         Set a human-readable alias when saving to keystore
   --keystore <dir>       Keystore directory (default: ~/.xrpl/keystore/; XRPL_KEYSTORE env var also accepted)
@@ -308,6 +309,7 @@ Options:
   --key-type <type>         Key algorithm: secp256k1 or ed25519 (default: "ed25519")
   --json                    Output as JSON (default: false)
   --save                    Encrypt and save the wallet to the keystore (default: false)
+  --show-secret             Show the mnemonic and private key (hidden by default) (default: false)
   --password <password>     Encryption password for --save (insecure, prefer interactive prompt)
   --alias <name>            Set a human-readable alias when saving to keystore
   --keystore <dir>          Keystore directory (default: ~/.xrpl/keystore/; XRPL_KEYSTORE env var also accepted)

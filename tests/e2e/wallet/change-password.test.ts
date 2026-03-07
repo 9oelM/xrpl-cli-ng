@@ -10,7 +10,7 @@ describe("wallet change-password", () => {
   it.concurrent("changes password and allows decrypt with new password", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
-      const wallet = runCLI(["wallet", "new", "--json"]);
+      const wallet = runCLI(["wallet", "new", "--json", "--show-secret"]);
       const { seed, address } = JSON.parse(wallet.stdout) as {
         seed: string;
         address: string;
@@ -53,7 +53,7 @@ describe("wallet change-password", () => {
   it.concurrent("exits 1 with error on wrong current password", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
-      const wallet = runCLI(["wallet", "new", "--json"]);
+      const wallet = runCLI(["wallet", "new", "--json", "--show-secret"]);
       const { seed, address } = JSON.parse(wallet.stdout) as {
         seed: string;
         address: string;
@@ -83,7 +83,7 @@ describe("wallet change-password", () => {
   it.concurrent("original password no longer works after change", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
-      const wallet = runCLI(["wallet", "new", "--json"]);
+      const wallet = runCLI(["wallet", "new", "--json", "--show-secret"]);
       const { seed, address } = JSON.parse(wallet.stdout) as {
         seed: string;
         address: string;
@@ -123,7 +123,7 @@ describe("wallet change-password", () => {
   it.concurrent("alias 'cp' works", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
-      const wallet = runCLI(["wallet", "new", "--json"]);
+      const wallet = runCLI(["wallet", "new", "--json", "--show-secret"]);
       const { seed, address } = JSON.parse(wallet.stdout) as {
         seed: string;
         address: string;
@@ -175,7 +175,7 @@ describe("wallet change-password", () => {
   it.concurrent("seed remains unchanged after password change", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
-      const wallet = runCLI(["wallet", "new", "--json"]);
+      const wallet = runCLI(["wallet", "new", "--json", "--show-secret"]);
       const { seed, address } = JSON.parse(wallet.stdout) as {
         seed: string;
         address: string;

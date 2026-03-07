@@ -12,6 +12,7 @@ interface NewWalletOptions {
   keyType: KeyType;
   json: boolean;
   save: boolean;
+  showSecret: boolean;
   password?: string;
   alias?: string;
   keystore?: string;
@@ -85,6 +86,7 @@ export const newWalletCommand = new Command("new")
   .option("--key-type <type>", "Key algorithm: secp256k1 or ed25519", "ed25519")
   .option("--json", "Output as JSON", false)
   .option("--save", "Encrypt and save the wallet to the keystore", false)
+  .option("--show-secret", "Show the seed and private key (hidden by default)", false)
   .option("--password <password>", "Encryption password for --save (insecure, prefer interactive prompt)")
   .option("--alias <name>", "Set a human-readable alias when saving to keystore")
   .option(
@@ -98,10 +100,12 @@ export const newWalletCommand = new Command("new")
       const output: Record<string, unknown> = {
         address: wallet.address,
         publicKey: wallet.publicKey,
-        privateKey: wallet.privateKey,
-        seed: wallet.seed,
         keyType: options.keyType,
       };
+      if (options.showSecret) {
+        output.privateKey = wallet.privateKey;
+        output.seed = wallet.seed;
+      }
       if (options.save) {
         const filePath = await saveToKeystore(wallet.address, wallet.seed!, options.keyType, options);
         output["keystorePath"] = filePath;
@@ -110,8 +114,13 @@ export const newWalletCommand = new Command("new")
     } else {
       console.log(`Address:     ${wallet.address}`);
       console.log(`Public Key:  ${wallet.publicKey}`);
-      console.log(`Private Key: ${wallet.privateKey}`);
-      console.log(`Seed:        ${wallet.seed}`);
+      if (options.showSecret) {
+        console.log(`Private Key: ${wallet.privateKey}`);
+        console.log(`Seed:        ${wallet.seed}`);
+      } else {
+        console.log(`Private Key: [hidden] (use --show-secret to see it)`);
+        console.log(`Seed:        [hidden] (use --show-secret to see it)`);
+      }
       if (options.save) {
         const filePath = await saveToKeystore(wallet.address, wallet.seed!, options.keyType, options);
         console.log(`Saved to ${filePath}`);

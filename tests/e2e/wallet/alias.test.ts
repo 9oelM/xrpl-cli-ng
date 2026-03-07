@@ -10,7 +10,7 @@ describe("wallet alias set / remove", () => {
   it.concurrent("sets an alias on an imported wallet and removes it", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
-      const newResult = runCLI(["wallet", "new", "--json"]);
+      const newResult = runCLI(["wallet", "new", "--json", "--show-secret"]);
       expect(newResult.status).toBe(0);
       const { seed, address } = JSON.parse(newResult.stdout) as { seed: string; address: string };
 
@@ -73,8 +73,8 @@ describe("wallet alias set / remove", () => {
   it.concurrent("alias set exits 1 if name already used by different address", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
-      const wallet1 = JSON.parse(runCLI(["wallet", "new", "--json"]).stdout) as { seed: string; address: string };
-      const wallet2 = JSON.parse(runCLI(["wallet", "new", "--json"]).stdout) as { seed: string; address: string };
+      const wallet1 = JSON.parse(runCLI(["wallet", "new", "--json", "--show-secret"]).stdout) as { seed: string; address: string };
+      const wallet2 = JSON.parse(runCLI(["wallet", "new", "--json", "--show-secret"]).stdout) as { seed: string; address: string };
 
       runCLI(["wallet", "import", wallet1.seed, "--password", "testpassword", "--keystore", tmpDir]);
       runCLI(["wallet", "import", wallet2.seed, "--password", "testpassword", "--keystore", tmpDir]);
@@ -101,9 +101,9 @@ describe("wallet alias set / remove", () => {
   it.concurrent("alias list shows labelled wallets and omits unlabelled ones", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
-      const wallet1 = JSON.parse(runCLI(["wallet", "new", "--json"]).stdout) as { seed: string; address: string };
-      const wallet2 = JSON.parse(runCLI(["wallet", "new", "--json"]).stdout) as { seed: string; address: string };
-      const wallet3 = JSON.parse(runCLI(["wallet", "new", "--json"]).stdout) as { seed: string; address: string };
+      const wallet1 = JSON.parse(runCLI(["wallet", "new", "--json", "--show-secret"]).stdout) as { seed: string; address: string };
+      const wallet2 = JSON.parse(runCLI(["wallet", "new", "--json", "--show-secret"]).stdout) as { seed: string; address: string };
+      const wallet3 = JSON.parse(runCLI(["wallet", "new", "--json", "--show-secret"]).stdout) as { seed: string; address: string };
 
       runCLI(["wallet", "import", wallet1.seed, "--password", "testpassword", "--keystore", tmpDir]);
       runCLI(["wallet", "import", wallet2.seed, "--password", "testpassword", "--keystore", tmpDir]);
@@ -129,7 +129,7 @@ describe("wallet alias set / remove", () => {
   it.concurrent("alias list --json outputs valid JSON array with alias and address fields", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
-      const wallet1 = JSON.parse(runCLI(["wallet", "new", "--json"]).stdout) as { seed: string; address: string };
+      const wallet1 = JSON.parse(runCLI(["wallet", "new", "--json", "--show-secret"]).stdout) as { seed: string; address: string };
 
       runCLI(["wallet", "import", wallet1.seed, "--password", "testpassword", "--keystore", tmpDir]);
       runCLI(["wallet", "alias", "set", wallet1.address, "alice", "--keystore", tmpDir]);
@@ -160,7 +160,7 @@ describe("wallet alias set / remove", () => {
   it.concurrent("respects XRPL_KEYSTORE env var", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
-      const { seed, address } = JSON.parse(runCLI(["wallet", "new", "--json"]).stdout) as {
+      const { seed, address } = JSON.parse(runCLI(["wallet", "new", "--json", "--show-secret"]).stdout) as {
         seed: string;
         address: string;
       };

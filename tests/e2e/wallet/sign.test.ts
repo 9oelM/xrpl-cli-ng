@@ -8,7 +8,7 @@ import { join } from "path";
 
 describe("wallet sign", () => {
   it.concurrent("signs a message with a known seed and returns a non-empty hex signature", () => {
-    const wallet = runCLI(["wallet", "new", "--json"]);
+    const wallet = runCLI(["wallet", "new", "--json", "--show-secret"]);
     const { seed } = JSON.parse(wallet.stdout) as { seed: string };
 
     const result = runCLI(["wallet", "sign", "--message", "hello", "--seed", seed]);
@@ -20,7 +20,7 @@ describe("wallet sign", () => {
   });
 
   it.concurrent("produces deterministic signatures for the same message and seed", () => {
-    const wallet = runCLI(["wallet", "new", "--json"]);
+    const wallet = runCLI(["wallet", "new", "--json", "--show-secret"]);
     const { seed } = JSON.parse(wallet.stdout) as { seed: string };
 
     const result1 = runCLI(["wallet", "sign", "--message", "hello", "--seed", seed]);
@@ -32,7 +32,7 @@ describe("wallet sign", () => {
   });
 
   it.concurrent("--from-hex treats message as hex input", () => {
-    const wallet = runCLI(["wallet", "new", "--json"]);
+    const wallet = runCLI(["wallet", "new", "--json", "--show-secret"]);
     const { seed } = JSON.parse(wallet.stdout) as { seed: string };
 
     const hexMessage = Buffer.from("hello", "utf-8").toString("hex").toUpperCase();
@@ -54,7 +54,7 @@ describe("wallet sign", () => {
   });
 
   it.concurrent("signs a minimal Payment tx JSON and returns tx_blob starting with '12'", () => {
-    const wallet = runCLI(["wallet", "new", "--json"]);
+    const wallet = runCLI(["wallet", "new", "--json", "--show-secret"]);
     const { seed, address } = JSON.parse(wallet.stdout) as { seed: string; address: string };
 
     const tx = JSON.stringify({
@@ -82,7 +82,7 @@ describe("wallet sign", () => {
   });
 
   it.concurrent("--tx with --json outputs {tx_blob, hash}", () => {
-    const wallet = runCLI(["wallet", "new", "--json"]);
+    const wallet = runCLI(["wallet", "new", "--json", "--show-secret"]);
     const { seed, address } = JSON.parse(wallet.stdout) as { seed: string; address: string };
 
     const tx = JSON.stringify({
@@ -105,7 +105,7 @@ describe("wallet sign", () => {
   });
 
   it.concurrent("signs a tx from a file path", () => {
-    const wallet = runCLI(["wallet", "new", "--json"]);
+    const wallet = runCLI(["wallet", "new", "--json", "--show-secret"]);
     const { seed, address } = JSON.parse(wallet.stdout) as { seed: string; address: string };
 
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
@@ -136,7 +136,7 @@ describe("wallet sign", () => {
   it.concurrent("signs using --account from keystore", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
-      const wallet = runCLI(["wallet", "new", "--json"]);
+      const wallet = runCLI(["wallet", "new", "--json", "--show-secret"]);
       const { seed, address } = JSON.parse(wallet.stdout) as { seed: string; address: string };
 
       runCLI(["wallet", "import", seed, "--password", "testpassword", "--keystore", tmpDir]);
@@ -164,7 +164,7 @@ describe("wallet sign", () => {
   });
 
   it.concurrent("exits 1 when neither --message nor --tx is provided", () => {
-    const wallet = runCLI(["wallet", "new", "--json"]);
+    const wallet = runCLI(["wallet", "new", "--json", "--show-secret"]);
     const { seed } = JSON.parse(wallet.stdout) as { seed: string };
 
     const result = runCLI(["wallet", "sign", "--seed", seed]);
@@ -181,7 +181,7 @@ describe("wallet sign", () => {
   });
 
   it.concurrent("alias 's' works", () => {
-    const wallet = runCLI(["wallet", "new", "--json"]);
+    const wallet = runCLI(["wallet", "new", "--json", "--show-secret"]);
     const { seed } = JSON.parse(wallet.stdout) as { seed: string };
 
     const result = runCLI(["wallet", "s", "--message", "hello", "--seed", seed]);

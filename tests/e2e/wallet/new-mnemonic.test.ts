@@ -5,7 +5,7 @@ import { runCLI } from "../../helpers/cli.js";
 
 describe("wallet new-mnemonic", () => {
   it.concurrent("generates a 12-word mnemonic and valid address with --json", () => {
-    const result = runCLI(["wallet", "new-mnemonic", "--json"]);
+    const result = runCLI(["wallet", "new-mnemonic", "--json", "--show-secret"]);
     expect(result.status).toBe(0);
     const wallet = JSON.parse(result.stdout) as {
       mnemonic: string;
@@ -60,18 +60,18 @@ describe("wallet new-mnemonic", () => {
     expect(wallet.address).toMatch(/^r/);
   });
 
-  it.concurrent("prints labelled lines without --json", () => {
+  it.concurrent("prints labelled lines without --json (secrets hidden by default)", () => {
     const result = runCLI(["wallet", "new-mnemonic"]);
     expect(result.status).toBe(0);
-    expect(result.stdout).toMatch(/^Mnemonic:/m);
+    expect(result.stdout).toContain("Mnemonic:         [hidden]");
     expect(result.stdout).toMatch(/^Derivation Path:/m);
     expect(result.stdout).toMatch(/^Address:/m);
     expect(result.stdout).toMatch(/^Public Key:/m);
-    expect(result.stdout).toMatch(/^Private Key:/m);
+    expect(result.stdout).toContain("Private Key:      [hidden]");
   });
 
   it.concurrent("alias 'nm' works", () => {
-    const result = runCLI(["wallet", "nm", "--json"]);
+    const result = runCLI(["wallet", "nm", "--json", "--show-secret"]);
     expect(result.status).toBe(0);
     const wallet = JSON.parse(result.stdout) as { mnemonic: string };
     expect(wallet.mnemonic.split(" ")).toHaveLength(12);

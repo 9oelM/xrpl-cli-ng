@@ -10,7 +10,7 @@ describe("wallet remove", () => {
   it.concurrent("removes an imported wallet and file no longer exists", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
-      const wallet = runCLI(["wallet", "new", "--json"]);
+      const wallet = runCLI(["wallet", "new", "--json", "--show-secret"]);
       const { seed, address } = JSON.parse(wallet.stdout) as { seed: string; address: string };
 
       runCLI(["wallet", "import", seed, "--password", "testpassword", "--keystore", tmpDir]);
@@ -30,7 +30,7 @@ describe("wallet remove", () => {
   it.concurrent("removed wallet no longer appears in wallet list", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
-      const wallet = runCLI(["wallet", "new", "--json"]);
+      const wallet = runCLI(["wallet", "new", "--json", "--show-secret"]);
       const { seed, address } = JSON.parse(wallet.stdout) as { seed: string; address: string };
 
       runCLI(["wallet", "import", seed, "--password", "testpassword", "--keystore", tmpDir]);
@@ -58,7 +58,7 @@ describe("wallet remove", () => {
   it.concurrent("alias 'rm' works", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
-      const wallet = runCLI(["wallet", "new", "--json"]);
+      const wallet = runCLI(["wallet", "new", "--json", "--show-secret"]);
       const { seed, address } = JSON.parse(wallet.stdout) as { seed: string; address: string };
 
       runCLI(["wallet", "import", seed, "--password", "testpassword", "--keystore", tmpDir]);
@@ -74,7 +74,7 @@ describe("wallet remove", () => {
   it.concurrent("respects XRPL_KEYSTORE env var", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
-      const wallet = runCLI(["wallet", "new", "--json"]);
+      const wallet = runCLI(["wallet", "new", "--json", "--show-secret"]);
       const { seed, address } = JSON.parse(wallet.stdout) as { seed: string; address: string };
 
       runCLI(["wallet", "import", seed, "--password", "testpassword"], { XRPL_KEYSTORE: tmpDir });

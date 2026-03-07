@@ -28,8 +28,8 @@ describe("wallet list", () => {
   it.concurrent("lists two imported wallets", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
-      const wallet1 = runCLI(["wallet", "new", "--json"]);
-      const wallet2 = runCLI(["wallet", "new", "--json"]);
+      const wallet1 = runCLI(["wallet", "new", "--json", "--show-secret"]);
+      const wallet2 = runCLI(["wallet", "new", "--json", "--show-secret"]);
       const { seed: seed1, address: address1 } = JSON.parse(wallet1.stdout) as { seed: string; address: string };
       const { seed: seed2, address: address2 } = JSON.parse(wallet2.stdout) as { seed: string; address: string };
 
@@ -48,8 +48,8 @@ describe("wallet list", () => {
   it.concurrent("--json outputs a JSON array of wallet objects", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
-      const wallet1 = runCLI(["wallet", "new", "--json"]);
-      const wallet2 = runCLI(["wallet", "new", "--json"]);
+      const wallet1 = runCLI(["wallet", "new", "--json", "--show-secret"]);
+      const wallet2 = runCLI(["wallet", "new", "--json", "--show-secret"]);
       const { seed: seed1, address: address1 } = JSON.parse(wallet1.stdout) as { seed: string; address: string };
       const { seed: seed2, address: address2 } = JSON.parse(wallet2.stdout) as { seed: string; address: string };
 
@@ -94,7 +94,7 @@ describe("wallet list", () => {
   it.concurrent("respects XRPL_KEYSTORE env var", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
-      const wallet1 = runCLI(["wallet", "new", "--json"]);
+      const wallet1 = runCLI(["wallet", "new", "--json", "--show-secret"]);
       const { seed, address } = JSON.parse(wallet1.stdout) as { seed: string; address: string };
 
       runCLI(["wallet", "import", seed, "--password", "testpassword"], { XRPL_KEYSTORE: tmpDir });
@@ -110,7 +110,7 @@ describe("wallet list", () => {
   it.concurrent("shows alias column in human-readable output when alias is set", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
-      const wallet1 = runCLI(["wallet", "new", "--json"]);
+      const wallet1 = runCLI(["wallet", "new", "--json", "--show-secret"]);
       const { seed, address } = JSON.parse(wallet1.stdout) as { seed: string; address: string };
 
       runCLI(["wallet", "import", seed, "--password", "testpassword", "--alias", "myalias", "--keystore", tmpDir]);
@@ -127,8 +127,8 @@ describe("wallet list", () => {
   it.concurrent("--json output contains alias field when set, no alias field when unset", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
-      const wallet1 = runCLI(["wallet", "new", "--json"]);
-      const wallet2 = runCLI(["wallet", "new", "--json"]);
+      const wallet1 = runCLI(["wallet", "new", "--json", "--show-secret"]);
+      const wallet2 = runCLI(["wallet", "new", "--json", "--show-secret"]);
       const { seed: seed1, address: address1 } = JSON.parse(wallet1.stdout) as { seed: string; address: string };
       const { seed: seed2, address: address2 } = JSON.parse(wallet2.stdout) as { seed: string; address: string };
 

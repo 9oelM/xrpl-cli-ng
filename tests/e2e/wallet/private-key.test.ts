@@ -5,7 +5,7 @@ import { runCLI } from "../../helpers/cli.js";
 
 describe("wallet private-key", () => {
   it.concurrent("derives private key from seed as non-empty hex string", () => {
-    const newResult = runCLI(["wallet", "new", "--json"]);
+    const newResult = runCLI(["wallet", "new", "--json", "--show-secret"]);
     expect(newResult.status).toBe(0);
     const { seed } = JSON.parse(newResult.stdout) as { seed: string };
 
@@ -18,7 +18,7 @@ describe("wallet private-key", () => {
   });
 
   it.concurrent("private key from seed matches wallet new output", () => {
-    const newResult = runCLI(["wallet", "new", "--json"]);
+    const newResult = runCLI(["wallet", "new", "--json", "--show-secret"]);
     expect(newResult.status).toBe(0);
     const wallet = JSON.parse(newResult.stdout) as {
       seed: string;
@@ -32,7 +32,7 @@ describe("wallet private-key", () => {
   });
 
   it.concurrent("derives secp256k1 private key from seed", () => {
-    const newResult = runCLI(["wallet", "new", "--key-type", "secp256k1", "--json"]);
+    const newResult = runCLI(["wallet", "new", "--key-type", "secp256k1", "--json", "--show-secret"]);
     expect(newResult.status).toBe(0);
     const wallet = JSON.parse(newResult.stdout) as {
       seed: string;
@@ -49,7 +49,7 @@ describe("wallet private-key", () => {
   });
 
   it.concurrent("derives private key from mnemonic", () => {
-    const mnemonicResult = runCLI(["wallet", "new-mnemonic", "--json"]);
+    const mnemonicResult = runCLI(["wallet", "new-mnemonic", "--json", "--show-secret"]);
     expect(mnemonicResult.status).toBe(0);
     const mnemonicWallet = JSON.parse(mnemonicResult.stdout) as {
       mnemonic: string;
@@ -69,7 +69,7 @@ describe("wallet private-key", () => {
   });
 
   it.concurrent("alias 'pk' works", () => {
-    const newResult = runCLI(["wallet", "new", "--json"]);
+    const newResult = runCLI(["wallet", "new", "--json", "--show-secret"]);
     expect(newResult.status).toBe(0);
     const { seed } = JSON.parse(newResult.stdout) as { seed: string };
 
@@ -99,7 +99,7 @@ describe("wallet private-key", () => {
   });
 
   it.concurrent("prints private key in non-json mode", () => {
-    const newResult = runCLI(["wallet", "new", "--json"]);
+    const newResult = runCLI(["wallet", "new", "--json", "--show-secret"]);
     expect(newResult.status).toBe(0);
     const { seed } = JSON.parse(newResult.stdout) as { seed: string };
 

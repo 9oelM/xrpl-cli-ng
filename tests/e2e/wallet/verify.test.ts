@@ -5,7 +5,7 @@ import { runCLI } from "../../helpers/cli.js";
 
 describe("wallet verify", () => {
   it.concurrent("verifies a message signature with matching public key → exit 0 and output contains 'Valid'", () => {
-    const wallet = runCLI(["wallet", "new", "--json"]);
+    const wallet = runCLI(["wallet", "new", "--json", "--show-secret"]);
     const { seed, publicKey } = JSON.parse(wallet.stdout) as {
       seed: string;
       publicKey: string;
@@ -31,7 +31,7 @@ describe("wallet verify", () => {
   });
 
   it.concurrent("rejects tampered signature → exit 1 and output contains 'Invalid'", () => {
-    const wallet = runCLI(["wallet", "new", "--json"]);
+    const wallet = runCLI(["wallet", "new", "--json", "--show-secret"]);
     const { seed, publicKey } = JSON.parse(wallet.stdout) as {
       seed: string;
       publicKey: string;
@@ -61,7 +61,7 @@ describe("wallet verify", () => {
   });
 
   it.concurrent("verifies a signed transaction blob → exit 0", () => {
-    const wallet = runCLI(["wallet", "new", "--json"]);
+    const wallet = runCLI(["wallet", "new", "--json", "--show-secret"]);
     const { seed, address } = JSON.parse(wallet.stdout) as {
       seed: string;
       address: string;
@@ -88,7 +88,7 @@ describe("wallet verify", () => {
   });
 
   it.concurrent("--from-hex flag: verifies hex-encoded message", () => {
-    const wallet = runCLI(["wallet", "new", "--json"]);
+    const wallet = runCLI(["wallet", "new", "--json", "--show-secret"]);
     const { seed, publicKey } = JSON.parse(wallet.stdout) as {
       seed: string;
       publicKey: string;
@@ -125,7 +125,7 @@ describe("wallet verify", () => {
   });
 
   it.concurrent("--json outputs {valid: true} for valid signature", () => {
-    const wallet = runCLI(["wallet", "new", "--json"]);
+    const wallet = runCLI(["wallet", "new", "--json", "--show-secret"]);
     const { seed, publicKey } = JSON.parse(wallet.stdout) as {
       seed: string;
       publicKey: string;
@@ -152,7 +152,7 @@ describe("wallet verify", () => {
   });
 
   it.concurrent("--json outputs {valid: false} for invalid signature and exits 1", () => {
-    const wallet = runCLI(["wallet", "new", "--json"]);
+    const wallet = runCLI(["wallet", "new", "--json", "--show-secret"]);
     const { seed, publicKey } = JSON.parse(wallet.stdout) as {
       seed: string;
       publicKey: string;
@@ -187,7 +187,7 @@ describe("wallet verify", () => {
   });
 
   it.concurrent("alias 'v' works", () => {
-    const wallet = runCLI(["wallet", "new", "--json"]);
+    const wallet = runCLI(["wallet", "new", "--json", "--show-secret"]);
     const { seed, publicKey } = JSON.parse(wallet.stdout) as {
       seed: string;
       publicKey: string;

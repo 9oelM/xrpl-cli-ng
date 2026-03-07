@@ -10,7 +10,7 @@ describe("wallet import", () => {
   it.concurrent("imports a seed with --password and --keystore and creates the keystore file", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
-      const newResult = runCLI(["wallet", "new", "--json"]);
+      const newResult = runCLI(["wallet", "new", "--json", "--show-secret"]);
       expect(newResult.status).toBe(0);
       const { seed, address } = JSON.parse(newResult.stdout) as {
         seed: string;
@@ -43,7 +43,7 @@ describe("wallet import", () => {
   it.concurrent("exits 1 if keystore file already exists without --force", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
-      const newResult = runCLI(["wallet", "new", "--json"]);
+      const newResult = runCLI(["wallet", "new", "--json", "--show-secret"]);
       const { seed } = JSON.parse(newResult.stdout) as { seed: string };
 
       runCLI(["wallet", "import", seed, "--password", "testpassword", "--keystore", tmpDir]);
@@ -63,7 +63,7 @@ describe("wallet import", () => {
   it.concurrent("--force overwrites existing keystore file", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
-      const newResult = runCLI(["wallet", "new", "--json"]);
+      const newResult = runCLI(["wallet", "new", "--json", "--show-secret"]);
       const { seed, address } = JSON.parse(newResult.stdout) as {
         seed: string;
         address: string;
@@ -87,7 +87,7 @@ describe("wallet import", () => {
   it.concurrent("alias 'i' works", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
-      const newResult = runCLI(["wallet", "new", "--json"]);
+      const newResult = runCLI(["wallet", "new", "--json", "--show-secret"]);
       const { seed } = JSON.parse(newResult.stdout) as { seed: string };
 
       const importResult = runCLI([
@@ -104,7 +104,7 @@ describe("wallet import", () => {
   it.concurrent("respects XRPL_KEYSTORE env var", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
-      const newResult = runCLI(["wallet", "new", "--json"]);
+      const newResult = runCLI(["wallet", "new", "--json", "--show-secret"]);
       const { seed, address } = JSON.parse(newResult.stdout) as {
         seed: string;
         address: string;
@@ -123,7 +123,7 @@ describe("wallet import", () => {
   it.concurrent("--alias stores label in keystore JSON and shows in alias list", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
-      const newResult = runCLI(["wallet", "new", "--json"]);
+      const newResult = runCLI(["wallet", "new", "--json", "--show-secret"]);
       const { seed, address } = JSON.parse(newResult.stdout) as { seed: string; address: string };
 
       const importResult = runCLI([
@@ -154,8 +154,8 @@ describe("wallet import", () => {
   it.concurrent("--alias exits 1 if alias already taken; --force succeeds", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
-      const wallet1 = JSON.parse(runCLI(["wallet", "new", "--json"]).stdout) as { seed: string; address: string };
-      const wallet2 = JSON.parse(runCLI(["wallet", "new", "--json"]).stdout) as { seed: string; address: string };
+      const wallet1 = JSON.parse(runCLI(["wallet", "new", "--json", "--show-secret"]).stdout) as { seed: string; address: string };
+      const wallet2 = JSON.parse(runCLI(["wallet", "new", "--json", "--show-secret"]).stdout) as { seed: string; address: string };
 
       // import first wallet with alias
       runCLI(["wallet", "import", wallet1.seed, "--password", "testpassword", "--keystore", tmpDir, "--alias", "shared"]);
@@ -188,7 +188,7 @@ describe("wallet import", () => {
   it.concurrent("imports a secp256k1 seed and creates correct keystore", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
-      const newResult = runCLI(["wallet", "new", "--key-type", "secp256k1", "--json"]);
+      const newResult = runCLI(["wallet", "new", "--key-type", "secp256k1", "--json", "--show-secret"]);
       const { seed, address } = JSON.parse(newResult.stdout) as {
         seed: string;
         address: string;
