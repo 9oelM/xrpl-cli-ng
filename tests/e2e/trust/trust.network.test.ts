@@ -14,7 +14,8 @@ import {
   fundAddress,
 } from "../helpers/fund.js";
 
-// 10 core tests × 2 wallets + 1 mnemonic extra + 3 issuer tests × 2 wallets = 27 tickets
+// 13 tests concurrent × 2 wallets = 26 wallets + 1 mnemonic fundAddress = 27 tickets; +3 buffer = 30
+// Budget: 30 × 0.2 + 27 × 3 XRP = 6 + 81 = 87 ≤ 99 ✓
 const TICKET_COUNT = 30;
 
 let client: Client;
@@ -32,7 +33,7 @@ afterAll(async () => {
 });
 
 describe("trust set core", () => {
-  it("creates a USD trust line and prints tesSUCCESS", async () => {
+  it.concurrent("creates a USD trust line and prints tesSUCCESS", async () => {
     const [trustor, issuer] = await createFunded(client, master, 2, 3);
 
     const result = runCLI([
@@ -51,9 +52,9 @@ describe("trust set core", () => {
     const lines = JSON.parse(linesResult.stdout) as Array<{ account: string; currency: string }>;
     const usdLine = lines.find((l) => l.currency === "USD" && l.account === issuer.address);
     expect(usdLine).toBeDefined();
-  }, 60_000);
+  }, 90_000);
 
-  it("alias 's' works", async () => {
+  it.concurrent("alias 's' works", async () => {
     const [trustor, issuer] = await createFunded(client, master, 2, 3);
 
     const result = runCLI([
@@ -72,9 +73,9 @@ describe("trust set core", () => {
     const lines = JSON.parse(linesResult.stdout) as Array<{ account: string; currency: string }>;
     const eurLine = lines.find((l) => l.currency === "EUR" && l.account === issuer.address);
     expect(eurLine).toBeDefined();
-  }, 60_000);
+  }, 90_000);
 
-  it("--dry-run outputs JSON with TransactionType TrustSet and does not submit", async () => {
+  it.concurrent("--dry-run outputs JSON with TransactionType TrustSet and does not submit", async () => {
     const [trustor, issuer] = await createFunded(client, master, 2, 3);
 
     const linesBefore = runCLI([
@@ -104,9 +105,9 @@ describe("trust set core", () => {
     ]);
     expect(linesAfter.status).toBe(0);
     expect((JSON.parse(linesAfter.stdout) as unknown[]).length).toBe(countBefore);
-  }, 60_000);
+  }, 90_000);
 
-  it("--no-wait exits 0 and stdout contains a 64-char hex hash", async () => {
+  it.concurrent("--no-wait exits 0 and stdout contains a 64-char hex hash", async () => {
     const [trustor, issuer] = await createFunded(client, master, 2, 3);
 
     const result = runCLI([
@@ -120,9 +121,9 @@ describe("trust set core", () => {
     ]);
     expect(result.status).toBe(0);
     expect(result.stdout).toMatch(/[0-9A-Fa-f]{64}/);
-  }, 60_000);
+  }, 90_000);
 
-  it("--json outputs hash, result, fee, ledger", async () => {
+  it.concurrent("--json outputs hash, result, fee, ledger", async () => {
     const [trustor, issuer] = await createFunded(client, master, 2, 3);
 
     const result = runCLI([
@@ -140,9 +141,9 @@ describe("trust set core", () => {
     expect(typeof out.hash).toBe("string");
     expect(typeof out.fee).toBe("string");
     expect(typeof out.ledger).toBe("number");
-  }, 60_000);
+  }, 90_000);
 
-  it("--no-ripple sets no_ripple: true on trust line", async () => {
+  it.concurrent("--no-ripple sets no_ripple: true on trust line", async () => {
     const [trustor, issuer] = await createFunded(client, master, 2, 3);
 
     const result = runCLI([
@@ -166,9 +167,9 @@ describe("trust set core", () => {
     const mxnLine = lines.find((l) => l.currency === "MXN");
     expect(mxnLine).toBeDefined();
     expect(mxnLine?.no_ripple).toBe(true);
-  }, 60_000);
+  }, 90_000);
 
-  it("--account + --keystore + --password signs and submits trust set", async () => {
+  it.concurrent("--account + --keystore + --password signs and submits trust set", async () => {
     const [trustor, issuer] = await createFunded(client, master, 2, 3);
     const tmpDir = mkdtempSync(resolve(tmpdir(), "xrpl-test-keystore-"));
     try {
@@ -201,9 +202,9 @@ describe("trust set core", () => {
     } finally {
       rmSync(tmpDir, { recursive: true, force: true });
     }
-  }, 60_000);
+  }, 90_000);
 
-  it("--clear-no-ripple clears the NoRipple flag on an existing trust line", async () => {
+  it.concurrent("--clear-no-ripple clears the NoRipple flag on an existing trust line", async () => {
     const [trustor, issuer] = await createFunded(client, master, 2, 3);
 
     const setResult = runCLI([
@@ -238,9 +239,9 @@ describe("trust set core", () => {
     const line = lines.find((l) => l.currency === "SGD");
     expect(line).toBeDefined();
     expect(line?.no_ripple).toBeFalsy();
-  }, 60_000);
+  }, 90_000);
 
-  it("--mnemonic key material creates a trust line", async () => {
+  it.concurrent("--mnemonic key material creates a trust line", async () => {
     const testMnemonic = generateMnemonic(wordlist);
     const mnemonicWallet = Wallet.fromMnemonic(testMnemonic, {
       mnemonicEncoding: "bip39",
@@ -265,9 +266,9 @@ describe("trust set core", () => {
     const lines = JSON.parse(linesResult.stdout) as Array<{ account: string; currency: string }>;
     const mneLine = lines.find((l) => l.currency === "MNE" && l.account === issuer.address);
     expect(mneLine).toBeDefined();
-  }, 60_000);
+  }, 90_000);
 
-  it("--quality-in and --quality-out set quality values on trust line", async () => {
+  it.concurrent("--quality-in and --quality-out set quality values on trust line", async () => {
     const [trustor, issuer] = await createFunded(client, master, 2, 3);
 
     const result = runCLI([
@@ -293,11 +294,11 @@ describe("trust set core", () => {
     expect(jpyLine).toBeDefined();
     expect(jpyLine?.quality_in).toBe(950000000);
     expect(jpyLine?.quality_out).toBe(950000000);
-  }, 60_000);
+  }, 90_000);
 });
 
 describe("trust set issuer-side flags", () => {
-  it("--freeze freezes a trust line (freeze_peer: true on trustor side)", async () => {
+  it.concurrent("--freeze freezes a trust line (freeze_peer: true on trustor side)", async () => {
     const [trustor, issuer] = await createFunded(client, master, 2, 3);
 
     const createResult = runCLI([
@@ -331,9 +332,9 @@ describe("trust set issuer-side flags", () => {
     const frzLine = lines.find((l) => l.currency === "FRZ");
     expect(frzLine).toBeDefined();
     expect(frzLine?.freeze_peer).toBe(true);
-  }, 60_000);
+  }, 90_000);
 
-  it("--unfreeze clears the freeze on a trust line", async () => {
+  it.concurrent("--unfreeze clears the freeze on a trust line", async () => {
     const [trustor, issuer] = await createFunded(client, master, 2, 3);
 
     // Set up: create trust line and freeze it
@@ -380,9 +381,9 @@ describe("trust set issuer-side flags", () => {
     const ufzLine = lines.find((l) => l.currency === "UFZ");
     expect(ufzLine).toBeDefined();
     expect(ufzLine?.freeze_peer).toBeFalsy();
-  }, 60_000);
+  }, 90_000);
 
-  it("--auth authorizes a trust line (peer_authorized: true on trustor side)", async () => {
+  it.concurrent("--auth authorizes a trust line (peer_authorized: true on trustor side)", async () => {
     const [trustor, authIssuer] = await createFunded(client, master, 2, 3);
 
     // Enable RequireAuth on authIssuer

@@ -6,7 +6,7 @@ const DUMMY_ADDRESS = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
 const DUMMY_SEED = "snoPBrXtMeMyMHUVTgbuqAfg1SUTb";
 
 describe("deposit-preauth set validation (no network)", () => {
-  it("missing all main flags exits 1 with error", () => {
+  it.concurrent("missing all main flags exits 1 with error", () => {
     const result = runCLI([
       "deposit-preauth", "set",
       "--seed", DUMMY_SEED,
@@ -15,7 +15,7 @@ describe("deposit-preauth set validation (no network)", () => {
     expect(result.stderr).toContain("Error:");
   });
 
-  it("multiple main flags exits 1 with error (--authorize and --unauthorize)", () => {
+  it.concurrent("multiple main flags exits 1 with error (--authorize and --unauthorize)", () => {
     const result = runCLI([
       "deposit-preauth", "set",
       "--authorize", DUMMY_ADDRESS,
@@ -26,7 +26,7 @@ describe("deposit-preauth set validation (no network)", () => {
     expect(result.stderr).toContain("mutually exclusive");
   });
 
-  it("multiple main flags exits 1 with error (--authorize and --authorize-credential)", () => {
+  it.concurrent("multiple main flags exits 1 with error (--authorize and --authorize-credential)", () => {
     const result = runCLI([
       "deposit-preauth", "set",
       "--authorize", DUMMY_ADDRESS,
@@ -38,7 +38,7 @@ describe("deposit-preauth set validation (no network)", () => {
     expect(result.stderr).toContain("mutually exclusive");
   });
 
-  it("--credential-type without credential flag exits 1 with error", () => {
+  it.concurrent("--credential-type without credential flag exits 1 with error", () => {
     const result = runCLI([
       "deposit-preauth", "set",
       "--authorize", DUMMY_ADDRESS,
@@ -49,7 +49,7 @@ describe("deposit-preauth set validation (no network)", () => {
     expect(result.stderr).toContain("Error:");
   });
 
-  it("--credential-type-hex without credential flag exits 1 with error", () => {
+  it.concurrent("--credential-type-hex without credential flag exits 1 with error", () => {
     const result = runCLI([
       "deposit-preauth", "set",
       "--unauthorize", DUMMY_ADDRESS,
@@ -60,7 +60,7 @@ describe("deposit-preauth set validation (no network)", () => {
     expect(result.stderr).toContain("Error:");
   });
 
-  it("both --credential-type and --credential-type-hex exits 1 with error", () => {
+  it.concurrent("both --credential-type and --credential-type-hex exits 1 with error", () => {
     const result = runCLI([
       "deposit-preauth", "set",
       "--authorize-credential", DUMMY_ADDRESS,
@@ -72,7 +72,7 @@ describe("deposit-preauth set validation (no network)", () => {
     expect(result.stderr).toContain("mutually exclusive");
   });
 
-  it("--authorize-credential without --credential-type or --credential-type-hex exits 1", () => {
+  it.concurrent("--authorize-credential without --credential-type or --credential-type-hex exits 1", () => {
     const result = runCLI([
       "deposit-preauth", "set",
       "--authorize-credential", DUMMY_ADDRESS,
@@ -82,7 +82,7 @@ describe("deposit-preauth set validation (no network)", () => {
     expect(result.stderr).toContain("Error:");
   });
 
-  it("--unauthorize-credential without --credential-type exits 1", () => {
+  it.concurrent("--unauthorize-credential without --credential-type exits 1", () => {
     const result = runCLI([
       "deposit-preauth", "set",
       "--unauthorize-credential", DUMMY_ADDRESS,
@@ -92,7 +92,7 @@ describe("deposit-preauth set validation (no network)", () => {
     expect(result.stderr).toContain("Error:");
   });
 
-  it("missing key material exits 1", () => {
+  it.concurrent("missing key material exits 1", () => {
     const result = runCLI([
       "deposit-preauth", "set",
       "--authorize", DUMMY_ADDRESS,
@@ -101,7 +101,7 @@ describe("deposit-preauth set validation (no network)", () => {
     expect(result.stderr).toContain("Error:");
   });
 
-  it("multiple key material sources exits 1", () => {
+  it.concurrent("multiple key material sources exits 1", () => {
     const result = runCLI([
       "deposit-preauth", "set",
       "--authorize", DUMMY_ADDRESS,

@@ -6,7 +6,7 @@ const DUMMY_ADDRESS = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
 const DUMMY_SEED = "snoPBrXtMeMyMHUVTgbuqAfg1SUTb";
 
 describe("account set-regular-key validation (no network)", () => {
-  it("exits 1 when both --key and --remove are provided", () => {
+  it.concurrent("exits 1 when both --key and --remove are provided", () => {
     const result = runCLI([
       "account", "set-regular-key",
       "--key", DUMMY_ADDRESS,
@@ -17,7 +17,7 @@ describe("account set-regular-key validation (no network)", () => {
     expect(result.stderr).toContain("mutually exclusive");
   });
 
-  it("exits 1 when neither --key nor --remove is provided", () => {
+  it.concurrent("exits 1 when neither --key nor --remove is provided", () => {
     const result = runCLI([
       "account", "set-regular-key",
       "--seed", DUMMY_SEED,
@@ -26,7 +26,7 @@ describe("account set-regular-key validation (no network)", () => {
     expect(result.stderr).toContain("Error: provide either --key");
   });
 
-  it("exits 1 when no key material is provided", () => {
+  it.concurrent("exits 1 when no key material is provided", () => {
     const result = runCLI([
       "account", "set-regular-key",
       "--key", DUMMY_ADDRESS,
@@ -35,7 +35,7 @@ describe("account set-regular-key validation (no network)", () => {
     expect(result.stderr).toContain("Error: provide key material");
   });
 
-  it("exits 1 when multiple key materials are provided", () => {
+  it.concurrent("exits 1 when multiple key materials are provided", () => {
     const result = runCLI([
       "account", "set-regular-key",
       "--key", DUMMY_ADDRESS,
@@ -46,7 +46,7 @@ describe("account set-regular-key validation (no network)", () => {
     expect(result.stderr).toContain("Error: provide only one of");
   });
 
-  it("--dry-run with --key outputs SetRegularKey JSON (no network)", () => {
+  it.concurrent("--dry-run with --key outputs SetRegularKey JSON (no network)", () => {
     const result = runCLI([
       "account", "set-regular-key",
       "--key", DUMMY_ADDRESS,
@@ -59,7 +59,7 @@ describe("account set-regular-key validation (no network)", () => {
     expect(tx.RegularKey).toBe(DUMMY_ADDRESS);
   });
 
-  it("--dry-run with --remove outputs SetRegularKey JSON without RegularKey field (no network)", () => {
+  it.concurrent("--dry-run with --remove outputs SetRegularKey JSON without RegularKey field (no network)", () => {
     const result = runCLI([
       "account", "set-regular-key",
       "--remove",

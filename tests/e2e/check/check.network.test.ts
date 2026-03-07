@@ -72,7 +72,7 @@ afterAll(async () => {
 // check create
 // ---------------------------------------------------------------------------
 describe("check create", () => {
-  it("creates an XRP check and prints tesSUCCESS + Check ID", async () => {
+  it.concurrent("creates an XRP check and prints tesSUCCESS + Check ID", async () => {
     const [sender, receiver] = await createFunded(client, master, 2, FUND_AMOUNT);
     const result = runCLI([
       "--node",
@@ -89,9 +89,9 @@ describe("check create", () => {
     expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0);
     expect(result.stdout).toContain("tesSUCCESS");
     expect(result.stdout).toMatch(/CheckId:\s+[0-9A-Fa-f]{64}/i);
-  }, 60_000);
+  }, 90_000);
 
-  it("--expiration appears in dry-run tx", async () => {
+  it.concurrent("--expiration appears in dry-run tx", async () => {
     const [sender] = await createFunded(client, master, 1, FUND_AMOUNT);
     const receiver = Wallet.generate();
     const result = runCLI([
@@ -115,9 +115,9 @@ describe("check create", () => {
     };
     expect(out.tx.TransactionType).toBe("CheckCreate");
     expect(typeof out.tx.Expiration).toBe("number");
-  }, 60_000);
+  }, 90_000);
 
-  it("--destination-tag appears in dry-run tx", async () => {
+  it.concurrent("--destination-tag appears in dry-run tx", async () => {
     const [sender] = await createFunded(client, master, 1, FUND_AMOUNT);
     const receiver = Wallet.generate();
     const result = runCLI([
@@ -138,9 +138,9 @@ describe("check create", () => {
     expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0);
     const out = JSON.parse(result.stdout) as { tx: { DestinationTag?: number } };
     expect(out.tx.DestinationTag).toBe(42);
-  }, 60_000);
+  }, 90_000);
 
-  it("--invoice-id is hex-encoded in dry-run tx", async () => {
+  it.concurrent("--invoice-id is hex-encoded in dry-run tx", async () => {
     const [sender] = await createFunded(client, master, 1, FUND_AMOUNT);
     const receiver = Wallet.generate();
     const result = runCLI([
@@ -163,9 +163,9 @@ describe("check create", () => {
     expect(typeof out.tx.InvoiceID).toBe("string");
     expect(out.tx.InvoiceID).toHaveLength(64);
     expect(out.tx.InvoiceID!.toLowerCase()).toMatch(/^6f726465722d313233/);
-  }, 60_000);
+  }, 90_000);
 
-  it("--json output includes hash, result, checkId fields", async () => {
+  it.concurrent("--json output includes hash, result, checkId fields", async () => {
     const [sender, receiver] = await createFunded(client, master, 2, FUND_AMOUNT);
     const result = runCLI([
       "--node",
@@ -191,9 +191,9 @@ describe("check create", () => {
     expect(out.hash).toHaveLength(64);
     expect(typeof out.checkId).toBe("string");
     expect(out.checkId).toHaveLength(64);
-  }, 60_000);
+  }, 90_000);
 
-  it("--dry-run outputs JSON with TransactionType CheckCreate and does not submit", async () => {
+  it.concurrent("--dry-run outputs JSON with TransactionType CheckCreate and does not submit", async () => {
     const [sender] = await createFunded(client, master, 1, FUND_AMOUNT);
     const receiver = Wallet.generate();
     const result = runCLI([
@@ -216,9 +216,9 @@ describe("check create", () => {
     };
     expect(out.tx.TransactionType).toBe("CheckCreate");
     expect(typeof out.tx_blob).toBe("string");
-  }, 60_000);
+  }, 90_000);
 
-  it("--no-wait exits 0 and output contains 64-char hex hash", async () => {
+  it.concurrent("--no-wait exits 0 and output contains 64-char hex hash", async () => {
     const [sender, receiver] = await createFunded(client, master, 2, FUND_AMOUNT);
     const result = runCLI([
       "--node",
@@ -235,9 +235,9 @@ describe("check create", () => {
     ]);
     expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0);
     expect(result.stdout).toMatch(/[0-9A-Fa-f]{64}/);
-  }, 60_000);
+  }, 90_000);
 
-  it("--account + --keystore + --password key material creates successfully", async () => {
+  it.concurrent("--account + --keystore + --password key material creates successfully", async () => {
     const [sender, receiver] = await createFunded(client, master, 2, FUND_AMOUNT);
     const tmpDir = mkdtempSync(resolve(tmpdir(), "xrpl-test-keystore-"));
     try {
@@ -276,14 +276,14 @@ describe("check create", () => {
     } finally {
       rmSync(tmpDir, { recursive: true, force: true });
     }
-  }, 60_000);
+  }, 90_000);
 });
 
 // ---------------------------------------------------------------------------
 // check cash
 // ---------------------------------------------------------------------------
 describe("check cash", () => {
-  it("cashes an XRP check with --amount", async () => {
+  it.concurrent("cashes an XRP check with --amount", async () => {
     const [sender, receiver] = await createFunded(client, master, 2, FUND_AMOUNT);
     const checkId = createCheck(sender.seed!, receiver.address, "1");
     const result = runCLI([
@@ -300,9 +300,9 @@ describe("check cash", () => {
     ]);
     expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0);
     expect(result.stdout).toContain("tesSUCCESS");
-  }, 60_000);
+  }, 90_000);
 
-  it("cashes an XRP check with --deliver-min", async () => {
+  it.concurrent("cashes an XRP check with --deliver-min", async () => {
     const [sender, receiver] = await createFunded(client, master, 2, FUND_AMOUNT);
     const checkId = createCheck(sender.seed!, receiver.address, "1");
     const result = runCLI([
@@ -319,9 +319,9 @@ describe("check cash", () => {
     ]);
     expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0);
     expect(result.stdout).toContain("tesSUCCESS");
-  }, 60_000);
+  }, 90_000);
 
-  it("--json output includes hash and result fields", async () => {
+  it.concurrent("--json output includes hash and result fields", async () => {
     const [sender, receiver] = await createFunded(client, master, 2, FUND_AMOUNT);
     const checkId = createCheck(sender.seed!, receiver.address, "1");
     const result = runCLI([
@@ -342,9 +342,9 @@ describe("check cash", () => {
     expect(out.result).toBe("tesSUCCESS");
     expect(typeof out.hash).toBe("string");
     expect(out.hash).toHaveLength(64);
-  }, 60_000);
+  }, 90_000);
 
-  it("--dry-run outputs signed tx with TransactionType CheckCash without submitting", async () => {
+  it.concurrent("--dry-run outputs signed tx with TransactionType CheckCash without submitting", async () => {
     const [receiver] = await createFunded(client, master, 1, FUND_AMOUNT);
     const result = runCLI([
       "--node",
@@ -366,9 +366,9 @@ describe("check cash", () => {
     };
     expect(out.tx.TransactionType).toBe("CheckCash");
     expect(typeof out.tx_blob).toBe("string");
-  }, 60_000);
+  }, 90_000);
 
-  it("--no-wait exits 0 and outputs a 64-char hex hash", async () => {
+  it.concurrent("--no-wait exits 0 and outputs a 64-char hex hash", async () => {
     const [sender, receiver] = await createFunded(client, master, 2, FUND_AMOUNT);
     const checkId = createCheck(sender.seed!, receiver.address, "1");
     const result = runCLI([
@@ -386,14 +386,14 @@ describe("check cash", () => {
     ]);
     expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0);
     expect(result.stdout).toMatch(/[0-9A-Fa-f]{64}/);
-  }, 60_000);
+  }, 90_000);
 });
 
 // ---------------------------------------------------------------------------
 // check cancel
 // ---------------------------------------------------------------------------
 describe("check cancel", () => {
-  it("sender cancels own check", async () => {
+  it.concurrent("sender cancels own check", async () => {
     const [sender, receiver] = await createFunded(client, master, 2, FUND_AMOUNT);
     const checkId = createCheck(sender.seed!, receiver.address, "1");
     const result = runCLI([
@@ -408,9 +408,9 @@ describe("check cancel", () => {
     ]);
     expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0);
     expect(result.stdout).toContain("tesSUCCESS");
-  }, 60_000);
+  }, 90_000);
 
-  it("--json output includes hash and result fields", async () => {
+  it.concurrent("--json output includes hash and result fields", async () => {
     const [sender, receiver] = await createFunded(client, master, 2, FUND_AMOUNT);
     const checkId = createCheck(sender.seed!, receiver.address, "1");
     const result = runCLI([
@@ -429,9 +429,9 @@ describe("check cancel", () => {
     expect(out.result).toBe("tesSUCCESS");
     expect(typeof out.hash).toBe("string");
     expect(out.hash).toHaveLength(64);
-  }, 60_000);
+  }, 90_000);
 
-  it("--dry-run outputs signed tx with TransactionType CheckCancel without submitting", async () => {
+  it.concurrent("--dry-run outputs signed tx with TransactionType CheckCancel without submitting", async () => {
     const [sender] = await createFunded(client, master, 1, FUND_AMOUNT);
     const result = runCLI([
       "--node",
@@ -451,9 +451,9 @@ describe("check cancel", () => {
     };
     expect(out.tx.TransactionType).toBe("CheckCancel");
     expect(typeof out.tx_blob).toBe("string");
-  }, 60_000);
+  }, 90_000);
 
-  it("--no-wait exits 0 and outputs a 64-char hex hash", async () => {
+  it.concurrent("--no-wait exits 0 and outputs a 64-char hex hash", async () => {
     const [sender, receiver] = await createFunded(client, master, 2, FUND_AMOUNT);
     const checkId = createCheck(sender.seed!, receiver.address, "1");
     const result = runCLI([
@@ -469,9 +469,9 @@ describe("check cancel", () => {
     ]);
     expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0);
     expect(result.stdout).toMatch(/[0-9A-Fa-f]{64}/);
-  }, 60_000);
+  }, 90_000);
 
-  it("receiver can cancel a check sent to them", async () => {
+  it.concurrent("receiver can cancel a check sent to them", async () => {
     const [sender, receiver] = await createFunded(client, master, 2, FUND_AMOUNT);
     const checkId = createCheck(sender.seed!, receiver.address, "1");
     const result = runCLI([
@@ -486,14 +486,14 @@ describe("check cancel", () => {
     ]);
     expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0);
     expect(result.stdout).toContain("tesSUCCESS");
-  }, 60_000);
+  }, 90_000);
 });
 
 // ---------------------------------------------------------------------------
 // check list
 // ---------------------------------------------------------------------------
 describe("check list", () => {
-  it("lists checks for an account and includes the created check ID", async () => {
+  it.concurrent("lists checks for an account and includes the created check ID", async () => {
     const [sender, receiver] = await createFunded(client, master, 2, FUND_AMOUNT);
     const checkId = createCheck(sender.seed!, receiver.address, "1");
     const result = runCLI([
@@ -508,9 +508,9 @@ describe("check list", () => {
     expect(result.stdout).toContain("CheckID:");
     expect(result.stdout).toContain("SendMax:");
     expect(result.stdout).toContain("Destination:");
-  }, 60_000);
+  }, 90_000);
 
-  it("--json outputs a JSON array containing the created check", async () => {
+  it.concurrent("--json outputs a JSON array containing the created check", async () => {
     const [sender, receiver] = await createFunded(client, master, 2, FUND_AMOUNT);
     const checkId = createCheck(sender.seed!, receiver.address, "1");
     const result = runCLI([
@@ -532,5 +532,5 @@ describe("check list", () => {
     expect(found).toBeDefined();
     expect(found!.destination).toBe(receiver.address);
     expect(found!.sendMax).toContain("XRP");
-  }, 60_000);
+  }, 90_000);
 });

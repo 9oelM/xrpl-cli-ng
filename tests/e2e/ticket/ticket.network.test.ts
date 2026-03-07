@@ -11,8 +11,8 @@ import {
   createFunded,
 } from "../helpers/fund.js";
 
-// Budget: 12 tickets × 0.2 = 2.4 XRP; 10 wallets × 5 XRP = 50 XRP; total 52.4 ≤ 99 ✓
-// 10 tests × 1 wallet each = 10 wallets
+// 10 tests concurrent × 1 wallet each = 10 wallets; +2 buffer = 12
+// Budget: 12 × 0.2 + 10 × 5 XRP = 2.4 + 50 = 52.4 ≤ 99 ✓
 const TICKET_COUNT = 12;
 const FUND_AMOUNT = 5;
 
@@ -33,7 +33,7 @@ afterAll(async () => {
 // ─── ticket create ────────────────────────────────────────────────────────────
 
 describe("ticket create", () => {
-  it("creates 1 ticket and verifies via ticket list", async () => {
+  it.concurrent("creates 1 ticket and verifies via ticket list", async () => {
     const [wallet] = await createFunded(client, master, 1, FUND_AMOUNT);
     const result = runCLI([
       "--node", "testnet",
@@ -54,7 +54,7 @@ describe("ticket create", () => {
     expect(listResult.stdout).toContain("Ticket sequence:");
   }, 90_000);
 
-  it("creates multiple tickets and count matches --count", async () => {
+  it.concurrent("creates multiple tickets and count matches --count", async () => {
     const [wallet] = await createFunded(client, master, 1, FUND_AMOUNT);
     const result = runCLI([
       "--node", "testnet",
@@ -70,7 +70,7 @@ describe("ticket create", () => {
     expect(out.sequences).toHaveLength(3);
   }, 90_000);
 
-  it("--json outputs hash, result, sequences fields", async () => {
+  it.concurrent("--json outputs hash, result, sequences fields", async () => {
     const [wallet] = await createFunded(client, master, 1, FUND_AMOUNT);
     const result = runCLI([
       "--node", "testnet",
@@ -91,7 +91,7 @@ describe("ticket create", () => {
     }
   }, 90_000);
 
-  it("--dry-run outputs JSON with TransactionType TicketCreate and does not submit", async () => {
+  it.concurrent("--dry-run outputs JSON with TransactionType TicketCreate and does not submit", async () => {
     const [wallet] = await createFunded(client, master, 1, FUND_AMOUNT);
     const result = runCLI([
       "--node", "testnet",
@@ -107,7 +107,7 @@ describe("ticket create", () => {
     expect(typeof out.tx_blob).toBe("string");
   }, 90_000);
 
-  it("--no-wait exits 0 and output contains 64-char hex hash", async () => {
+  it.concurrent("--no-wait exits 0 and output contains 64-char hex hash", async () => {
     const [wallet] = await createFunded(client, master, 1, FUND_AMOUNT);
     const result = runCLI([
       "--node", "testnet",
@@ -120,7 +120,7 @@ describe("ticket create", () => {
     expect(result.stdout).toMatch(/[0-9A-Fa-f]{64}/);
   }, 90_000);
 
-  it("--account + --keystore + --password key material creates successfully", async () => {
+  it.concurrent("--account + --keystore + --password key material creates successfully", async () => {
     const [wallet] = await createFunded(client, master, 1, FUND_AMOUNT);
     const tmpDir = mkdtempSync(resolve(tmpdir(), "xrpl-test-keystore-"));
     try {
@@ -151,7 +151,7 @@ describe("ticket create", () => {
 // ─── ticket list ──────────────────────────────────────────────────────────────
 
 describe("ticket list", () => {
-  it("lists tickets for an account with correct format", async () => {
+  it.concurrent("lists tickets for an account with correct format", async () => {
     const [wallet] = await createFunded(client, master, 1, FUND_AMOUNT);
     // Create 3 tickets so we have something to list
     const createResult = runCLI([
@@ -176,7 +176,7 @@ describe("ticket list", () => {
     }
   }, 90_000);
 
-  it("--json outputs JSON array with sequence field", async () => {
+  it.concurrent("--json outputs JSON array with sequence field", async () => {
     const [wallet] = await createFunded(client, master, 1, FUND_AMOUNT);
     const createResult = runCLI([
       "--node", "testnet",
@@ -206,7 +206,7 @@ describe("ticket list", () => {
     }
   }, 90_000);
 
-  it("shows 'No tickets.' for an account with none", async () => {
+  it.concurrent("shows 'No tickets.' for an account with none", async () => {
     // Fresh funded wallet — has no tickets yet
     const [wallet] = await createFunded(client, master, 1, FUND_AMOUNT);
     const result = runCLI([
@@ -218,7 +218,7 @@ describe("ticket list", () => {
     expect(result.stdout.trim()).toBe("No tickets.");
   }, 90_000);
 
-  it("count of listed tickets matches --count used to create", async () => {
+  it.concurrent("count of listed tickets matches --count used to create", async () => {
     const [wallet] = await createFunded(client, master, 1, FUND_AMOUNT);
     const createResult = runCLI([
       "--node", "testnet",

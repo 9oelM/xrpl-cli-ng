@@ -4,7 +4,7 @@ import { runCLI } from "../../helpers/cli.js";
 
 
 describe("wallet verify", () => {
-  it("verifies a message signature with matching public key → exit 0 and output contains 'Valid'", () => {
+  it.concurrent("verifies a message signature with matching public key → exit 0 and output contains 'Valid'", () => {
     const wallet = runCLI(["wallet", "new", "--json"]);
     const { seed, publicKey } = JSON.parse(wallet.stdout) as {
       seed: string;
@@ -30,7 +30,7 @@ describe("wallet verify", () => {
     expect(result.stdout).toContain("Valid");
   });
 
-  it("rejects tampered signature → exit 1 and output contains 'Invalid'", () => {
+  it.concurrent("rejects tampered signature → exit 1 and output contains 'Invalid'", () => {
     const wallet = runCLI(["wallet", "new", "--json"]);
     const { seed, publicKey } = JSON.parse(wallet.stdout) as {
       seed: string;
@@ -60,7 +60,7 @@ describe("wallet verify", () => {
     expect(result.stdout).toContain("Invalid");
   });
 
-  it("verifies a signed transaction blob → exit 0", () => {
+  it.concurrent("verifies a signed transaction blob → exit 0", () => {
     const wallet = runCLI(["wallet", "new", "--json"]);
     const { seed, address } = JSON.parse(wallet.stdout) as {
       seed: string;
@@ -87,7 +87,7 @@ describe("wallet verify", () => {
     expect(result.stdout).toContain("Valid");
   });
 
-  it("--from-hex flag: verifies hex-encoded message", () => {
+  it.concurrent("--from-hex flag: verifies hex-encoded message", () => {
     const wallet = runCLI(["wallet", "new", "--json"]);
     const { seed, publicKey } = JSON.parse(wallet.stdout) as {
       seed: string;
@@ -124,7 +124,7 @@ describe("wallet verify", () => {
     expect(result.stdout).toContain("Valid");
   });
 
-  it("--json outputs {valid: true} for valid signature", () => {
+  it.concurrent("--json outputs {valid: true} for valid signature", () => {
     const wallet = runCLI(["wallet", "new", "--json"]);
     const { seed, publicKey } = JSON.parse(wallet.stdout) as {
       seed: string;
@@ -151,7 +151,7 @@ describe("wallet verify", () => {
     expect(parsed.valid).toBe(true);
   });
 
-  it("--json outputs {valid: false} for invalid signature and exits 1", () => {
+  it.concurrent("--json outputs {valid: false} for invalid signature and exits 1", () => {
     const wallet = runCLI(["wallet", "new", "--json"]);
     const { seed, publicKey } = JSON.parse(wallet.stdout) as {
       seed: string;
@@ -180,13 +180,13 @@ describe("wallet verify", () => {
     expect(parsed.valid).toBe(false);
   });
 
-  it("exits 1 when neither --message nor --tx is provided", () => {
+  it.concurrent("exits 1 when neither --message nor --tx is provided", () => {
     const result = runCLI(["wallet", "verify"]);
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("Error:");
   });
 
-  it("alias 'v' works", () => {
+  it.concurrent("alias 'v' works", () => {
     const wallet = runCLI(["wallet", "new", "--json"]);
     const { seed, publicKey } = JSON.parse(wallet.stdout) as {
       seed: string;

@@ -8,7 +8,7 @@ const DUMMY_CHANNEL = "A".repeat(64);
 const DUMMY_AMOUNT = "5";
 
 describe("channel sign / channel verify (offline)", () => {
-  it("signs a claim and the resulting signature passes channel verify", () => {
+  it.concurrent("signs a claim and the resulting signature passes channel verify", () => {
     const signResult = runCLI([
       "channel", "sign",
       "--channel", DUMMY_CHANNEL,
@@ -30,7 +30,7 @@ describe("channel sign / channel verify (offline)", () => {
     expect(verifyResult.stdout.trim()).toBe("valid");
   });
 
-  it("channel sign --json outputs { signature } object", () => {
+  it.concurrent("channel sign --json outputs { signature } object", () => {
     const result = runCLI([
       "channel", "sign",
       "--channel", DUMMY_CHANNEL,
@@ -44,7 +44,7 @@ describe("channel sign / channel verify (offline)", () => {
     expect(parsed.signature).toMatch(/^[0-9A-F]+$/);
   });
 
-  it("channel verify --json outputs { valid: true } for a valid signature", () => {
+  it.concurrent("channel verify --json outputs { valid: true } for a valid signature", () => {
     const signResult = runCLI([
       "channel", "sign",
       "--channel", DUMMY_CHANNEL,
@@ -66,7 +66,7 @@ describe("channel sign / channel verify (offline)", () => {
     expect(parsed.valid).toBe(true);
   });
 
-  it("verify a tampered signature outputs 'invalid'", () => {
+  it.concurrent("verify a tampered signature outputs 'invalid'", () => {
     const signResult = runCLI([
       "channel", "sign",
       "--channel", DUMMY_CHANNEL,
@@ -89,7 +89,7 @@ describe("channel sign / channel verify (offline)", () => {
     expect(verifyResult.stdout.trim()).toBe("invalid");
   });
 
-  it("verify with wrong amount outputs 'invalid'", () => {
+  it.concurrent("verify with wrong amount outputs 'invalid'", () => {
     const signResult = runCLI([
       "channel", "sign",
       "--channel", DUMMY_CHANNEL,
@@ -110,7 +110,7 @@ describe("channel sign / channel verify (offline)", () => {
     expect(verifyResult.stdout.trim()).toBe("invalid");
   });
 
-  it("channel verify --json outputs { valid: false } for invalid signature", () => {
+  it.concurrent("channel verify --json outputs { valid: false } for invalid signature", () => {
     const result = runCLI([
       "channel", "verify",
       "--channel", DUMMY_CHANNEL,
@@ -126,7 +126,7 @@ describe("channel sign / channel verify (offline)", () => {
 });
 
 describe("channel sign validation (no network)", () => {
-  it("missing --channel exits 1 with error", () => {
+  it.concurrent("missing --channel exits 1 with error", () => {
     const result = runCLI([
       "channel", "sign",
       "--amount", DUMMY_AMOUNT,
@@ -136,7 +136,7 @@ describe("channel sign validation (no network)", () => {
     expect(result.stderr).toContain("--channel");
   });
 
-  it("missing --amount exits 1 with error", () => {
+  it.concurrent("missing --amount exits 1 with error", () => {
     const result = runCLI([
       "channel", "sign",
       "--channel", DUMMY_CHANNEL,
@@ -146,7 +146,7 @@ describe("channel sign validation (no network)", () => {
     expect(result.stderr).toContain("--amount");
   });
 
-  it("missing key material exits 1 with error", () => {
+  it.concurrent("missing key material exits 1 with error", () => {
     const result = runCLI([
       "channel", "sign",
       "--channel", DUMMY_CHANNEL,
@@ -156,7 +156,7 @@ describe("channel sign validation (no network)", () => {
     expect(result.stderr).toContain("Error:");
   });
 
-  it("multiple key material exits 1 with error", () => {
+  it.concurrent("multiple key material exits 1 with error", () => {
     const result = runCLI([
       "channel", "sign",
       "--channel", DUMMY_CHANNEL,
@@ -168,7 +168,7 @@ describe("channel sign validation (no network)", () => {
     expect(result.stderr).toContain("Error:");
   });
 
-  it("invalid --channel (not 64 hex chars) exits 1", () => {
+  it.concurrent("invalid --channel (not 64 hex chars) exits 1", () => {
     const result = runCLI([
       "channel", "sign",
       "--channel", "notahex",
@@ -183,7 +183,7 @@ describe("channel sign validation (no network)", () => {
 describe("channel verify validation (no network)", () => {
   const DUMMY_SIG = "3045022100E5FE1AE4D29F013C4AE5EA8AA48AFA91A797195F985F66ABAF5963ECAABE58E502205F66E5D63BB4225E41FEA886DE3E138E96E327F73653DC7F708E8D5F34406E0F";
 
-  it("missing --channel exits 1 with error", () => {
+  it.concurrent("missing --channel exits 1 with error", () => {
     const result = runCLI([
       "channel", "verify",
       "--amount", DUMMY_AMOUNT,
@@ -194,7 +194,7 @@ describe("channel verify validation (no network)", () => {
     expect(result.stderr).toContain("--channel");
   });
 
-  it("missing --amount exits 1 with error", () => {
+  it.concurrent("missing --amount exits 1 with error", () => {
     const result = runCLI([
       "channel", "verify",
       "--channel", DUMMY_CHANNEL,
@@ -205,7 +205,7 @@ describe("channel verify validation (no network)", () => {
     expect(result.stderr).toContain("--amount");
   });
 
-  it("missing --signature exits 1 with error", () => {
+  it.concurrent("missing --signature exits 1 with error", () => {
     const result = runCLI([
       "channel", "verify",
       "--channel", DUMMY_CHANNEL,
@@ -216,7 +216,7 @@ describe("channel verify validation (no network)", () => {
     expect(result.stderr).toContain("--signature");
   });
 
-  it("missing --public-key exits 1 with error", () => {
+  it.concurrent("missing --public-key exits 1 with error", () => {
     const result = runCLI([
       "channel", "verify",
       "--channel", DUMMY_CHANNEL,
@@ -227,7 +227,7 @@ describe("channel verify validation (no network)", () => {
     expect(result.stderr).toContain("--public-key");
   });
 
-  it("invalid --channel (not 64 hex chars) exits 1", () => {
+  it.concurrent("invalid --channel (not 64 hex chars) exits 1", () => {
     const result = runCLI([
       "channel", "verify",
       "--channel", "notahex",

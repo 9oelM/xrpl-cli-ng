@@ -8,8 +8,8 @@ import {
   createFunded,
 } from "../helpers/fund.js";
 
-// Budget: 20 tickets × 0.2 = 4 XRP; 18 wallets × 4 XRP = 72 XRP; total 76 ≤ 99 ✓
-// 18 tests × 1 oracle wallet each = 18 wallets
+// 18 tests concurrent × 1 wallet each = 18 wallets; +2 buffer = 20
+// Budget: 20 × 0.2 + 18 × 4 XRP = 4 + 72 = 76 ≤ 99 ✓
 const TICKET_COUNT = 20;
 const FUND_AMOUNT = 4;
 
@@ -30,7 +30,7 @@ afterAll(async () => {
 // ─── oracle set ───────────────────────────────────────────────────────────────
 
 describe("oracle set", () => {
-  it("creates an oracle with --price and prints tesSUCCESS", async () => {
+  it.concurrent("creates an oracle with --price and prints tesSUCCESS", async () => {
     const [oracle] = await createFunded(client, master, 1, FUND_AMOUNT);
     const result = runCLI([
       "--node", "testnet",
@@ -45,7 +45,7 @@ describe("oracle set", () => {
     expect(result.stdout).toContain("tesSUCCESS");
   }, 90_000);
 
-  it("creates an oracle with --price-data JSON", async () => {
+  it.concurrent("creates an oracle with --price-data JSON", async () => {
     const [oracle] = await createFunded(client, master, 1, FUND_AMOUNT);
     const priceData = JSON.stringify([
       { BaseAsset: "ETH", QuoteAsset: "USD", AssetPrice: 3000000, Scale: 6 },
@@ -64,7 +64,7 @@ describe("oracle set", () => {
     expect(result.stdout).toContain("tesSUCCESS");
   }, 90_000);
 
-  it("updates an oracle price (uses same document-id)", async () => {
+  it.concurrent("updates an oracle price (uses same document-id)", async () => {
     const [oracle] = await createFunded(client, master, 1, FUND_AMOUNT);
     const createResult = runCLI([
       "--node", "testnet",
@@ -88,7 +88,7 @@ describe("oracle set", () => {
     expect(updateResult.stdout).toContain("tesSUCCESS");
   }, 90_000);
 
-  it("--last-update-time override is accepted", async () => {
+  it.concurrent("--last-update-time override is accepted", async () => {
     const [oracle] = await createFunded(client, master, 1, FUND_AMOUNT);
     const ts = Math.floor(Date.now() / 1000);
     const result = runCLI([
@@ -105,7 +105,7 @@ describe("oracle set", () => {
     expect(result.stdout).toContain("tesSUCCESS");
   }, 90_000);
 
-  it("--json outputs structured JSON", async () => {
+  it.concurrent("--json outputs structured JSON", async () => {
     const [oracle] = await createFunded(client, master, 1, FUND_AMOUNT);
     const result = runCLI([
       "--node", "testnet",
@@ -125,7 +125,7 @@ describe("oracle set", () => {
     expect(typeof out.ledger).toBe("number");
   }, 90_000);
 
-  it("--dry-run prints tx_blob and tx without submitting", async () => {
+  it.concurrent("--dry-run prints tx_blob and tx without submitting", async () => {
     const [oracle] = await createFunded(client, master, 1, FUND_AMOUNT);
     const result = runCLI([
       "--node", "testnet",
@@ -144,7 +144,7 @@ describe("oracle set", () => {
     expect(typeof out.tx_blob).toBe("string");
   }, 90_000);
 
-  it("--no-wait exits 0 and outputs a hash", async () => {
+  it.concurrent("--no-wait exits 0 and outputs a hash", async () => {
     const [oracle] = await createFunded(client, master, 1, FUND_AMOUNT);
     const result = runCLI([
       "--node", "testnet",
@@ -160,7 +160,7 @@ describe("oracle set", () => {
     expect(result.stdout).toMatch(/[0-9A-Fa-f]{64}/);
   }, 90_000);
 
-  it("--provider-hex sets provider without encoding", async () => {
+  it.concurrent("--provider-hex sets provider without encoding", async () => {
     const [oracle] = await createFunded(client, master, 1, FUND_AMOUNT);
     const pythHex = Buffer.from("pyth").toString("hex");
     const result = runCLI([
@@ -178,7 +178,7 @@ describe("oracle set", () => {
     expect(out.tx.Provider?.toUpperCase()).toBe(pythHex.toUpperCase());
   }, 90_000);
 
-  it("--asset-class-hex sets asset class without encoding", async () => {
+  it.concurrent("--asset-class-hex sets asset class without encoding", async () => {
     const [oracle] = await createFunded(client, master, 1, FUND_AMOUNT);
     const currencyHex = Buffer.from("currency").toString("hex");
     const result = runCLI([
@@ -196,7 +196,7 @@ describe("oracle set", () => {
     expect(out.tx.AssetClass?.toUpperCase()).toBe(currencyHex.toUpperCase());
   }, 90_000);
 
-  it("price pair without scale defaults to Scale 0 in dry-run", async () => {
+  it.concurrent("price pair without scale defaults to Scale 0 in dry-run", async () => {
     const [oracle] = await createFunded(client, master, 1, FUND_AMOUNT);
     const result = runCLI([
       "--node", "testnet",
@@ -219,7 +219,7 @@ describe("oracle set", () => {
 // ─── oracle get ───────────────────────────────────────────────────────────────
 
 describe("oracle get", () => {
-  it("returns human-readable price pairs with decoded provider and asset class", async () => {
+  it.concurrent("returns human-readable price pairs with decoded provider and asset class", async () => {
     const [oracle] = await createFunded(client, master, 1, FUND_AMOUNT);
     const setupResult = runCLI([
       "--node", "testnet",
@@ -247,7 +247,7 @@ describe("oracle get", () => {
     expect(result.stdout).toContain("1");
   }, 90_000);
 
-  it("--json outputs raw ledger entry as JSON", async () => {
+  it.concurrent("--json outputs raw ledger entry as JSON", async () => {
     const [oracle] = await createFunded(client, master, 1, FUND_AMOUNT);
     const setupResult = runCLI([
       "--node", "testnet",
@@ -280,7 +280,7 @@ describe("oracle get", () => {
     expect(Array.isArray(out.node.PriceDataSeries)).toBe(true);
   }, 90_000);
 
-  it("returns error for non-existent oracle", async () => {
+  it.concurrent("returns error for non-existent oracle", async () => {
     const [oracle] = await createFunded(client, master, 1, FUND_AMOUNT);
     const result = runCLI([
       "--node", "testnet",
@@ -292,7 +292,7 @@ describe("oracle get", () => {
     expect(result.stderr).toMatch(/error/i);
   }, 90_000);
 
-  it("--node option is accepted on oracle get", async () => {
+  it.concurrent("--node option is accepted on oracle get", async () => {
     const [oracle] = await createFunded(client, master, 1, FUND_AMOUNT);
     const setupResult = runCLI([
       "--node", "testnet",
@@ -319,7 +319,7 @@ describe("oracle get", () => {
 // ─── oracle delete ────────────────────────────────────────────────────────────
 
 describe("oracle delete", () => {
-  it("creates then deletes an oracle; get returns not-found", async () => {
+  it.concurrent("creates then deletes an oracle; get returns not-found", async () => {
     const [oracle] = await createFunded(client, master, 1, FUND_AMOUNT);
     const createResult = runCLI([
       "--node", "testnet",
@@ -352,7 +352,7 @@ describe("oracle delete", () => {
     expect(getResult.stderr).toMatch(/error|not found|entryNotFound/i);
   }, 90_000);
 
-  it("--json outputs structured JSON on delete", async () => {
+  it.concurrent("--json outputs structured JSON on delete", async () => {
     const [oracle] = await createFunded(client, master, 1, FUND_AMOUNT);
     const createResult = runCLI([
       "--node", "testnet",
@@ -380,7 +380,7 @@ describe("oracle delete", () => {
     expect(typeof out.ledger).toBe("number");
   }, 90_000);
 
-  it("--dry-run on delete prints tx_blob without submitting", async () => {
+  it.concurrent("--dry-run on delete prints tx_blob without submitting", async () => {
     const [oracle] = await createFunded(client, master, 1, FUND_AMOUNT);
     const result = runCLI([
       "--node", "testnet",
@@ -396,7 +396,7 @@ describe("oracle delete", () => {
     expect(typeof out.tx_blob).toBe("string");
   }, 90_000);
 
-  it("--no-wait on delete exits 0 and outputs hash", async () => {
+  it.concurrent("--no-wait on delete exits 0 and outputs hash", async () => {
     const [oracle] = await createFunded(client, master, 1, FUND_AMOUNT);
     const createResult = runCLI([
       "--node", "testnet",

@@ -6,7 +6,7 @@ const DUMMY_ADDRESS = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
 const DUMMY_SEED = "snoPBrXtMeMyMHUVTgbuqAfg1SUTb";
 
 describe("account delete validation (no network)", () => {
-  it("missing --destination exits 1", () => {
+  it.concurrent("missing --destination exits 1", () => {
     const result = runCLI([
       "account", "delete",
       "--seed", DUMMY_SEED,
@@ -16,7 +16,7 @@ describe("account delete validation (no network)", () => {
     expect(result.stderr).toContain("required option");
   });
 
-  it("invalid destination address exits 1 with descriptive error", () => {
+  it.concurrent("invalid destination address exits 1 with descriptive error", () => {
     const result = runCLI([
       "account", "delete",
       "--destination", "not-a-valid-address",
@@ -27,7 +27,7 @@ describe("account delete validation (no network)", () => {
     expect(result.stderr).toContain("invalid destination address");
   });
 
-  it("missing --confirm without --dry-run exits 1 with correct message", () => {
+  it.concurrent("missing --confirm without --dry-run exits 1 with correct message", () => {
     const result = runCLI([
       "account", "delete",
       "--destination", DUMMY_ADDRESS,
@@ -37,7 +37,7 @@ describe("account delete validation (no network)", () => {
     expect(result.stderr).toContain("This permanently deletes your account. Pass --confirm to proceed.");
   });
 
-  it("--dry-run bypasses --confirm requirement and exits 0", () => {
+  it.concurrent("--dry-run bypasses --confirm requirement and exits 0", () => {
     const result = runCLI([
       "account", "delete",
       "--destination", DUMMY_ADDRESS,
@@ -49,7 +49,7 @@ describe("account delete validation (no network)", () => {
     expect(tx.TransactionType).toBe("AccountDelete");
   });
 
-  it("missing key material exits 1", () => {
+  it.concurrent("missing key material exits 1", () => {
     const result = runCLI([
       "account", "delete",
       "--destination", DUMMY_ADDRESS,
@@ -59,7 +59,7 @@ describe("account delete validation (no network)", () => {
     expect(result.stderr).toContain("Error: provide key material");
   });
 
-  it("multiple key materials exits 1", () => {
+  it.concurrent("multiple key materials exits 1", () => {
     const result = runCLI([
       "account", "delete",
       "--destination", DUMMY_ADDRESS,

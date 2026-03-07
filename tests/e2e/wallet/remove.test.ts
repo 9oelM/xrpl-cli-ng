@@ -7,7 +7,7 @@ import { join } from "path";
 
 
 describe("wallet remove", () => {
-  it("removes an imported wallet and file no longer exists", () => {
+  it.concurrent("removes an imported wallet and file no longer exists", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const wallet = runCLI(["wallet", "new", "--json"]);
@@ -27,7 +27,7 @@ describe("wallet remove", () => {
     }
   });
 
-  it("removed wallet no longer appears in wallet list", () => {
+  it.concurrent("removed wallet no longer appears in wallet list", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const wallet = runCLI(["wallet", "new", "--json"]);
@@ -44,7 +44,7 @@ describe("wallet remove", () => {
     }
   });
 
-  it("exits 1 with error message when address not found", () => {
+  it.concurrent("exits 1 with error message when address not found", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const result = runCLI(["wallet", "remove", "rNonExistentAddress123", "--keystore", tmpDir]);
@@ -55,7 +55,7 @@ describe("wallet remove", () => {
     }
   });
 
-  it("alias 'rm' works", () => {
+  it.concurrent("alias 'rm' works", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const wallet = runCLI(["wallet", "new", "--json"]);
@@ -71,7 +71,7 @@ describe("wallet remove", () => {
     }
   });
 
-  it("respects XRPL_KEYSTORE env var", () => {
+  it.concurrent("respects XRPL_KEYSTORE env var", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const wallet = runCLI(["wallet", "new", "--json"]);

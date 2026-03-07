@@ -4,7 +4,7 @@ import { runCLI } from "../../helpers/cli.js";
 
 
 describe("wallet private-key", () => {
-  it("derives private key from seed as non-empty hex string", () => {
+  it.concurrent("derives private key from seed as non-empty hex string", () => {
     const newResult = runCLI(["wallet", "new", "--json"]);
     expect(newResult.status).toBe(0);
     const { seed } = JSON.parse(newResult.stdout) as { seed: string };
@@ -17,7 +17,7 @@ describe("wallet private-key", () => {
     expect(data.keyType).toBe("ed25519");
   });
 
-  it("private key from seed matches wallet new output", () => {
+  it.concurrent("private key from seed matches wallet new output", () => {
     const newResult = runCLI(["wallet", "new", "--json"]);
     expect(newResult.status).toBe(0);
     const wallet = JSON.parse(newResult.stdout) as {
@@ -31,7 +31,7 @@ describe("wallet private-key", () => {
     expect(data.privateKey).toBe(wallet.privateKey);
   });
 
-  it("derives secp256k1 private key from seed", () => {
+  it.concurrent("derives secp256k1 private key from seed", () => {
     const newResult = runCLI(["wallet", "new", "--key-type", "secp256k1", "--json"]);
     expect(newResult.status).toBe(0);
     const wallet = JSON.parse(newResult.stdout) as {
@@ -48,7 +48,7 @@ describe("wallet private-key", () => {
     expect(data.keyType).toBe("secp256k1");
   });
 
-  it("derives private key from mnemonic", () => {
+  it.concurrent("derives private key from mnemonic", () => {
     const mnemonicResult = runCLI(["wallet", "new-mnemonic", "--json"]);
     expect(mnemonicResult.status).toBe(0);
     const mnemonicWallet = JSON.parse(mnemonicResult.stdout) as {
@@ -68,7 +68,7 @@ describe("wallet private-key", () => {
     expect(data.privateKey).toBe(mnemonicWallet.privateKey);
   });
 
-  it("alias 'pk' works", () => {
+  it.concurrent("alias 'pk' works", () => {
     const newResult = runCLI(["wallet", "new", "--json"]);
     expect(newResult.status).toBe(0);
     const { seed } = JSON.parse(newResult.stdout) as { seed: string };
@@ -79,13 +79,13 @@ describe("wallet private-key", () => {
     expect(data.privateKey).toBeTruthy();
   });
 
-  it("exits 1 with error when no key material is provided", () => {
+  it.concurrent("exits 1 with error when no key material is provided", () => {
     const result = runCLI(["wallet", "private-key"]);
     expect(result.status).toBe(1);
     expect(result.stderr).toMatch(/Error/);
   });
 
-  it("exits 1 when both --seed and --mnemonic are provided", () => {
+  it.concurrent("exits 1 when both --seed and --mnemonic are provided", () => {
     const result = runCLI([
       "wallet",
       "private-key",
@@ -98,7 +98,7 @@ describe("wallet private-key", () => {
     expect(result.stderr).toMatch(/Error/);
   });
 
-  it("prints private key in non-json mode", () => {
+  it.concurrent("prints private key in non-json mode", () => {
     const newResult = runCLI(["wallet", "new", "--json"]);
     expect(newResult.status).toBe(0);
     const { seed } = JSON.parse(newResult.stdout) as { seed: string };

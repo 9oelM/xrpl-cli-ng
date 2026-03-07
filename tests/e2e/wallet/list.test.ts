@@ -7,14 +7,14 @@ import { join } from "path";
 
 
 describe("wallet list", () => {
-  it("prints (empty) when keystore directory does not exist", () => {
+  it.concurrent("prints (empty) when keystore directory does not exist", () => {
     const nonExistentDir = join(tmpdir(), `xrpl-nonexistent-${Date.now()}`);
     const result = runCLI(["wallet", "list", "--keystore", nonExistentDir]);
     expect(result.status).toBe(0);
     expect(result.stdout.trim()).toBe("(empty)");
   });
 
-  it("prints (empty) when keystore directory is empty", () => {
+  it.concurrent("prints (empty) when keystore directory is empty", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const result = runCLI(["wallet", "list", "--keystore", tmpDir]);
@@ -25,7 +25,7 @@ describe("wallet list", () => {
     }
   });
 
-  it("lists two imported wallets", () => {
+  it.concurrent("lists two imported wallets", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const wallet1 = runCLI(["wallet", "new", "--json"]);
@@ -45,7 +45,7 @@ describe("wallet list", () => {
     }
   });
 
-  it("--json outputs a JSON array of wallet objects", () => {
+  it.concurrent("--json outputs a JSON array of wallet objects", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const wallet1 = runCLI(["wallet", "new", "--json"]);
@@ -72,7 +72,7 @@ describe("wallet list", () => {
     }
   });
 
-  it("--json outputs empty array when no keystores exist", () => {
+  it.concurrent("--json outputs empty array when no keystores exist", () => {
     const nonExistentDir = join(tmpdir(), `xrpl-nonexistent-${Date.now()}`);
     const result = runCLI(["wallet", "list", "--keystore", nonExistentDir, "--json"]);
     expect(result.status).toBe(0);
@@ -80,7 +80,7 @@ describe("wallet list", () => {
     expect(entries).toEqual([]);
   });
 
-  it("alias 'ls' works", () => {
+  it.concurrent("alias 'ls' works", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const result = runCLI(["wallet", "ls", "--keystore", tmpDir]);
@@ -91,7 +91,7 @@ describe("wallet list", () => {
     }
   });
 
-  it("respects XRPL_KEYSTORE env var", () => {
+  it.concurrent("respects XRPL_KEYSTORE env var", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const wallet1 = runCLI(["wallet", "new", "--json"]);
@@ -107,7 +107,7 @@ describe("wallet list", () => {
     }
   });
 
-  it("shows alias column in human-readable output when alias is set", () => {
+  it.concurrent("shows alias column in human-readable output when alias is set", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const wallet1 = runCLI(["wallet", "new", "--json"]);
@@ -124,7 +124,7 @@ describe("wallet list", () => {
     }
   });
 
-  it("--json output contains alias field when set, no alias field when unset", () => {
+  it.concurrent("--json output contains alias field when set, no alias field when unset", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const wallet1 = runCLI(["wallet", "new", "--json"]);

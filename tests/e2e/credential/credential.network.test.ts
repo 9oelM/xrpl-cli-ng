@@ -30,7 +30,7 @@ afterAll(async () => {
 // ─── credential create ────────────────────────────────────────────────────────
 
 describe("credential create", () => {
-  it("creates a credential with --credential-type string", async () => {
+  it.concurrent("creates a credential with --credential-type string", async () => {
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const result = runCLI([
       "--node", "testnet",
@@ -44,7 +44,7 @@ describe("credential create", () => {
     expect(result.stdout).toContain("Credential ID:");
   }, 90_000);
 
-  it("creates a credential with --credential-type-hex", async () => {
+  it.concurrent("creates a credential with --credential-type-hex", async () => {
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const result = runCLI([
       "--node", "testnet",
@@ -58,7 +58,7 @@ describe("credential create", () => {
     expect(result.stdout).toContain("Credential ID:");
   }, 90_000);
 
-  it("creates a credential with --uri", async () => {
+  it.concurrent("creates a credential with --uri", async () => {
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const result = runCLI([
       "--node", "testnet",
@@ -73,7 +73,7 @@ describe("credential create", () => {
     expect(result.stdout).toContain("Credential ID:");
   }, 90_000);
 
-  it("creates a credential with --expiration", async () => {
+  it.concurrent("creates a credential with --expiration", async () => {
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const future = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
     const result = runCLI([
@@ -88,7 +88,7 @@ describe("credential create", () => {
     expect(result.stdout).toContain("tesSUCCESS");
   }, 90_000);
 
-  it("--json outputs hash, result, fee, ledger, credentialId", async () => {
+  it.concurrent("--json outputs hash, result, fee, ledger, credentialId", async () => {
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const result = runCLI([
       "--node", "testnet",
@@ -114,7 +114,7 @@ describe("credential create", () => {
     expect(out.credentialId).toMatch(/^[0-9A-Fa-f]{64}$/);
   }, 90_000);
 
-  it("--dry-run outputs JSON with TransactionType CredentialCreate and does not submit", async () => {
+  it.concurrent("--dry-run outputs JSON with TransactionType CredentialCreate and does not submit", async () => {
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const result = runCLI([
       "--node", "testnet",
@@ -134,7 +134,7 @@ describe("credential create", () => {
 // ─── credential accept ────────────────────────────────────────────────────────
 
 describe("credential accept", () => {
-  it("subject accepts a credential issued by the issuer", async () => {
+  it.concurrent("subject accepts a credential issued by the issuer", async () => {
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const credType = "KYC_ACCEPT";
     const credTypeHex = convertStringToHex(credType);
@@ -172,7 +172,7 @@ describe("credential accept", () => {
     expect((cred!.Flags! & 0x00010000) !== 0).toBe(true);
   }, 90_000);
 
-  it("--json outputs hash, result, fee, ledger", async () => {
+  it.concurrent("--json outputs hash, result, fee, ledger", async () => {
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const credType = "KYC_ACCEPT_JSON";
 
@@ -206,7 +206,7 @@ describe("credential accept", () => {
     expect(typeof out.ledger).toBe("number");
   }, 90_000);
 
-  it("--dry-run outputs JSON with TransactionType CredentialAccept and does not submit", async () => {
+  it.concurrent("--dry-run outputs JSON with TransactionType CredentialAccept and does not submit", async () => {
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const result = runCLI([
       "--node", "testnet",
@@ -222,7 +222,7 @@ describe("credential accept", () => {
     expect(typeof out.tx_blob).toBe("string");
   }, 90_000);
 
-  it("accepts credential with --credential-type-hex", async () => {
+  it.concurrent("accepts credential with --credential-type-hex", async () => {
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const credType = "KYC_ACCEPT_HEX";
     const credTypeHex = convertStringToHex(credType);
@@ -247,7 +247,7 @@ describe("credential accept", () => {
     expect(acceptResult.stdout).toContain("tesSUCCESS");
   }, 90_000);
 
-  it("--no-wait submits without waiting and prints hash", async () => {
+  it.concurrent("--no-wait submits without waiting and prints hash", async () => {
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const credType = "KYC_ACCEPT_NOWAIT";
 
@@ -276,7 +276,7 @@ describe("credential accept", () => {
 // ─── credential delete ────────────────────────────────────────────────────────
 
 describe("credential delete", () => {
-  it("issuer deletes a credential they created", async () => {
+  it.concurrent("issuer deletes a credential they created", async () => {
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const credType = "KYC_DELETE_ISSUER";
     const credTypeHex = convertStringToHex(credType);
@@ -312,7 +312,7 @@ describe("credential delete", () => {
     expect(cred).toBeUndefined();
   }, 90_000);
 
-  it("subject deletes their own accepted credential", async () => {
+  it.concurrent("subject deletes their own accepted credential", async () => {
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const credType = "KYC_DELETE_SUBJECT";
     const credTypeHex = convertStringToHex(credType);
@@ -357,7 +357,7 @@ describe("credential delete", () => {
     expect(cred).toBeUndefined();
   }, 90_000);
 
-  it("--json outputs hash, result, fee, ledger, credentialId", async () => {
+  it.concurrent("--json outputs hash, result, fee, ledger, credentialId", async () => {
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const credType = "KYC_DELETE_JSON";
 
@@ -393,7 +393,7 @@ describe("credential delete", () => {
     expect(typeof out.credentialId).toBe("string");
   }, 90_000);
 
-  it("--dry-run outputs JSON with TransactionType CredentialDelete and does not submit", async () => {
+  it.concurrent("--dry-run outputs JSON with TransactionType CredentialDelete and does not submit", async () => {
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const result = runCLI([
       "--node", "testnet",
@@ -409,7 +409,7 @@ describe("credential delete", () => {
     expect(typeof out.tx_blob).toBe("string");
   }, 90_000);
 
-  it("--credential-type-hex deletes credential using raw hex type", async () => {
+  it.concurrent("--credential-type-hex deletes credential using raw hex type", async () => {
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const credType = "KYC_DELETE_HEX";
     const credTypeHex = convertStringToHex(credType);
@@ -434,7 +434,7 @@ describe("credential delete", () => {
     expect(deleteResult.stdout).toContain("tesSUCCESS");
   }, 90_000);
 
-  it("--no-wait submits without waiting and prints hash", async () => {
+  it.concurrent("--no-wait submits without waiting and prints hash", async () => {
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const credType = "KYC_DELETE_NOWAIT";
 
@@ -463,7 +463,7 @@ describe("credential delete", () => {
 // ─── credential list ──────────────────────────────────────────────────────────
 
 describe("credential list", () => {
-  it("lists an accepted credential with accepted=yes", async () => {
+  it.concurrent("lists an accepted credential with accepted=yes", async () => {
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const credType = "KYC_LIST_ACCEPTED";
 
@@ -497,7 +497,7 @@ describe("credential list", () => {
     expect(listResult.stdout).toContain(subject.address);
   }, 90_000);
 
-  it("lists a pending credential with accepted=no", async () => {
+  it.concurrent("lists a pending credential with accepted=no", async () => {
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const credType = "KYC_LIST_PENDING";
 
@@ -520,7 +520,7 @@ describe("credential list", () => {
     expect(listResult.stdout).toContain("Accepted:        no");
   }, 90_000);
 
-  it("--json outputs raw JSON array with accepted credential", async () => {
+  it.concurrent("--json outputs raw JSON array with accepted credential", async () => {
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const credType = "KYC_LIST_JSON";
     const credTypeHex = convertStringToHex(credType);

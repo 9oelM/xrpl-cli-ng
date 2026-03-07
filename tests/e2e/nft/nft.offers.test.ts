@@ -82,7 +82,7 @@ function createBuyOffer(wallet: Wallet, nftokenId: string, amountXrp: string, ow
 // ─── nft offer create ────────────────────────────────────────────────────────
 
 describe("nft offer create", () => {
-  it("creates a sell offer and prints OfferID", async () => {
+  it.concurrent("creates a sell offer and prints OfferID", async () => {
     const [seller] = await createFunded(client, master, 1, FUND_AMOUNT);
     const nftokenId = mintNFT(seller);
 
@@ -99,7 +99,7 @@ describe("nft offer create", () => {
     expect(result.stdout).toMatch(/OfferID:\s+[0-9A-Fa-f]{64}/i);
   }, 90_000);
 
-  it("creates a buy offer and prints OfferID", async () => {
+  it.concurrent("creates a buy offer and prints OfferID", async () => {
     const [seller, buyer] = await createFunded(client, master, 2, FUND_AMOUNT);
     const nftokenId = mintNFT(seller);
 
@@ -116,7 +116,7 @@ describe("nft offer create", () => {
     expect(result.stdout).toMatch(/OfferID:\s+[0-9A-Fa-f]{64}/i);
   }, 90_000);
 
-  it("--expiration sets future expiration and succeeds", async () => {
+  it.concurrent("--expiration sets future expiration and succeeds", async () => {
     const [seller] = await createFunded(client, master, 1, FUND_AMOUNT);
     const nftokenId = mintNFT(seller);
 
@@ -138,7 +138,7 @@ describe("nft offer create", () => {
     expect(out.offerId).toMatch(/^[0-9A-Fa-f]{64}$/i);
   }, 90_000);
 
-  it("--json outputs structured JSON with offerId", async () => {
+  it.concurrent("--json outputs structured JSON with offerId", async () => {
     const [seller] = await createFunded(client, master, 1, FUND_AMOUNT);
     const nftokenId = mintNFT(seller);
 
@@ -160,7 +160,7 @@ describe("nft offer create", () => {
     expect(out.offerId).toMatch(/^[0-9A-Fa-f]{64}$/i);
   }, 90_000);
 
-  it("--dry-run outputs tx_blob and tx without submitting", async () => {
+  it.concurrent("--dry-run outputs tx_blob and tx without submitting", async () => {
     const [seller] = await createFunded(client, master, 1, FUND_AMOUNT);
     const nftokenId = "0".repeat(64);
     const result = runCLI([
@@ -184,7 +184,7 @@ describe("nft offer create", () => {
     expect(out.tx.Flags & 0x00000001).not.toBe(0);
   }, 90_000);
 
-  it("--no-wait submits and outputs hash", async () => {
+  it.concurrent("--no-wait submits and outputs hash", async () => {
     const [seller] = await createFunded(client, master, 1, FUND_AMOUNT);
     const nftokenId = mintNFT(seller);
 
@@ -201,7 +201,7 @@ describe("nft offer create", () => {
     expect(result.stdout).toMatch(/[0-9A-Fa-f]{64}/);
   }, 90_000);
 
-  it("--destination restricts the offer acceptor", async () => {
+  it.concurrent("--destination restricts the offer acceptor", async () => {
     const [seller, buyer] = await createFunded(client, master, 2, FUND_AMOUNT);
     const nftokenId = mintNFT(seller);
 
@@ -225,7 +225,7 @@ describe("nft offer create", () => {
 // ─── nft offer cancel ────────────────────────────────────────────────────────
 
 describe("nft offer cancel", () => {
-  it("cancels a single offer", async () => {
+  it.concurrent("cancels a single offer", async () => {
     const [account] = await createFunded(client, master, 1, FUND_AMOUNT);
     const nftokenId = mintNFT(account);
     const offerId = createSellOffer(account, nftokenId, "5");
@@ -240,7 +240,7 @@ describe("nft offer cancel", () => {
     expect(result.stdout).toContain("tesSUCCESS");
   }, 90_000);
 
-  it("cancels multiple offers in one tx", async () => {
+  it.concurrent("cancels multiple offers in one tx", async () => {
     const [account] = await createFunded(client, master, 1, FUND_AMOUNT);
     const nftokenId1 = mintNFT(account);
     const nftokenId2 = mintNFT(account);
@@ -258,7 +258,7 @@ describe("nft offer cancel", () => {
     expect(result.stdout).toContain("tesSUCCESS");
   }, 90_000);
 
-  it("--json outputs structured JSON", async () => {
+  it.concurrent("--json outputs structured JSON", async () => {
     const [account] = await createFunded(client, master, 1, FUND_AMOUNT);
     const nftokenId = mintNFT(account);
     const offerId = createSellOffer(account, nftokenId, "3");
@@ -278,7 +278,7 @@ describe("nft offer cancel", () => {
     expect(typeof out.ledger).toBe("number");
   }, 90_000);
 
-  it("--dry-run outputs tx_blob and tx without submitting", async () => {
+  it.concurrent("--dry-run outputs tx_blob and tx without submitting", async () => {
     const [account] = await createFunded(client, master, 1, FUND_AMOUNT);
     const dummyOfferId = "B".repeat(64);
     const result = runCLI([
@@ -298,7 +298,7 @@ describe("nft offer cancel", () => {
     expect(typeof out.tx_blob).toBe("string");
   }, 90_000);
 
-  it("--no-wait submits and outputs hash", async () => {
+  it.concurrent("--no-wait submits and outputs hash", async () => {
     const [account] = await createFunded(client, master, 1, FUND_AMOUNT);
     const nftokenId = mintNFT(account);
     const offerId = createSellOffer(account, nftokenId, "1");
@@ -318,7 +318,7 @@ describe("nft offer cancel", () => {
 // ─── nft offer accept ────────────────────────────────────────────────────────
 
 describe("nft offer accept", () => {
-  it("accepts a sell offer (direct) — buyer accepts seller's sell offer", async () => {
+  it.concurrent("accepts a sell offer (direct) — buyer accepts seller's sell offer", async () => {
     const [seller, buyer] = await createFunded(client, master, 2, FUND_AMOUNT);
     const nftokenId = mintNFT(seller);
     const sellOfferId = createSellOffer(seller, nftokenId, "0.01");
@@ -333,7 +333,7 @@ describe("nft offer accept", () => {
     expect(result.stdout).toContain("tesSUCCESS");
   }, 90_000);
 
-  it("accepts a buy offer (direct) — seller accepts buyer's buy offer", async () => {
+  it.concurrent("accepts a buy offer (direct) — seller accepts buyer's buy offer", async () => {
     const [seller, buyer] = await createFunded(client, master, 2, FUND_AMOUNT);
     const nftokenId = mintNFT(seller);
     const buyOfferId = createBuyOffer(buyer, nftokenId, "0.01", seller.address);
@@ -348,7 +348,7 @@ describe("nft offer accept", () => {
     expect(result.stdout).toContain("tesSUCCESS");
   }, 90_000);
 
-  it("brokered mode — broker accepts both sell and buy offers (no fee)", async () => {
+  it.concurrent("brokered mode — broker accepts both sell and buy offers (no fee)", async () => {
     // minter creates sell offer; buyer creates buy offer; broker executes the accept
     const [minter, buyer, broker] = await createFunded(client, master, 3, FUND_AMOUNT);
     const nftokenId = mintNFT(minter);
@@ -366,7 +366,7 @@ describe("nft offer accept", () => {
     expect(result.stdout).toContain("tesSUCCESS");
   }, 90_000);
 
-  it("--broker-fee option is accepted and appears in dry-run tx", async () => {
+  it.concurrent("--broker-fee option is accepted and appears in dry-run tx", async () => {
     const [seller] = await createFunded(client, master, 1, FUND_AMOUNT);
     const dummySellOfferId = "A".repeat(64);
     const dummyBuyOfferId = "B".repeat(64);
@@ -388,7 +388,7 @@ describe("nft offer accept", () => {
     expect(out.tx.NFTokenBrokerFee).toBe("1000000"); // 1 XRP = 1000000 drops
   }, 90_000);
 
-  it("--json outputs structured JSON", async () => {
+  it.concurrent("--json outputs structured JSON", async () => {
     const [seller, buyer] = await createFunded(client, master, 2, FUND_AMOUNT);
     const nftokenId = mintNFT(seller);
     const sellOfferId = createSellOffer(seller, nftokenId, "0.01");
@@ -408,7 +408,7 @@ describe("nft offer accept", () => {
     expect(typeof out.ledger).toBe("number");
   }, 90_000);
 
-  it("--dry-run outputs tx_blob and tx without submitting", async () => {
+  it.concurrent("--dry-run outputs tx_blob and tx without submitting", async () => {
     const [seller] = await createFunded(client, master, 1, FUND_AMOUNT);
     const dummyOfferId = "A".repeat(64);
     const result = runCLI([
@@ -428,7 +428,7 @@ describe("nft offer accept", () => {
     expect(typeof out.tx_blob).toBe("string");
   }, 90_000);
 
-  it("--no-wait submits and outputs hash", async () => {
+  it.concurrent("--no-wait submits and outputs hash", async () => {
     const [seller, buyer] = await createFunded(client, master, 2, FUND_AMOUNT);
     const nftokenId = mintNFT(seller);
     const sellOfferId = createSellOffer(seller, nftokenId, "0.01");
@@ -448,7 +448,7 @@ describe("nft offer accept", () => {
 // ─── nft offer list ──────────────────────────────────────────────────────────
 
 describe("nft offer list", () => {
-  it("lists both sell and buy offers in human-readable output", async () => {
+  it.concurrent("lists both sell and buy offers in human-readable output", async () => {
     const [seller, buyer] = await createFunded(client, master, 2, FUND_AMOUNT);
     const nftokenId = mintNFT(seller);
     const sellOfferId = createSellOffer(seller, nftokenId, "10");
@@ -470,7 +470,7 @@ describe("nft offer list", () => {
     expect(result.stdout).toContain("Destination:");
   }, 90_000);
 
-  it("--json outputs { sellOffers, buyOffers } with correct offer IDs", async () => {
+  it.concurrent("--json outputs { sellOffers, buyOffers } with correct offer IDs", async () => {
     const [seller, buyer] = await createFunded(client, master, 2, FUND_AMOUNT);
     const nftokenId = mintNFT(seller);
     const sellOfferId = createSellOffer(seller, nftokenId, "10");
@@ -497,7 +497,7 @@ describe("nft offer list", () => {
     expect(foundBuy, `buy offer ${buyOfferId} not in buyOffers`).toBeDefined();
   }, 90_000);
 
-  it("exits with error for invalid NFTokenID", () => {
+  it.concurrent("exits with error for invalid NFTokenID", () => {
     const result = runCLI([
       "--node", "testnet",
       "nft", "offer", "list",

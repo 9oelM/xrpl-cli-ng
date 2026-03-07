@@ -9,7 +9,8 @@ import {
   createFunded,
 } from "../helpers/fund.js";
 
-// 5 tests × 2 wallets each = 10 tickets
+// 5 tests × 2 wallets each = 10 tickets (all run concurrently); +2 buffer = 12
+// Budget: 12 × 0.2 + 10 × 3 XRP = 2.4 + 30 = 32.4 ≤ 99 ✓
 const TICKET_COUNT = 12;
 
 let client: Client;
@@ -27,7 +28,7 @@ afterAll(async () => {
 });
 
 describe("payment tokens", () => {
-  it("sends IOU payment (direct issuance) and verifies trust-line balance", async () => {
+  it.concurrent("sends IOU payment (direct issuance) and verifies trust-line balance", async () => {
     const [iouIssuer, iouReceiver] = await createFunded(client, master, 2, 3);
 
     // Receiver sets up trust line to issuer
@@ -65,7 +66,7 @@ describe("payment tokens", () => {
     expect(Number(usdLine!.balance)).toBe(10);
   }, 90_000);
 
-  it("sends MPT payment from issuer to receiver and gets tesSUCCESS", async () => {
+  it.concurrent("sends MPT payment from issuer to receiver and gets tesSUCCESS", async () => {
     const [mptIssuer, mptReceiver] = await createFunded(client, master, 2, 3);
 
     // Create MPToken issuance
@@ -101,7 +102,7 @@ describe("payment tokens", () => {
     expect(result.stdout).toContain("tesSUCCESS");
   }, 90_000);
 
-  it("--paths '[]' (empty array) is accepted without error", async () => {
+  it.concurrent("--paths '[]' (empty array) is accepted without error", async () => {
     const [sender, receiver] = await createFunded(client, master, 2, 3);
 
     const result = runCLI([
@@ -116,7 +117,7 @@ describe("payment tokens", () => {
     expect(result.stdout).toContain("tesSUCCESS");
   }, 60_000);
 
-  it("--partial --json output includes deliveredAmount (IOU partial payment)", async () => {
+  it.concurrent("--partial --json output includes deliveredAmount (IOU partial payment)", async () => {
     const [flagIssuer, flagHolder] = await createFunded(client, master, 2, 3);
 
     const trustTx: TrustSet = await client.autofill({
@@ -142,7 +143,7 @@ describe("payment tokens", () => {
     expect(out.deliveredAmount).toBeDefined();
   }, 90_000);
 
-  it("--partial --deliver-min --send-max IOU payment asserts deliveredAmount >= deliver-min", async () => {
+  it.concurrent("--partial --deliver-min --send-max IOU payment asserts deliveredAmount >= deliver-min", async () => {
     const [flagIssuer, flagHolder] = await createFunded(client, master, 2, 3);
 
     const trustTx: TrustSet = await client.autofill({

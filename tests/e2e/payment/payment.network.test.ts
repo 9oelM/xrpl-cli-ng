@@ -14,7 +14,8 @@ import {
   fundAddress,
 } from "../helpers/fund.js";
 
-// 12 tests × 2 wallets = 24 tickets; +1 for mnemonic wallet = 25 total
+// 11 tests × 2 wallets = 22 tickets (all run concurrently); +3 buffer = 25
+// Budget: 25 × 0.2 + 22 × 3 XRP = 5 + 66 = 71 ≤ 99 ✓
 const TICKET_COUNT = 25;
 
 let client: Client;
@@ -38,7 +39,7 @@ function getBalanceDrops(address: string): number {
 }
 
 describe("payment network", () => {
-  it("sends 1 XRP between testnet accounts and prints tesSUCCESS", async () => {
+  it.concurrent("sends 1 XRP between testnet accounts and prints tesSUCCESS", async () => {
     const [sender, receiver] = await createFunded(client, master, 2, 3);
 
     const senderBefore = getBalanceDrops(sender.address);
@@ -59,9 +60,9 @@ describe("payment network", () => {
 
     expect(senderBefore - senderAfter).toBeGreaterThanOrEqual(1_000_000);
     expect(receiverAfter - receiverBefore).toBe(1_000_000);
-  }, 60_000);
+  }, 90_000);
 
-  it("alias 'send' works", async () => {
+  it.concurrent("alias 'send' works", async () => {
     const [sender, receiver] = await createFunded(client, master, 2, 3);
 
     const result = runCLI([
@@ -73,9 +74,9 @@ describe("payment network", () => {
     ]);
     expect(result.status).toBe(0);
     expect(result.stdout).toContain("tesSUCCESS");
-  }, 60_000);
+  }, 90_000);
 
-  it("--dry-run outputs JSON with TransactionType Payment and does not submit", async () => {
+  it.concurrent("--dry-run outputs JSON with TransactionType Payment and does not submit", async () => {
     const [sender, receiver] = await createFunded(client, master, 2, 3);
 
     const txsBefore = runCLI([
@@ -104,9 +105,9 @@ describe("payment network", () => {
     ]);
     expect(txsAfter.status).toBe(0);
     expect((JSON.parse(txsAfter.stdout) as { transactions: unknown[] }).transactions.length).toBe(countBefore);
-  }, 60_000);
+  }, 90_000);
 
-  it("--no-wait exits 0 and output contains a 64-char hex hash", async () => {
+  it.concurrent("--no-wait exits 0 and output contains a 64-char hex hash", async () => {
     const [sender, receiver] = await createFunded(client, master, 2, 3);
 
     const result = runCLI([
@@ -119,9 +120,9 @@ describe("payment network", () => {
     ]);
     expect(result.status).toBe(0);
     expect(result.stdout).toMatch(/[0-9A-Fa-f]{64}/);
-  }, 60_000);
+  }, 90_000);
 
-  it("--destination-tag sets DestinationTag on the submitted tx", async () => {
+  it.concurrent("--destination-tag sets DestinationTag on the submitted tx", async () => {
     const [sender, receiver] = await createFunded(client, master, 2, 3);
 
     const result = runCLI([
@@ -146,9 +147,9 @@ describe("payment network", () => {
     const txsData = JSON.parse(txsResult.stdout) as { transactions: Array<{ tx_json?: { DestinationTag?: number } }> };
     const recentTx = txsData.transactions.find((t) => t.tx_json?.DestinationTag === 12345);
     expect(recentTx).toBeDefined();
-  }, 60_000);
+  }, 90_000);
 
-  it("--memo attaches a Memos entry to the tx", async () => {
+  it.concurrent("--memo attaches a Memos entry to the tx", async () => {
     const [sender, receiver] = await createFunded(client, master, 2, 3);
 
     const result = runCLI([
@@ -165,9 +166,9 @@ describe("payment network", () => {
     expect(out.result).toBe("tesSUCCESS");
     expect(Array.isArray(out.memos)).toBe(true);
     expect(out.memos.length).toBeGreaterThan(0);
-  }, 60_000);
+  }, 90_000);
 
-  it("--memo-type and --memo-format are included in dry-run tx Memos", async () => {
+  it.concurrent("--memo-type and --memo-format are included in dry-run tx Memos", async () => {
     const [sender, receiver] = await createFunded(client, master, 2, 3);
     const memoTypeHex = Buffer.from("text/plain").toString("hex").toUpperCase();
     const memoFormatHex = Buffer.from("text/plain").toString("hex").toUpperCase();
@@ -193,9 +194,9 @@ describe("payment network", () => {
     expect(out.tx.Memos![0].Memo.MemoType!.length).toBeGreaterThan(0);
     expect(typeof out.tx.Memos![0].Memo.MemoFormat).toBe("string");
     expect(out.tx.Memos![0].Memo.MemoFormat!.length).toBeGreaterThan(0);
-  }, 60_000);
+  }, 90_000);
 
-  it("--mnemonic key material sends successfully", async () => {
+  it.concurrent("--mnemonic key material sends successfully", async () => {
     const testMnemonic = generateMnemonic(wordlist);
     const mnemonicWallet = Wallet.fromMnemonic(testMnemonic, {
       mnemonicEncoding: "bip39",
@@ -213,9 +214,9 @@ describe("payment network", () => {
     ]);
     expect(result.status, `stdout: ${result.stdout} stderr: ${result.stderr}`).toBe(0);
     expect(result.stdout).toContain("tesSUCCESS");
-  }, 60_000);
+  }, 90_000);
 
-  it("--account + --keystore + --password key material sends successfully", async () => {
+  it.concurrent("--account + --keystore + --password key material sends successfully", async () => {
     const [sender, receiver] = await createFunded(client, master, 2, 3);
     const tmpDir = mkdtempSync(resolve(tmpdir(), "xrpl-test-keystore-"));
     try {
@@ -241,9 +242,9 @@ describe("payment network", () => {
     } finally {
       rmSync(tmpDir, { recursive: true, force: true });
     }
-  }, 60_000);
+  }, 90_000);
 
-  it("--no-ripple-direct sets tfNoRippleDirect bit in dry-run tx Flags", async () => {
+  it.concurrent("--no-ripple-direct sets tfNoRippleDirect bit in dry-run tx Flags", async () => {
     const [sender, receiver] = await createFunded(client, master, 2, 3);
 
     const result = runCLI([
@@ -260,9 +261,9 @@ describe("payment network", () => {
     expect(out.tx.Flags).toBeDefined();
     // tfNoRippleDirect = 0x00010000 = 65536
     expect((out.tx.Flags! & 0x00010000)).not.toBe(0);
-  }, 60_000);
+  }, 90_000);
 
-  it("--limit-quality sets tfLimitQuality bit in dry-run tx Flags", async () => {
+  it.concurrent("--limit-quality sets tfLimitQuality bit in dry-run tx Flags", async () => {
     const [sender, receiver] = await createFunded(client, master, 2, 3);
 
     const result = runCLI([
@@ -279,9 +280,9 @@ describe("payment network", () => {
     expect(out.tx.Flags).toBeDefined();
     // tfLimitQuality = 0x00040000 = 262144
     expect((out.tx.Flags! & 0x00040000)).not.toBe(0);
-  }, 60_000);
+  }, 90_000);
 
-  it("--amount with invalid format exits 1 and stderr contains 'invalid amount'", () => {
+  it.concurrent("--amount with invalid format exits 1 and stderr contains 'invalid amount'", () => {
     // Validation test — uses static values, no network call
     const result = runCLI([
       "--node", "testnet",

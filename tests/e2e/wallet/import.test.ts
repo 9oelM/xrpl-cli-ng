@@ -7,7 +7,7 @@ import { join } from "path";
 
 
 describe("wallet import", () => {
-  it("imports a seed with --password and --keystore and creates the keystore file", () => {
+  it.concurrent("imports a seed with --password and --keystore and creates the keystore file", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const newResult = runCLI(["wallet", "new", "--json"]);
@@ -40,7 +40,7 @@ describe("wallet import", () => {
     }
   });
 
-  it("exits 1 if keystore file already exists without --force", () => {
+  it.concurrent("exits 1 if keystore file already exists without --force", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const newResult = runCLI(["wallet", "new", "--json"]);
@@ -60,7 +60,7 @@ describe("wallet import", () => {
     }
   });
 
-  it("--force overwrites existing keystore file", () => {
+  it.concurrent("--force overwrites existing keystore file", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const newResult = runCLI(["wallet", "new", "--json"]);
@@ -84,7 +84,7 @@ describe("wallet import", () => {
     }
   });
 
-  it("alias 'i' works", () => {
+  it.concurrent("alias 'i' works", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const newResult = runCLI(["wallet", "new", "--json"]);
@@ -101,7 +101,7 @@ describe("wallet import", () => {
     }
   });
 
-  it("respects XRPL_KEYSTORE env var", () => {
+  it.concurrent("respects XRPL_KEYSTORE env var", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const newResult = runCLI(["wallet", "new", "--json"]);
@@ -120,7 +120,7 @@ describe("wallet import", () => {
     }
   });
 
-  it("--alias stores label in keystore JSON and shows in alias list", () => {
+  it.concurrent("--alias stores label in keystore JSON and shows in alias list", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const newResult = runCLI(["wallet", "new", "--json"]);
@@ -151,7 +151,7 @@ describe("wallet import", () => {
     }
   });
 
-  it("--alias exits 1 if alias already taken; --force succeeds", () => {
+  it.concurrent("--alias exits 1 if alias already taken; --force succeeds", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const wallet1 = JSON.parse(runCLI(["wallet", "new", "--json"]).stdout) as { seed: string; address: string };
@@ -185,7 +185,7 @@ describe("wallet import", () => {
     }
   });
 
-  it("imports a secp256k1 seed and creates correct keystore", () => {
+  it.concurrent("imports a secp256k1 seed and creates correct keystore", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const newResult = runCLI(["wallet", "new", "--key-type", "secp256k1", "--json"]);

@@ -7,7 +7,7 @@ import { join } from "path";
 
 
 describe("wallet new", () => {
-  it("generates a valid wallet with --json flag", () => {
+  it.concurrent("generates a valid wallet with --json flag", () => {
     const result = runCLI(["wallet", "new", "--json"]);
     expect(result.status).toBe(0);
     const wallet = JSON.parse(result.stdout) as {
@@ -23,14 +23,14 @@ describe("wallet new", () => {
     expect(wallet.privateKey).toBeTruthy();
   });
 
-  it("defaults to ed25519 key type", () => {
+  it.concurrent("defaults to ed25519 key type", () => {
     const result = runCLI(["wallet", "new", "--json"]);
     expect(result.status).toBe(0);
     const wallet = JSON.parse(result.stdout) as { keyType: string };
     expect(wallet.keyType).toBe("ed25519");
   });
 
-  it("uses secp256k1 when --key-type secp256k1 is passed", () => {
+  it.concurrent("uses secp256k1 when --key-type secp256k1 is passed", () => {
     const result = runCLI(["wallet", "new", "--key-type", "secp256k1", "--json"]);
     expect(result.status).toBe(0);
     const wallet = JSON.parse(result.stdout) as {
@@ -41,7 +41,7 @@ describe("wallet new", () => {
     expect(wallet.address).toMatch(/^r/);
   });
 
-  it("prints labelled lines without --json", () => {
+  it.concurrent("prints labelled lines without --json", () => {
     const result = runCLI(["wallet", "new"]);
     expect(result.status).toBe(0);
     expect(result.stdout).toMatch(/^Address:/m);
@@ -50,14 +50,14 @@ describe("wallet new", () => {
     expect(result.stdout).toMatch(/^Seed:/m);
   });
 
-  it("alias 'n' works", () => {
+  it.concurrent("alias 'n' works", () => {
     const result = runCLI(["wallet", "n", "--json"]);
     expect(result.status).toBe(0);
     const wallet = JSON.parse(result.stdout) as { address: string };
     expect(wallet.address).toMatch(/^r/);
   });
 
-  it("--save writes keystore file and outputs keystorePath", () => {
+  it.concurrent("--save writes keystore file and outputs keystorePath", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-new-"));
     try {
       const result = runCLI([
@@ -78,7 +78,7 @@ describe("wallet new", () => {
     }
   });
 
-  it("--save --alias stores label in keystore JSON and appears in alias list", () => {
+  it.concurrent("--save --alias stores label in keystore JSON and appears in alias list", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-new-"));
     try {
       const result = runCLI([
@@ -98,7 +98,7 @@ describe("wallet new", () => {
     }
   });
 
-  it("--save without --password in non-TTY mode exits 1 with error message", () => {
+  it.concurrent("--save without --password in non-TTY mode exits 1 with error message", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-new-"));
     try {
       const result = runCLI(["wallet", "new", "--save", "--keystore", tmpDir]);
@@ -111,7 +111,7 @@ describe("wallet new", () => {
 });
 
 describe("wallet new-mnemonic --save", () => {
-  it("--save writes keystore file containing the mnemonic", () => {
+  it.concurrent("--save writes keystore file containing the mnemonic", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-new-mnemonic-"));
     try {
       const result = runCLI([

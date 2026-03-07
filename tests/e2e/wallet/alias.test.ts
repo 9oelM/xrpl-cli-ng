@@ -7,7 +7,7 @@ import { join } from "path";
 
 
 describe("wallet alias set / remove", () => {
-  it("sets an alias on an imported wallet and removes it", () => {
+  it.concurrent("sets an alias on an imported wallet and removes it", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const newResult = runCLI(["wallet", "new", "--json"]);
@@ -42,7 +42,7 @@ describe("wallet alias set / remove", () => {
     }
   });
 
-  it("alias set exits 1 if address not found in keystore", () => {
+  it.concurrent("alias set exits 1 if address not found in keystore", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const result = runCLI([
@@ -56,7 +56,7 @@ describe("wallet alias set / remove", () => {
     }
   });
 
-  it("alias remove exits 1 if address not found in keystore", () => {
+  it.concurrent("alias remove exits 1 if address not found in keystore", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const result = runCLI([
@@ -70,7 +70,7 @@ describe("wallet alias set / remove", () => {
     }
   });
 
-  it("alias set exits 1 if name already used by different address", () => {
+  it.concurrent("alias set exits 1 if name already used by different address", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const wallet1 = JSON.parse(runCLI(["wallet", "new", "--json"]).stdout) as { seed: string; address: string };
@@ -98,7 +98,7 @@ describe("wallet alias set / remove", () => {
     }
   });
 
-  it("alias list shows labelled wallets and omits unlabelled ones", () => {
+  it.concurrent("alias list shows labelled wallets and omits unlabelled ones", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const wallet1 = JSON.parse(runCLI(["wallet", "new", "--json"]).stdout) as { seed: string; address: string };
@@ -126,7 +126,7 @@ describe("wallet alias set / remove", () => {
     }
   });
 
-  it("alias list --json outputs valid JSON array with alias and address fields", () => {
+  it.concurrent("alias list --json outputs valid JSON array with alias and address fields", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const wallet1 = JSON.parse(runCLI(["wallet", "new", "--json"]).stdout) as { seed: string; address: string };
@@ -146,7 +146,7 @@ describe("wallet alias set / remove", () => {
     }
   });
 
-  it("alias list prints (no aliases set) when no labelled wallets exist", () => {
+  it.concurrent("alias list prints (no aliases set) when no labelled wallets exist", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const listResult = runCLI(["wallet", "alias", "list", "--keystore", tmpDir]);
@@ -157,7 +157,7 @@ describe("wallet alias set / remove", () => {
     }
   });
 
-  it("respects XRPL_KEYSTORE env var", () => {
+  it.concurrent("respects XRPL_KEYSTORE env var", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const { seed, address } = JSON.parse(runCLI(["wallet", "new", "--json"]).stdout) as {

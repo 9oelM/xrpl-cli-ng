@@ -4,7 +4,7 @@ import { runCLI } from "../../helpers/cli.js";
 
 
 describe("wallet new-mnemonic", () => {
-  it("generates a 12-word mnemonic and valid address with --json", () => {
+  it.concurrent("generates a 12-word mnemonic and valid address with --json", () => {
     const result = runCLI(["wallet", "new-mnemonic", "--json"]);
     expect(result.status).toBe(0);
     const wallet = JSON.parse(result.stdout) as {
@@ -23,14 +23,14 @@ describe("wallet new-mnemonic", () => {
     expect(wallet.keyType).toBe("ed25519");
   });
 
-  it("uses the default derivation path m/44'/144'/0'/0/0", () => {
+  it.concurrent("uses the default derivation path m/44'/144'/0'/0/0", () => {
     const result = runCLI(["wallet", "new-mnemonic", "--json"]);
     expect(result.status).toBe(0);
     const wallet = JSON.parse(result.stdout) as { derivationPath: string };
     expect(wallet.derivationPath).toBe("m/44'/144'/0'/0/0");
   });
 
-  it("respects --derivation-path override", () => {
+  it.concurrent("respects --derivation-path override", () => {
     const result = runCLI([
       "wallet",
       "new-mnemonic",
@@ -43,7 +43,7 @@ describe("wallet new-mnemonic", () => {
     expect(wallet.derivationPath).toBe("m/44'/144'/1'/0/0");
   });
 
-  it("supports secp256k1 key type", () => {
+  it.concurrent("supports secp256k1 key type", () => {
     const result = runCLI([
       "wallet",
       "new-mnemonic",
@@ -60,7 +60,7 @@ describe("wallet new-mnemonic", () => {
     expect(wallet.address).toMatch(/^r/);
   });
 
-  it("prints labelled lines without --json", () => {
+  it.concurrent("prints labelled lines without --json", () => {
     const result = runCLI(["wallet", "new-mnemonic"]);
     expect(result.status).toBe(0);
     expect(result.stdout).toMatch(/^Mnemonic:/m);
@@ -70,7 +70,7 @@ describe("wallet new-mnemonic", () => {
     expect(result.stdout).toMatch(/^Private Key:/m);
   });
 
-  it("alias 'nm' works", () => {
+  it.concurrent("alias 'nm' works", () => {
     const result = runCLI(["wallet", "nm", "--json"]);
     expect(result.status).toBe(0);
     const wallet = JSON.parse(result.stdout) as { mnemonic: string };

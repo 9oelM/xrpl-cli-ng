@@ -7,7 +7,7 @@ const DUMMY_SEED = "snoPBrXtMeMyMHUVTgbuqAfg1SUTb";
 const DUMMY_CHECK_ID = "49647F0D748DC3FE26BDACBC57F251AADEFFF391403EC9BF87C97F67E9977FB0";
 
 describe("check create validation (no network)", () => {
-  it("missing --to exits 1", () => {
+  it.concurrent("missing --to exits 1", () => {
     const result = runCLI([
       "check", "create",
       "--send-max", "10",
@@ -16,7 +16,7 @@ describe("check create validation (no network)", () => {
     expect(result.status).toBe(1);
   });
 
-  it("missing --send-max exits 1", () => {
+  it.concurrent("missing --send-max exits 1", () => {
     const result = runCLI([
       "check", "create",
       "--to", DUMMY_ADDRESS,
@@ -25,7 +25,7 @@ describe("check create validation (no network)", () => {
     expect(result.status).toBe(1);
   });
 
-  it("missing key material exits 1 with error message", () => {
+  it.concurrent("missing key material exits 1 with error message", () => {
     const result = runCLI([
       "check", "create",
       "--to", DUMMY_ADDRESS,
@@ -35,7 +35,7 @@ describe("check create validation (no network)", () => {
     expect(result.stderr).toContain("Error:");
   });
 
-  it("invalid ISO date in --expiration exits 1 with error message", () => {
+  it.concurrent("invalid ISO date in --expiration exits 1 with error message", () => {
     const result = runCLI([
       "check", "create",
       "--to", DUMMY_ADDRESS,
@@ -47,7 +47,7 @@ describe("check create validation (no network)", () => {
     expect(result.stderr).toContain("Error:");
   });
 
-  it("--invoice-id > 32 bytes exits 1 with error message", () => {
+  it.concurrent("--invoice-id > 32 bytes exits 1 with error message", () => {
     const result = runCLI([
       "check", "create",
       "--to", DUMMY_ADDRESS,
@@ -61,7 +61,7 @@ describe("check create validation (no network)", () => {
 });
 
 describe("check cash validation (no network)", () => {
-  it("missing --check exits 1", () => {
+  it.concurrent("missing --check exits 1", () => {
     const result = runCLI([
       "check", "cash",
       "--amount", "10",
@@ -70,7 +70,7 @@ describe("check cash validation (no network)", () => {
     expect(result.status).toBe(1);
   });
 
-  it("missing both --amount and --deliver-min exits 1 with error message", () => {
+  it.concurrent("missing both --amount and --deliver-min exits 1 with error message", () => {
     const result = runCLI([
       "check", "cash",
       "--check", DUMMY_CHECK_ID,
@@ -80,7 +80,7 @@ describe("check cash validation (no network)", () => {
     expect(result.stderr).toContain("Error:");
   });
 
-  it("providing both --amount and --deliver-min exits 1 with error message", () => {
+  it.concurrent("providing both --amount and --deliver-min exits 1 with error message", () => {
     const result = runCLI([
       "check", "cash",
       "--check", DUMMY_CHECK_ID,
@@ -92,7 +92,7 @@ describe("check cash validation (no network)", () => {
     expect(result.stderr).toContain("Error:");
   });
 
-  it("missing key material exits 1 with error message", () => {
+  it.concurrent("missing key material exits 1 with error message", () => {
     const result = runCLI([
       "check", "cash",
       "--check", DUMMY_CHECK_ID,
@@ -104,7 +104,7 @@ describe("check cash validation (no network)", () => {
 });
 
 describe("check cancel validation (no network)", () => {
-  it("missing --check exits 1", () => {
+  it.concurrent("missing --check exits 1", () => {
     const result = runCLI([
       "check", "cancel",
       "--seed", DUMMY_SEED,
@@ -112,7 +112,7 @@ describe("check cancel validation (no network)", () => {
     expect(result.status).toBe(1);
   });
 
-  it("missing key material exits 1 with error message", () => {
+  it.concurrent("missing key material exits 1 with error message", () => {
     const result = runCLI([
       "check", "cancel",
       "--check", DUMMY_CHECK_ID,

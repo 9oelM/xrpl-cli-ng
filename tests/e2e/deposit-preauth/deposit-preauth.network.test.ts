@@ -12,9 +12,8 @@ import {
   createFunded,
 } from "../helpers/fund.js";
 
-// Budget: 30 tickets × 0.2 = 6 XRP; 28 wallets × 2 XRP = 56 XRP; total 62 ≤ 99 ✓
-// 14 tests × 2 wallets (owner + other) = 28 wallets
-// credIssuer is Wallet.generate() (unfunded) — only its address is needed for preauth entries
+// 14 tests concurrent: 13×2 wallets + 1×1 wallet = 27 wallets; +3 buffer = 30
+// Budget: 30 × 0.2 + 27 × 2 XRP = 6 + 54 = 60 ≤ 99 ✓ (credIssuer uses Wallet.generate() for some tests)
 const TICKET_COUNT = 30;
 const FUND_AMOUNT = 2;
 
@@ -47,7 +46,7 @@ async function enableDepositAuth(owner: Wallet): Promise<void> {
 // ─── deposit-preauth set ──────────────────────────────────────────────────────
 
 describe("deposit-preauth set", () => {
-  it("authorize an account succeeds", async () => {
+  it.concurrent("authorize an account succeeds", async () => {
     const [owner, other] = await createFunded(client, master, 2, FUND_AMOUNT);
     await enableDepositAuth(owner);
 
@@ -61,7 +60,7 @@ describe("deposit-preauth set", () => {
     expect(result.stdout).toContain("tesSUCCESS");
   }, 90_000);
 
-  it("unauthorize an account succeeds (authorize then unauthorize)", async () => {
+  it.concurrent("unauthorize an account succeeds (authorize then unauthorize)", async () => {
     const [owner, other] = await createFunded(client, master, 2, FUND_AMOUNT);
     await enableDepositAuth(owner);
 
@@ -85,7 +84,7 @@ describe("deposit-preauth set", () => {
     expect(result.stdout).toContain("tesSUCCESS");
   }, 90_000);
 
-  it("authorize by credential succeeds", async () => {
+  it.concurrent("authorize by credential succeeds", async () => {
     const [owner, credIssuer] = await createFunded(client, master, 2, FUND_AMOUNT);
     await enableDepositAuth(owner);
 
@@ -100,7 +99,7 @@ describe("deposit-preauth set", () => {
     expect(result.stdout).toContain("tesSUCCESS");
   }, 90_000);
 
-  it("unauthorize by credential succeeds", async () => {
+  it.concurrent("unauthorize by credential succeeds", async () => {
     const [owner, credIssuer] = await createFunded(client, master, 2, FUND_AMOUNT);
     await enableDepositAuth(owner);
 
@@ -126,7 +125,7 @@ describe("deposit-preauth set", () => {
     expect(result.stdout).toContain("tesSUCCESS");
   }, 90_000);
 
-  it("authorize with --credential-type-hex succeeds", async () => {
+  it.concurrent("authorize with --credential-type-hex succeeds", async () => {
     const [owner, credIssuer] = await createFunded(client, master, 2, FUND_AMOUNT);
     await enableDepositAuth(owner);
 
@@ -141,7 +140,7 @@ describe("deposit-preauth set", () => {
     expect(result.stdout).toContain("tesSUCCESS");
   }, 90_000);
 
-  it("--json outputs hash, result, fee, ledger", async () => {
+  it.concurrent("--json outputs hash, result, fee, ledger", async () => {
     const [owner, other] = await createFunded(client, master, 2, FUND_AMOUNT);
     await enableDepositAuth(owner);
 
@@ -165,7 +164,7 @@ describe("deposit-preauth set", () => {
     expect(typeof out.ledger).toBe("number");
   }, 90_000);
 
-  it("--dry-run outputs JSON with TransactionType DepositPreauth and does not submit", async () => {
+  it.concurrent("--dry-run outputs JSON with TransactionType DepositPreauth and does not submit", async () => {
     const [owner, other] = await createFunded(client, master, 2, FUND_AMOUNT);
 
     const result = runCLI([
@@ -181,7 +180,7 @@ describe("deposit-preauth set", () => {
     expect(typeof out.tx_blob).toBe("string");
   }, 90_000);
 
-  it("--no-wait submits without waiting for validation", async () => {
+  it.concurrent("--no-wait submits without waiting for validation", async () => {
     const [owner, other] = await createFunded(client, master, 2, FUND_AMOUNT);
     await enableDepositAuth(owner);
 
@@ -196,7 +195,7 @@ describe("deposit-preauth set", () => {
     expect(result.stdout).toContain("Transaction:");
   }, 90_000);
 
-  it("--account + --keystore + --password key material authorizes successfully", async () => {
+  it.concurrent("--account + --keystore + --password key material authorizes successfully", async () => {
     const [owner, other] = await createFunded(client, master, 2, FUND_AMOUNT);
     await enableDepositAuth(owner);
 
@@ -229,7 +228,7 @@ describe("deposit-preauth set", () => {
 // ─── deposit-preauth list ─────────────────────────────────────────────────────
 
 describe("deposit-preauth list", () => {
-  it("shows 'No deposit preauthorizations.' for account with none", async () => {
+  it.concurrent("shows 'No deposit preauthorizations.' for account with none", async () => {
     const [owner] = await createFunded(client, master, 1, FUND_AMOUNT);
     const result = runCLI([
       "--node", "testnet",
@@ -240,7 +239,7 @@ describe("deposit-preauth list", () => {
     expect(result.stdout).toContain("No deposit preauthorizations.");
   }, 90_000);
 
-  it("shows authorized account after authorize", async () => {
+  it.concurrent("shows authorized account after authorize", async () => {
     const [owner, other] = await createFunded(client, master, 2, FUND_AMOUNT);
     await enableDepositAuth(owner);
 
@@ -261,7 +260,7 @@ describe("deposit-preauth list", () => {
     expect(result.stdout).toContain(`Account: ${other.address}`);
   }, 90_000);
 
-  it("shows credential preauth after authorize-credential", async () => {
+  it.concurrent("shows credential preauth after authorize-credential", async () => {
     const [owner, credIssuer] = await createFunded(client, master, 2, FUND_AMOUNT);
     await enableDepositAuth(owner);
 
@@ -283,7 +282,7 @@ describe("deposit-preauth list", () => {
     expect(result.stdout).toContain(`Credential: ${credIssuer.address} / KYC`);
   }, 90_000);
 
-  it("no longer shows account after unauthorize", async () => {
+  it.concurrent("no longer shows account after unauthorize", async () => {
     const [owner, other] = await createFunded(client, master, 2, FUND_AMOUNT);
     await enableDepositAuth(owner);
 
@@ -314,7 +313,7 @@ describe("deposit-preauth list", () => {
     expect(result.stdout).not.toContain(`Account: ${other.address}`);
   }, 90_000);
 
-  it("--json outputs array of raw objects including credential preauth", async () => {
+  it.concurrent("--json outputs array of raw objects including credential preauth", async () => {
     const [owner, credIssuer] = await createFunded(client, master, 2, FUND_AMOUNT);
     await enableDepositAuth(owner);
 

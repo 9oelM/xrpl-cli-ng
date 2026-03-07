@@ -19,8 +19,8 @@ import {
 // Dummy MPT issuance ID for --dry-run (4-byte seq + 20-byte account = 48 hex chars)
 const DUMMY_MPT_ID = "00000001AABBCCDDAABBCCDDAABBCCDDAABBCCDDAABBCCDD";
 
-// Budget: 14 tickets × 0.2 = 2.8 XRP; 12 funded wallets × 5 XRP = 60 XRP; total 62.8 ≤ 99 ✓
-// IOU tests (4): 3×2 + 1×1 = 7 wallets; MPT tests (3): 2×2 + 1×1 = 5 wallets; total 12 wallets.
+// 7 tests concurrent: IOU(4): 3×2+1×1=7 wallets; MPT(3): 2×2+1×1=5 wallets; total 12 wallets
+// Budget: 14 × 0.2 + 12 × 5 XRP = 2.8 + 60 = 62.8 ≤ 99 ✓
 const TICKET_COUNT = 14;
 // 5 XRP per wallet: covers base reserve (1) + trust line / MPT auth reserves (0.2 each) + fees.
 const FUND_AMOUNT = 5;
@@ -148,7 +148,7 @@ async function setupMptClawback(
 // clawback IOU
 // ---------------------------------------------------------------------------
 describe("clawback IOU", () => {
-  it("claws back IOU tokens from holder and gets tesSUCCESS", async () => {
+  it.concurrent("claws back IOU tokens from holder and gets tesSUCCESS", async () => {
     const [issuer, holder] = await setupIouClawback("100");
     const result = runCLI([
       "--node",
@@ -163,7 +163,7 @@ describe("clawback IOU", () => {
     expect(result.stdout).toContain("tesSUCCESS");
   }, 90_000);
 
-  it("--json outputs JSON with hash and result", async () => {
+  it.concurrent("--json outputs JSON with hash and result", async () => {
     const [issuer, holder] = await setupIouClawback("100");
     const result = runCLI([
       "--node",
@@ -186,7 +186,7 @@ describe("clawback IOU", () => {
     expect(out.hash).toBeDefined();
   }, 90_000);
 
-  it("--dry-run prints tx_blob without submitting", async () => {
+  it.concurrent("--dry-run prints tx_blob without submitting", async () => {
     const [issuer] = await createFunded(client, master, 1, FUND_AMOUNT);
     const holderAddr = Wallet.generate().address;
     const result = runCLI([
@@ -208,7 +208,7 @@ describe("clawback IOU", () => {
     expect(out.tx.TransactionType).toBe("Clawback");
   }, 60_000);
 
-  it("--no-wait submits without waiting for validation", async () => {
+  it.concurrent("--no-wait submits without waiting for validation", async () => {
     const [issuer, holder] = await setupIouClawback("100");
     const result = runCLI([
       "--node",
@@ -229,7 +229,7 @@ describe("clawback IOU", () => {
 // clawback MPT
 // ---------------------------------------------------------------------------
 describe("clawback MPT", () => {
-  it("claws back MPT tokens from holder and gets tesSUCCESS", async () => {
+  it.concurrent("claws back MPT tokens from holder and gets tesSUCCESS", async () => {
     const [issuer, holder, mptIssuanceId] = await setupMptClawback("100");
     const result = runCLI([
       "--node",
@@ -246,7 +246,7 @@ describe("clawback MPT", () => {
     expect(result.stdout).toContain("tesSUCCESS");
   }, 90_000);
 
-  it("--json outputs JSON with hash and result", async () => {
+  it.concurrent("--json outputs JSON with hash and result", async () => {
     const [issuer, holder, mptIssuanceId] = await setupMptClawback("100");
     const result = runCLI([
       "--node",
@@ -271,7 +271,7 @@ describe("clawback MPT", () => {
     expect(out.hash).toBeDefined();
   }, 90_000);
 
-  it("--dry-run prints tx_blob without submitting", async () => {
+  it.concurrent("--dry-run prints tx_blob without submitting", async () => {
     const [issuer] = await createFunded(client, master, 1, FUND_AMOUNT);
     const holderAddr = Wallet.generate().address;
     const result = runCLI([

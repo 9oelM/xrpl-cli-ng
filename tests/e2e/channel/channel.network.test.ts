@@ -11,9 +11,8 @@ import {
 // Dummy channel ID for dry-run tests (valid 64-hex-char format)
 const DUMMY_CHANNEL = "A".repeat(64);
 
-// Testnet reserves: base = 1 XRP, owner = 0.2 XRP per object, faucet = 100 XRP.
-// 22 tests × 2 wallets = 44 tickets; +4 buffer = 48.
-// Each wallet funded with 2 XRP: 44 × 2 = 88 XRP (fits in ~89 XRP available after ticket reserves).
+// 22 tests × 2 wallets = 44 wallets; +4 buffer = 48 tickets
+// Budget: 48 × 0.2 + 44 × 2 XRP = 9.6 + 88 = 97.6 ≤ 99 ✓
 const TICKET_COUNT = 48;
 // 2 XRP per wallet: 1 XRP base reserve + 1 XRP for channel ops.
 const FUND_AMOUNT = 2;
@@ -60,7 +59,7 @@ async function setupChannel(
 // channel create
 // ---------------------------------------------------------------------------
 describe("channel create", () => {
-  it("creates a channel and outputs channel ID", async () => {
+  it.concurrent("creates a channel and outputs channel ID", async () => {
     const [source, destination] = await createFunded(client, master, 2, FUND_AMOUNT);
     const result = runCLI([
       "--node", "testnet",
@@ -73,9 +72,9 @@ describe("channel create", () => {
     expect(result.status, `stdout: ${result.stdout} stderr: ${result.stderr}`).toBe(0);
     expect(result.stdout).toContain("tesSUCCESS");
     expect(result.stdout).toMatch(/Channel ID:\s+[0-9A-F]{64}/i);
-  }, 60_000);
+  }, 90_000);
 
-  it("--json outputs channelId in JSON", async () => {
+  it.concurrent("--json outputs channelId in JSON", async () => {
     const [source, destination] = await createFunded(client, master, 2, FUND_AMOUNT);
     const result = runCLI([
       "--node", "testnet",
@@ -94,9 +93,9 @@ describe("channel create", () => {
     };
     expect(out.result).toBe("tesSUCCESS");
     expect(out.channelId).toMatch(/^[0-9A-F]{64}$/i);
-  }, 60_000);
+  }, 90_000);
 
-  it("--dry-run outputs TransactionType PaymentChannelCreate without submitting", async () => {
+  it.concurrent("--dry-run outputs TransactionType PaymentChannelCreate without submitting", async () => {
     const [source, destination] = await createFunded(client, master, 2, FUND_AMOUNT);
     const result = runCLI([
       "--node", "testnet",
@@ -116,9 +115,9 @@ describe("channel create", () => {
     expect(typeof out.tx_blob).toBe("string");
     expect(out.tx.Amount).toBe("500000");
     expect(out.tx.SettleDelay).toBe(60);
-  }, 60_000);
+  }, 90_000);
 
-  it("--cancel-after sets CancelAfter epoch in dry-run", async () => {
+  it.concurrent("--cancel-after sets CancelAfter epoch in dry-run", async () => {
     const [source, destination] = await createFunded(client, master, 2, FUND_AMOUNT);
     const futureDate = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
     const result = runCLI([
@@ -137,9 +136,9 @@ describe("channel create", () => {
     };
     expect(typeof out.tx.CancelAfter).toBe("number");
     expect(out.tx.CancelAfter).toBeGreaterThan(0);
-  }, 60_000);
+  }, 90_000);
 
-  it("--destination-tag sets DestinationTag in dry-run", async () => {
+  it.concurrent("--destination-tag sets DestinationTag in dry-run", async () => {
     const [source, destination] = await createFunded(client, master, 2, FUND_AMOUNT);
     const result = runCLI([
       "--node", "testnet",
@@ -154,9 +153,9 @@ describe("channel create", () => {
     expect(result.status, `stdout: ${result.stdout} stderr: ${result.stderr}`).toBe(0);
     const out = JSON.parse(result.stdout) as { tx: { DestinationTag?: number } };
     expect(out.tx.DestinationTag).toBe(42);
-  }, 60_000);
+  }, 90_000);
 
-  it("--public-key overrides derived public key in dry-run", async () => {
+  it.concurrent("--public-key overrides derived public key in dry-run", async () => {
     const [source, destination] = await createFunded(client, master, 2, FUND_AMOUNT);
     const pubKey = source.publicKey;
     const result = runCLI([
@@ -172,9 +171,9 @@ describe("channel create", () => {
     expect(result.status, `stdout: ${result.stdout} stderr: ${result.stderr}`).toBe(0);
     const out = JSON.parse(result.stdout) as { tx: { PublicKey: string } };
     expect(out.tx.PublicKey).toBe(pubKey);
-  }, 60_000);
+  }, 90_000);
 
-  it("--no-wait exits 0 and output contains a 64-char hex hash", async () => {
+  it.concurrent("--no-wait exits 0 and output contains a 64-char hex hash", async () => {
     const [source, destination] = await createFunded(client, master, 2, FUND_AMOUNT);
     const result = runCLI([
       "--node", "testnet",
@@ -187,14 +186,14 @@ describe("channel create", () => {
     ]);
     expect(result.status, `stdout: ${result.stdout} stderr: ${result.stderr}`).toBe(0);
     expect(result.stdout).toMatch(/[0-9A-Fa-f]{64}/);
-  }, 60_000);
+  }, 90_000);
 });
 
 // ---------------------------------------------------------------------------
 // channel fund
 // ---------------------------------------------------------------------------
 describe("channel fund", () => {
-  it("funds an existing channel and verifies updated amount via account_channels", async () => {
+  it.concurrent("funds an existing channel and verifies updated amount via account_channels", async () => {
     const { source, destination, channelId } = await setupChannel();
     const result = runCLI([
       "--node", "testnet",
@@ -217,7 +216,7 @@ describe("channel fund", () => {
     expect(Number(channel!.amount)).toBe(700_000);
   }, 90_000);
 
-  it("--json outputs result in JSON", async () => {
+  it.concurrent("--json outputs result in JSON", async () => {
     const { source, channelId } = await setupChannel();
     const result = runCLI([
       "--node", "testnet",
@@ -233,7 +232,7 @@ describe("channel fund", () => {
     expect(out.hash).toMatch(/^[0-9A-F]{64}$/i);
   }, 90_000);
 
-  it("--dry-run outputs PaymentChannelFund tx without submitting", async () => {
+  it.concurrent("--dry-run outputs PaymentChannelFund tx without submitting", async () => {
     const [source] = await createFunded(client, master, 2, FUND_AMOUNT);
     const result = runCLI([
       "--node", "testnet",
@@ -252,9 +251,9 @@ describe("channel fund", () => {
     expect(out.tx.Amount).toBe("200000");
     expect(out.tx.Channel).toBe(DUMMY_CHANNEL.toUpperCase());
     expect(typeof out.tx_blob).toBe("string");
-  }, 60_000);
+  }, 90_000);
 
-  it("--expiration sets Expiration in dry-run", async () => {
+  it.concurrent("--expiration sets Expiration in dry-run", async () => {
     const [source] = await createFunded(client, master, 2, FUND_AMOUNT);
     const futureDate = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
     const result = runCLI([
@@ -270,9 +269,9 @@ describe("channel fund", () => {
     const out = JSON.parse(result.stdout) as { tx: { Expiration?: number } };
     expect(typeof out.tx.Expiration).toBe("number");
     expect(out.tx.Expiration).toBeGreaterThan(0);
-  }, 60_000);
+  }, 90_000);
 
-  it("--no-wait exits 0 and outputs a 64-char hex hash", async () => {
+  it.concurrent("--no-wait exits 0 and outputs a 64-char hex hash", async () => {
     const { source, channelId } = await setupChannel();
     const result = runCLI([
       "--node", "testnet",
@@ -291,7 +290,7 @@ describe("channel fund", () => {
 // channel list
 // ---------------------------------------------------------------------------
 describe("channel list", () => {
-  it("lists channels for an account and shows the created channel", async () => {
+  it.concurrent("lists channels for an account and shows the created channel", async () => {
     const { source, channelId } = await setupChannel();
     const result = runCLI([
       "--node", "testnet",
@@ -310,7 +309,7 @@ describe("channel list", () => {
     expect(result.stdout).toContain("Public Key:");
   }, 90_000);
 
-  it("--json outputs a JSON array containing the channel", async () => {
+  it.concurrent("--json outputs a JSON array containing the channel", async () => {
     const { source, channelId } = await setupChannel();
     const result = runCLI([
       "--node", "testnet",
@@ -325,7 +324,7 @@ describe("channel list", () => {
     expect(found).toBeDefined();
   }, 90_000);
 
-  it("--destination filter returns channel when destination matches", async () => {
+  it.concurrent("--destination filter returns channel when destination matches", async () => {
     const { source, destination, channelId } = await setupChannel();
     const result = runCLI([
       "--node", "testnet",
@@ -342,7 +341,7 @@ describe("channel list", () => {
     expect(found).toBeDefined();
   }, 90_000);
 
-  it("--destination filter with non-matching address returns empty list", async () => {
+  it.concurrent("--destination filter with non-matching address returns empty list", async () => {
     const { source } = await setupChannel();
     const unrelated = Wallet.generate();
     const result = runCLI([
@@ -362,7 +361,7 @@ describe("channel list", () => {
 // channel claim
 // ---------------------------------------------------------------------------
 describe("channel claim", () => {
-  it("destination redeems a signed claim", async () => {
+  it.concurrent("destination redeems a signed claim", async () => {
     const { source, destination, channelId } = await setupChannel(60);
 
     // Source signs a claim for 0.5 XRP (full channel amount)
@@ -390,7 +389,7 @@ describe("channel claim", () => {
     expect(claimResult.stdout).toContain("tesSUCCESS");
   }, 90_000);
 
-  it("--json outputs result in JSON", async () => {
+  it.concurrent("--json outputs result in JSON", async () => {
     const { source, destination, channelId } = await setupChannel(60);
 
     // Sign a claim for 0.5 XRP
@@ -420,7 +419,7 @@ describe("channel claim", () => {
     expect(out.hash).toMatch(/^[0-9A-F]{64}$/i);
   }, 90_000);
 
-  it("--dry-run outputs PaymentChannelClaim tx without submitting", async () => {
+  it.concurrent("--dry-run outputs PaymentChannelClaim tx without submitting", async () => {
     const [source] = await createFunded(client, master, 2, FUND_AMOUNT);
     const result = runCLI([
       "--node", "testnet",
@@ -441,9 +440,9 @@ describe("channel claim", () => {
     // --close flag = 0x00020000 = 131072
     expect(out.tx.Flags).toBeDefined();
     expect(Number(out.tx.Flags) & 0x00020000).toBe(0x00020000);
-  }, 60_000);
+  }, 90_000);
 
-  it("--renew flag is set in dry-run", async () => {
+  it.concurrent("--renew flag is set in dry-run", async () => {
     const [source] = await createFunded(client, master, 2, FUND_AMOUNT);
     const result = runCLI([
       "--node", "testnet",
@@ -460,9 +459,9 @@ describe("channel claim", () => {
     // --renew flag = 0x00010000 = 65536
     expect(out.tx.Flags).toBeDefined();
     expect(Number(out.tx.Flags) & 0x00010000).toBe(0x00010000);
-  }, 60_000);
+  }, 90_000);
 
-  it("source closes a channel with --close flag", async () => {
+  it.concurrent("source closes a channel with --close flag", async () => {
     // settle-delay 0 allows immediate close by source
     const { source, channelId } = await setupChannel(0);
     const result = runCLI([
@@ -476,7 +475,7 @@ describe("channel claim", () => {
     expect(result.stdout).toContain("tesSUCCESS");
   }, 90_000);
 
-  it("--no-wait exits 0 and outputs a 64-char hex hash", async () => {
+  it.concurrent("--no-wait exits 0 and outputs a 64-char hex hash", async () => {
     const { source, channelId } = await setupChannel(60);
     const result = runCLI([
       "--node", "testnet",

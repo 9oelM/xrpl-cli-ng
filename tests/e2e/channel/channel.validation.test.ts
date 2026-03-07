@@ -9,7 +9,7 @@ const DUMMY_SEED = "snoPBrXtMeMyMHUVTgbuqAfg1SUTb";
 const DUMMY_CHANNEL = "A" .repeat(64);
 
 describe("channel create validation (no network)", () => {
-  it("missing --to exits 1 with error", () => {
+  it.concurrent("missing --to exits 1 with error", () => {
     const result = runCLI([
       "channel", "create",
       "--amount", "10",
@@ -20,7 +20,7 @@ describe("channel create validation (no network)", () => {
     expect(result.stderr).toContain("--to");
   });
 
-  it("missing --amount exits 1 with error", () => {
+  it.concurrent("missing --amount exits 1 with error", () => {
     const result = runCLI([
       "channel", "create",
       "--to", DUMMY_ADDRESS,
@@ -31,7 +31,7 @@ describe("channel create validation (no network)", () => {
     expect(result.stderr).toContain("--amount");
   });
 
-  it("missing --settle-delay exits 1 with error", () => {
+  it.concurrent("missing --settle-delay exits 1 with error", () => {
     const result = runCLI([
       "channel", "create",
       "--to", DUMMY_ADDRESS,
@@ -42,7 +42,7 @@ describe("channel create validation (no network)", () => {
     expect(result.stderr).toContain("--settle-delay");
   });
 
-  it("invalid --cancel-after ISO date exits 1", () => {
+  it.concurrent("invalid --cancel-after ISO date exits 1", () => {
     const result = runCLI([
       "channel", "create",
       "--to", DUMMY_ADDRESS,
@@ -55,7 +55,7 @@ describe("channel create validation (no network)", () => {
     expect(result.stderr).toContain("Error:");
   });
 
-  it("missing key material exits 1", () => {
+  it.concurrent("missing key material exits 1", () => {
     const result = runCLI([
       "channel", "create",
       "--to", DUMMY_ADDRESS,
@@ -66,7 +66,7 @@ describe("channel create validation (no network)", () => {
     expect(result.stderr).toContain("Error:");
   });
 
-  it("multiple key material options exits 1", () => {
+  it.concurrent("multiple key material options exits 1", () => {
     const result = runCLI([
       "channel", "create",
       "--to", DUMMY_ADDRESS,
@@ -81,7 +81,7 @@ describe("channel create validation (no network)", () => {
 });
 
 describe("channel fund validation (no network)", () => {
-  it("missing --channel exits 1 with error", () => {
+  it.concurrent("missing --channel exits 1 with error", () => {
     const result = runCLI([
       "channel", "fund",
       "--amount", "5",
@@ -91,7 +91,7 @@ describe("channel fund validation (no network)", () => {
     expect(result.stderr).toContain("--channel");
   });
 
-  it("missing --amount exits 1 with error", () => {
+  it.concurrent("missing --amount exits 1 with error", () => {
     const result = runCLI([
       "channel", "fund",
       "--channel", DUMMY_CHANNEL,
@@ -101,7 +101,7 @@ describe("channel fund validation (no network)", () => {
     expect(result.stderr).toContain("--amount");
   });
 
-  it("invalid --channel (not 64 hex chars) exits 1", () => {
+  it.concurrent("invalid --channel (not 64 hex chars) exits 1", () => {
     const result = runCLI([
       "channel", "fund",
       "--channel", "notahex",
@@ -112,7 +112,7 @@ describe("channel fund validation (no network)", () => {
     expect(result.stderr).toContain("Error:");
   });
 
-  it("invalid --expiration ISO date exits 1", () => {
+  it.concurrent("invalid --expiration ISO date exits 1", () => {
     const result = runCLI([
       "channel", "fund",
       "--channel", DUMMY_CHANNEL,
@@ -124,7 +124,7 @@ describe("channel fund validation (no network)", () => {
     expect(result.stderr).toContain("Error:");
   });
 
-  it("missing key material exits 1", () => {
+  it.concurrent("missing key material exits 1", () => {
     const result = runCLI([
       "channel", "fund",
       "--channel", DUMMY_CHANNEL,
@@ -134,7 +134,7 @@ describe("channel fund validation (no network)", () => {
     expect(result.stderr).toContain("Error:");
   });
 
-  it("multiple key material options exits 1", () => {
+  it.concurrent("multiple key material options exits 1", () => {
     const result = runCLI([
       "channel", "fund",
       "--channel", DUMMY_CHANNEL,
@@ -148,7 +148,7 @@ describe("channel fund validation (no network)", () => {
 });
 
 describe("channel claim validation (no network)", () => {
-  it("missing --channel exits 1 with error", () => {
+  it.concurrent("missing --channel exits 1 with error", () => {
     const result = runCLI([
       "channel", "claim",
       "--seed", DUMMY_SEED,
@@ -157,7 +157,7 @@ describe("channel claim validation (no network)", () => {
     expect(result.stderr).toContain("--channel");
   });
 
-  it("missing key material exits 1 with error", () => {
+  it.concurrent("missing key material exits 1 with error", () => {
     const result = runCLI([
       "channel", "claim",
       "--channel", DUMMY_CHANNEL,
@@ -166,7 +166,7 @@ describe("channel claim validation (no network)", () => {
     expect(result.stderr).toContain("Error:");
   });
 
-  it("multiple key materials exits 1 with error", () => {
+  it.concurrent("multiple key materials exits 1 with error", () => {
     const result = runCLI([
       "channel", "claim",
       "--channel", DUMMY_CHANNEL,
@@ -177,7 +177,7 @@ describe("channel claim validation (no network)", () => {
     expect(result.stderr).toContain("Error:");
   });
 
-  it("invalid --channel (not 64 hex chars) exits 1", () => {
+  it.concurrent("invalid --channel (not 64 hex chars) exits 1", () => {
     const result = runCLI([
       "channel", "claim",
       "--channel", "notahex",
@@ -187,7 +187,7 @@ describe("channel claim validation (no network)", () => {
     expect(result.stderr).toContain("Error:");
   });
 
-  it("--signature without --public-key exits 1 with error", () => {
+  it.concurrent("--signature without --public-key exits 1 with error", () => {
     const SIG = "DEADBEEF".repeat(16);
     const result = runCLI([
       "channel", "claim",
@@ -201,7 +201,7 @@ describe("channel claim validation (no network)", () => {
     expect(result.stderr).toContain("--public-key");
   });
 
-  it("--signature without --amount exits 1 with error", () => {
+  it.concurrent("--signature without --amount exits 1 with error", () => {
     const SIG = "DEADBEEF".repeat(16);
     const PK = "0330E7FC9D56BB25D6893BA3F317AE5BCF33B3291BD63DB32654A313222F7FD020";
     const result = runCLI([
@@ -216,7 +216,7 @@ describe("channel claim validation (no network)", () => {
     expect(result.stderr).toContain("--amount");
   });
 
-  it("--signature without --balance exits 1 with error", () => {
+  it.concurrent("--signature without --balance exits 1 with error", () => {
     const SIG = "DEADBEEF".repeat(16);
     const PK = "0330E7FC9D56BB25D6893BA3F317AE5BCF33B3291BD63DB32654A313222F7FD020";
     const result = runCLI([

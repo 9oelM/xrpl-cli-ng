@@ -4,7 +4,7 @@ import { runCLI } from "../../helpers/cli.js";
 
 
 describe("wallet public-key", () => {
-  it("derives public key from seed matching wallet new output", () => {
+  it.concurrent("derives public key from seed matching wallet new output", () => {
     const newResult = runCLI(["wallet", "new", "--json"]);
     expect(newResult.status).toBe(0);
     const wallet = JSON.parse(newResult.stdout) as {
@@ -19,7 +19,7 @@ describe("wallet public-key", () => {
     expect(data.keyType).toBe("ed25519");
   });
 
-  it("derives secp256k1 public key from seed", () => {
+  it.concurrent("derives secp256k1 public key from seed", () => {
     const newResult = runCLI(["wallet", "new", "--key-type", "secp256k1", "--json"]);
     expect(newResult.status).toBe(0);
     const wallet = JSON.parse(newResult.stdout) as {
@@ -36,7 +36,7 @@ describe("wallet public-key", () => {
     expect(data.keyType).toBe("secp256k1");
   });
 
-  it("derives public key from mnemonic", () => {
+  it.concurrent("derives public key from mnemonic", () => {
     const mnemonicResult = runCLI(["wallet", "new-mnemonic", "--json"]);
     expect(mnemonicResult.status).toBe(0);
     const mnemonicWallet = JSON.parse(mnemonicResult.stdout) as {
@@ -56,7 +56,7 @@ describe("wallet public-key", () => {
     expect(data.publicKey).toBe(mnemonicWallet.publicKey);
   });
 
-  it("derives public key from private key", () => {
+  it.concurrent("derives public key from private key", () => {
     const newResult = runCLI(["wallet", "new", "--json"]);
     expect(newResult.status).toBe(0);
     const wallet = JSON.parse(newResult.stdout) as {
@@ -71,7 +71,7 @@ describe("wallet public-key", () => {
     expect(data.publicKey).toBe(wallet.publicKey);
   });
 
-  it("alias 'pubkey' works", () => {
+  it.concurrent("alias 'pubkey' works", () => {
     const newResult = runCLI(["wallet", "new", "--json"]);
     expect(newResult.status).toBe(0);
     const { seed } = JSON.parse(newResult.stdout) as { seed: string };
@@ -82,13 +82,13 @@ describe("wallet public-key", () => {
     expect(data.publicKey).toBeTruthy();
   });
 
-  it("exits 1 with error when no key material is provided", () => {
+  it.concurrent("exits 1 with error when no key material is provided", () => {
     const result = runCLI(["wallet", "public-key"]);
     expect(result.status).toBe(1);
     expect(result.stderr).toMatch(/Error/);
   });
 
-  it("exits 1 when multiple key sources are provided", () => {
+  it.concurrent("exits 1 when multiple key sources are provided", () => {
     const result = runCLI([
       "wallet",
       "public-key",
@@ -101,7 +101,7 @@ describe("wallet public-key", () => {
     expect(result.stderr).toMatch(/Error/);
   });
 
-  it("prints public key in non-json mode", () => {
+  it.concurrent("prints public key in non-json mode", () => {
     const newResult = runCLI(["wallet", "new", "--json"]);
     expect(newResult.status).toBe(0);
     const { seed } = JSON.parse(newResult.stdout) as { seed: string };

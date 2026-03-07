@@ -7,7 +7,7 @@ import { join } from "path";
 
 
 describe("wallet decrypt-keystore", () => {
-  it("decrypts an imported wallet and returns the original seed", () => {
+  it.concurrent("decrypts an imported wallet and returns the original seed", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const wallet = runCLI(["wallet", "new", "--json"]);
@@ -35,7 +35,7 @@ describe("wallet decrypt-keystore", () => {
     }
   });
 
-  it("exits 1 with error message on wrong password", () => {
+  it.concurrent("exits 1 with error message on wrong password", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const wallet = runCLI(["wallet", "new", "--json"]);
@@ -63,7 +63,7 @@ describe("wallet decrypt-keystore", () => {
     }
   });
 
-  it("--json outputs address, seed, privateKey, and keyType", () => {
+  it.concurrent("--json outputs address, seed, privateKey, and keyType", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const wallet = runCLI(["wallet", "new", "--json"]);
@@ -108,7 +108,7 @@ describe("wallet decrypt-keystore", () => {
     }
   });
 
-  it("--show-private-key prints private key line", () => {
+  it.concurrent("--show-private-key prints private key line", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const wallet = runCLI(["wallet", "new", "--json"]);
@@ -140,7 +140,7 @@ describe("wallet decrypt-keystore", () => {
     }
   });
 
-  it("alias 'dk' works", () => {
+  it.concurrent("alias 'dk' works", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const wallet = runCLI(["wallet", "new", "--json"]);
@@ -168,7 +168,7 @@ describe("wallet decrypt-keystore", () => {
     }
   });
 
-  it("--file flag accepts explicit file path", () => {
+  it.concurrent("--file flag accepts explicit file path", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const wallet = runCLI(["wallet", "new", "--json"]);
@@ -197,7 +197,7 @@ describe("wallet decrypt-keystore", () => {
     }
   });
 
-  it("exits 1 when keystore file not found", () => {
+  it.concurrent("exits 1 when keystore file not found", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "xrpl-test-"));
     try {
       const result = runCLI([

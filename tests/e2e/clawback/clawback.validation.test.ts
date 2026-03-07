@@ -8,7 +8,7 @@ const DUMMY_ISSUER = "rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe";
 const DUMMY_MPT_ID = "000000000000000000000000000000000000000000000000"; // 48-char hex
 
 describe("clawback validation (no network)", () => {
-  it("exits 1 with error when amount value is zero (IOU)", () => {
+  it.concurrent("exits 1 with error when amount value is zero (IOU)", () => {
     const result = runCLI([
       "clawback",
       "--amount", `0/USD/${DUMMY_HOLDER}`,
@@ -18,7 +18,7 @@ describe("clawback validation (no network)", () => {
     expect(result.stderr).toMatch(/amount value must not be zero/);
   });
 
-  it("exits 1 with error when amount value is zero (MPT)", () => {
+  it.concurrent("exits 1 with error when amount value is zero (MPT)", () => {
     const result = runCLI([
       "clawback",
       "--amount", `0/${DUMMY_MPT_ID}`,
@@ -29,7 +29,7 @@ describe("clawback validation (no network)", () => {
     expect(result.stderr).toMatch(/amount value must not be zero/);
   });
 
-  it("exits 1 when --holder is provided with IOU (3-part) amount", () => {
+  it.concurrent("exits 1 when --holder is provided with IOU (3-part) amount", () => {
     const result = runCLI([
       "clawback",
       "--amount", `10/USD/${DUMMY_HOLDER}`,
@@ -40,7 +40,7 @@ describe("clawback validation (no network)", () => {
     expect(result.stderr).toMatch(/--holder is only valid for MPT mode/);
   });
 
-  it("exits 1 when MPT-format amount is provided without --holder", () => {
+  it.concurrent("exits 1 when MPT-format amount is provided without --holder", () => {
     const result = runCLI([
       "clawback",
       "--amount", `10/${DUMMY_MPT_ID}`,
@@ -50,7 +50,7 @@ describe("clawback validation (no network)", () => {
     expect(result.stderr).toMatch(/MPT clawback requires --holder/);
   });
 
-  it("exits 1 when no key material is provided", () => {
+  it.concurrent("exits 1 when no key material is provided", () => {
     const result = runCLI([
       "clawback",
       "--amount", `10/USD/${DUMMY_HOLDER}`,
@@ -59,7 +59,7 @@ describe("clawback validation (no network)", () => {
     expect(result.stderr).toMatch(/provide key material via --seed, --mnemonic, or --account/);
   });
 
-  it("exits 1 when XRP amount is provided", () => {
+  it.concurrent("exits 1 when XRP amount is provided", () => {
     const result = runCLI([
       "clawback",
       "--amount", "1.5",
@@ -69,7 +69,7 @@ describe("clawback validation (no network)", () => {
     expect(result.stderr).toMatch(/clawback requires an IOU or MPT amount/);
   });
 
-  it("exits 1 when multiple key materials are provided", () => {
+  it.concurrent("exits 1 when multiple key materials are provided", () => {
     const result = runCLI([
       "clawback",
       "--amount", `10/USD/${DUMMY_HOLDER}`,

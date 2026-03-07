@@ -6,7 +6,7 @@ const DUMMY_ADDRESS = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
 const DUMMY_SEED = "snoPBrXtMeMyMHUVTgbuqAfg1SUTb";
 
 describe("credential accept validation (no network)", () => {
-  it("missing --issuer exits 1 with error", () => {
+  it.concurrent("missing --issuer exits 1 with error", () => {
     const result = runCLI([
       "credential", "accept",
       "--credential-type", "KYC",
@@ -16,7 +16,7 @@ describe("credential accept validation (no network)", () => {
     expect(result.stderr).toContain("required option");
   });
 
-  it("missing credential-type exits 1 with error", () => {
+  it.concurrent("missing credential-type exits 1 with error", () => {
     const result = runCLI([
       "credential", "accept",
       "--issuer", DUMMY_ADDRESS,
@@ -26,7 +26,7 @@ describe("credential accept validation (no network)", () => {
     expect(result.stderr).toContain("Error:");
   });
 
-  it("both --credential-type and --credential-type-hex exits 1", () => {
+  it.concurrent("both --credential-type and --credential-type-hex exits 1", () => {
     const result = runCLI([
       "credential", "accept",
       "--issuer", DUMMY_ADDRESS,
@@ -38,7 +38,7 @@ describe("credential accept validation (no network)", () => {
     expect(result.stderr).toContain("mutually exclusive");
   });
 
-  it("missing key material exits 1", () => {
+  it.concurrent("missing key material exits 1", () => {
     const result = runCLI([
       "credential", "accept",
       "--issuer", DUMMY_ADDRESS,
@@ -50,7 +50,7 @@ describe("credential accept validation (no network)", () => {
 });
 
 describe("credential delete validation (no network)", () => {
-  it("missing credential-type exits 1 with error", () => {
+  it.concurrent("missing credential-type exits 1 with error", () => {
     const result = runCLI([
       "credential", "delete",
       "--seed", DUMMY_SEED,
@@ -59,7 +59,7 @@ describe("credential delete validation (no network)", () => {
     expect(result.stderr).toContain("Error:");
   });
 
-  it("both --credential-type and --credential-type-hex exits 1", () => {
+  it.concurrent("both --credential-type and --credential-type-hex exits 1", () => {
     const result = runCLI([
       "credential", "delete",
       "--credential-type", "KYC",
@@ -70,7 +70,7 @@ describe("credential delete validation (no network)", () => {
     expect(result.stderr).toContain("mutually exclusive");
   });
 
-  it("missing key material exits 1", () => {
+  it.concurrent("missing key material exits 1", () => {
     const result = runCLI([
       "credential", "delete",
       "--credential-type", "KYC",
@@ -81,7 +81,7 @@ describe("credential delete validation (no network)", () => {
 });
 
 describe("credential create validation (no network)", () => {
-  it("missing --subject exits 1 with error", () => {
+  it.concurrent("missing --subject exits 1 with error", () => {
     const result = runCLI([
       "credential", "create",
       "--credential-type", "KYC",
@@ -91,7 +91,7 @@ describe("credential create validation (no network)", () => {
     expect(result.stderr).toContain("required option");
   });
 
-  it("missing credential-type exits 1 with error", () => {
+  it.concurrent("missing credential-type exits 1 with error", () => {
     const result = runCLI([
       "credential", "create",
       "--subject", DUMMY_ADDRESS,
@@ -101,7 +101,7 @@ describe("credential create validation (no network)", () => {
     expect(result.stderr).toContain("Error:");
   });
 
-  it("both --credential-type and --credential-type-hex exits 1", () => {
+  it.concurrent("both --credential-type and --credential-type-hex exits 1", () => {
     const result = runCLI([
       "credential", "create",
       "--subject", DUMMY_ADDRESS,
@@ -113,7 +113,7 @@ describe("credential create validation (no network)", () => {
     expect(result.stderr).toContain("mutually exclusive");
   });
 
-  it("both --uri and --uri-hex exits 1", () => {
+  it.concurrent("both --uri and --uri-hex exits 1", () => {
     const result = runCLI([
       "credential", "create",
       "--subject", DUMMY_ADDRESS,
@@ -126,7 +126,7 @@ describe("credential create validation (no network)", () => {
     expect(result.stderr).toContain("mutually exclusive");
   });
 
-  it("missing key material exits 1", () => {
+  it.concurrent("missing key material exits 1", () => {
     const result = runCLI([
       "credential", "create",
       "--subject", DUMMY_ADDRESS,
