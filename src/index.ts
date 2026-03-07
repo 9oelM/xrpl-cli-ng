@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { Command } from "commander";
-import { accountCommand, walletCommand, paymentCommand, trustCommand, offerCommand, channelCommand, escrowCommand, checkCommand, clawbackCommand, credentialCommand, nftCommand, multisigCommand, oracleCommand, ticketCommand, depositPreauthCommand } from "./commands/index.js";
+import { accountCommand, walletCommand, paymentCommand, trustCommand, offerCommand, channelCommand, escrowCommand, checkCommand, clawbackCommand, credentialCommand, nftCommand, multisigCommand, oracleCommand, ticketCommand, depositPreauthCommand, didCommand } from "./commands/index.js";
 
 const program = new Command();
 
@@ -29,5 +29,6 @@ program.addCommand(multisigCommand);
 program.addCommand(oracleCommand);
 program.addCommand(ticketCommand);
 program.addCommand(depositPreauthCommand);
+program.addCommand(didCommand);
 
 program.parse();

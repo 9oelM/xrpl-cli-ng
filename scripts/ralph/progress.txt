@@ -1,26 +1,17 @@
 # Ralph Progress Log
-Started: Sat Mar  7 08:28:44 AM Universal 2026
----
-
-## Codebase Patterns
-- vitest concurrency is controlled via `poolOptions.forks.maxForks` (file-level) and `maxConcurrency` (test-case level within a file)
-- fund.ts fallback pattern: catch err, check `msg.includes("Timeout")`, create fresh Client(XRPL_WS_FALLBACK), connect/use/disconnect in try/finally, rethrow original error if fallback also fails
-
-## 2026-03-07 - US-001
-- Added `maxConcurrency: 3` and `poolOptions: { forks: { maxForks: 3 } }` to vitest.config.ts
-- Files changed: vitest.config.ts
-- **Learnings for future iterations:**
-  - `poolOptions.forks.maxForks` caps concurrent worker processes (test files); `maxConcurrency` caps concurrent `it.concurrent` cases within one file
-  - Together they create 3×3 = 9 max simultaneous test cases
+Started: Sat Mar  7 08:49:20 AM Universal 2026
 ---
 
 ## 2026-03-07 - US-002
-- Added `XRPL_WS_FALLBACK` export and `FAUCET_URL_FALLBACK` constant to fund.ts
-- Added timeout-based retry logic in `fundMaster`, `initTicketPool`, and `createFunded`
-- Fallback client is ephemeral: freshly created, connected before use, disconnected in finally block
-- Files changed: tests/e2e/helpers/fund.ts
+- Implemented `xrpl did delete` and `xrpl did get <address>` commands
+- Files changed:
+  - `src/commands/did.ts` — added `DIDDelete` import, generalized `submitTx` to accept `DIDSet | DIDDelete`, added `didDeleteCommand` and `didGetCommand`, registered both on the `did` parent command
+  - `tests/e2e/did/did.delete.test.ts` — 4 tests: create+delete+verify-gone, --json, --dry-run, --no-wait
+  - `tests/e2e/did/did.get.test.ts` — 4 tests: decoded URI/hex data output, --json raw ledger entry, not-found message, --node option
+- All 20 DID tests pass (including US-001 set tests)
 - **Learnings for future iterations:**
-  - Only catch errors where `msg.includes("Timeout")` — do not swallow XRPL transaction errors
-  - `Awaited<ReturnType<typeof client.submitAndWait>>` is the correct type for capturing the result before a try/catch split
-  - The fallback faucet URL for xrpl-labs testnet is `https://testnet.xrpl-labs.com/accounts`
+  - `account_objects` with `type: 'did'` returns the DID ledger entry; check `account_objects[0]` for presence
+  - DID ledger entry has `LedgerEntryType: "DID"`, `URI` (hex), `Data` (hex), `DIDDocument` (hex)
+  - For "not-found" with account_objects: if account doesn't exist, the RPC throws; if account exists but has no DID object, returns empty array (status 0 with "No DID found" message)
+  - Test pattern for "not-found" account: use a fresh generated wallet (unfunded) — its address is valid but will throw or return empty objects
 ---

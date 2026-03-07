@@ -1,38 +1,50 @@
 {
   "project": "xrpl-cli",
-  "branchName": "ralph/test-throttle",
-  "description": "Cap vitest concurrency to 3 files × 3 cases (max 9 simultaneous test cases) and add fallback XRPL node wss://testnet.xrpl-labs.com/ with automatic retry on TimeoutError.",
+  "branchName": "ralph/did",
+  "description": "DID commands — create, update, delete, and query on-chain Decentralized Identifiers on the XRP Ledger",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Cap vitest file and test-case concurrency",
-      "description": "As a developer, I want vitest to run at most 3 files and 3 test cases concurrently so that the testnet node is not overwhelmed.",
+      "title": "did set command",
+      "description": "As an identity provider, I want to publish or update a DID on-chain from the CLI so I can associate identity credentials with my XRPL account.",
       "acceptanceCriteria": [
-        "In vitest.config.ts, add `poolOptions: { forks: { maxForks: 3 } }` inside the test config block",
-        "In vitest.config.ts, add `maxConcurrency: 3` inside the test config block",
+        "Read DIDSet docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/didset.md before implementing",
+        "Create src/commands/did.ts and register it in src/commands/index.ts and src/index.ts",
+        "xrpl did set with: --uri <string> (auto hex-encoded), --uri-hex <hex> (mutually exclusive with --uri), --data <string> (auto hex-encoded), --data-hex <hex> (mutually exclusive with --data), --did-document <string> (auto hex-encoded), --did-document-hex <hex> (mutually exclusive with --did-document)",
+        "--clear-uri, --clear-data, --clear-did-document flags to clear individual fields (sends field as empty string)",
+        "Passing --uri '' (empty string) is equivalent to --clear-uri",
+        "Standard key material options: --seed, --mnemonic, --account/--keystore/--password",
+        "Standard output options: --node, --json, --dry-run, --no-wait",
+        "CLI exits with error if none of the set/clear flags are provided",
+        "CLI exits with error if both --uri and --uri-hex are provided (same for data and did-document pairs)",
+        "CLI exits with error if both a value flag and its corresponding clear flag are provided for the same field (e.g. --uri and --clear-uri together)",
+        "tests/e2e/did/did.validation.test.ts: no fields provided, conflicting plain/hex flags, conflicting set/clear for same field (no network)",
+        "tests/e2e/did/did.set.test.ts: create DID with --uri, create with --data, update URI, clear a field with --clear-uri; --json, --dry-run",
         "Typecheck passes"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "poolOptions.forks.maxForks limits concurrent test files (worker processes). maxConcurrency limits concurrent it.concurrent cases within a single file. Together: 3 × 3 = 9 max simultaneous test cases."
+      "notes": ""
     },
     {
       "id": "US-002",
-      "title": "Fallback XRPL node on timeout errors in fund.ts",
-      "description": "As a developer, I want the test helper to automatically retry on a fallback XRPL node when the primary node times out, so that transient congestion errors don't fail tests.",
+      "title": "did delete and did get commands",
+      "description": "As an identity provider, I want to delete my DID and query DID data so I can manage my on-chain identity lifecycle and verify published data.",
       "acceptanceCriteria": [
-        "Add `export const XRPL_WS_FALLBACK = \"wss://testnet.xrpl-labs.com/\"` to tests/e2e/helpers/fund.ts",
-        "Add `const FAUCET_URL_FALLBACK = \"https://testnet.xrpl-labs.com/accounts\"` to tests/e2e/helpers/fund.ts",
-        "In fundMaster: wrap the faucet HTTP call and submitAndWait in try/catch; if error message contains \"Timeout\", retry once using FAUCET_URL_FALLBACK and a fresh Client connected to XRPL_WS_FALLBACK; if fallback also throws, rethrow original error",
-        "In initTicketPool: wrap submitAndWait in try/catch; if error message contains \"Timeout\", retry once using a fresh Client connected to XRPL_WS_FALLBACK; if fallback also throws, rethrow original error",
-        "In createFunded: wrap each payment submitAndWait in try/catch; if error message contains \"Timeout\", retry once using a fresh Client connected to XRPL_WS_FALLBACK; if fallback also throws, rethrow original error",
-        "Fallback Client must be freshly created, connected before use, and disconnected after the retry attempt in a finally block",
-        "No changes to any test files — retry logic lives entirely in fund.ts",
+        "Read DIDDelete docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/diddelete.md before implementing",
+        "xrpl did delete subcommand with standard key material and output options only (no DID-specific flags)",
+        "xrpl did get <address> subcommand using account_objects RPC with type: 'did'",
+        "did get default output: URI (decoded from hex to UTF-8), Data (shown as raw hex), DIDDocument (decoded from hex to UTF-8)",
+        "did get shows 'No DID found for <address>.' if account has no DID",
+        "--json outputs raw JSON ledger entry",
+        "--node supported on did get",
+        "tests/e2e/did/did.delete.test.ts: create DID, delete it, verify did get returns not-found after deletion; --json, --dry-run",
+        "tests/e2e/did/did.get.test.ts: create DID with URI and data fields, verify did get returns correct decoded values; --json",
         "Typecheck passes"
       ],
       "priority": 2,
       "passes": true,
-      "notes": "TimeoutError from xrpl.js has message matching 'Timeout for request'. Only retry on timeout — do not catch tecNO_PERMISSION, temBAD_FEE, or other XRPL error codes. The fallback client is ephemeral: connect, use, disconnect."
+      "notes": ""
     }
   ]
 }
