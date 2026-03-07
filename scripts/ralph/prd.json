@@ -10,7 +10,7 @@
       "acceptanceCriteria": [
         "Implement src/commands/permissioned-domain.ts with permissionedDomainCommand registered in src/commands/index.ts and src/index.ts",
         "`xrpl permissioned-domain create --credential <issuer>:<type>` submits PermissionedDomainSet tx with no DomainID field (creates new domain)",
-        "--credential is repeatable (collect array); 1\u201310 credentials accepted; error if 0 or >10 provided",
+        "--credential is repeatable (collect array); 1–10 credentials accepted; error if 0 or >10 provided",
         "<type> in --credential <issuer>:<type> is treated as UTF-8 and auto-encoded to hex via convertStringToHex from xrpl",
         "`--credentials-json <json>` accepts JSON array of {\"issuer\":\"r...\",\"credential_type\":\"hex...\"} objects as alternative input",
         "--credential and --credentials-json are mutually exclusive; error if both provided",
@@ -35,7 +35,7 @@
       "acceptanceCriteria": [
         "`xrpl permissioned-domain update --domain-id <hash> --credential <issuer>:<type>` submits PermissionedDomainSet tx with DomainID field set",
         "--domain-id required; must be 64-char hex string; error if missing or malformed",
-        "Same --credential / --credentials-json rules as create (1\u201310, mutually exclusive)",
+        "Same --credential / --credentials-json rules as create (1–10, mutually exclusive)",
         "Help text clearly states update replaces the entire credentials list (not a merge)",
         "On success, outputs `Domain ID: <hash>` and `Tx: <hash>`",
         "`--json`, `--dry-run`, `--no-wait` supported",
@@ -66,7 +66,7 @@
         "Tests pass"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Error conditions: tecNO_ENTRY if domain doesn't exist, tecNO_PERMISSION if not the owner. Use isDeletedNode from xrpl to confirm deletion in metadata if needed."
     }
   ]

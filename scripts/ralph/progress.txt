@@ -1,39 +1,18 @@
 # Ralph Progress Log
-Started: Fri Mar  6 04:35:57 PM Universal 2026
+Started: Sat Mar  7 08:49:21 AM Universal 2026
 ---
 
-## Codebase Patterns
-- PermissionedDomains amendment IS enabled on testnet (verified via `feature` API call)
-- `AuthorizeCredential` type: `{ Credential: { Issuer: string, CredentialType: string } }` — CredentialType must be hex
-- `PermissionedDomainSet` (no DomainID = create), `PermissionedDomainDelete` (requires DomainID) are both in xrpl.js
-- Use `isCreatedNode(n) && n.CreatedNode.LedgerEntryType === 'PermissionedDomain'` to extract domain ID from tx metadata
-- The `src/index.ts` file cannot be edited with the Edit tool if not previously Read; use `sed` as fallback
-- `isValidClassicAddress` is exported from xrpl and can validate issuer addresses
-
-## 2026-03-06 - US-001
-- Implemented `src/commands/permissioned-domain.ts` with `create` subcommand
-- Registered `permissionedDomainCommand` in `src/commands/index.ts` and `src/index.ts`
-- Created validation tests (6 tests, no network) in `tests/e2e/permissioned-domain/permissioned-domain.validation.test.ts`
-- Created network tests (7 tests, testnet) in `tests/e2e/permissioned-domain/permissioned-domain.create.test.ts`
-- Files changed: src/commands/permissioned-domain.ts, src/commands/index.ts, src/index.ts, 2 test files
+## 2026-03-07 - US-003
+- Implemented `permissioned-domain delete` subcommand in `src/commands/permissioned-domain.ts`
+- Added `PermissionedDomainDelete` tx type (imported from xrpl); uses `DomainID` field
+- Added `isDeletedNode` import (available from xrpl but not needed in output logic since we use domainId from options)
+- Added delete validation tests to `permissioned-domain.validation.test.ts` (missing --domain-id, invalid format, missing key material)
+- Created `tests/e2e/permissioned-domain/permissioned-domain.delete.test.ts` with 6 network tests: basic delete, verify-gone-via-account_objects, --json, --dry-run, --no-wait, --account/--keystore/--password
+- All 15 validation tests and 6 network tests pass
+- Files changed: src/commands/permissioned-domain.ts, tests/e2e/permissioned-domain/permissioned-domain.validation.test.ts, tests/e2e/permissioned-domain/permissioned-domain.delete.test.ts
 - **Learnings for future iterations:**
-  - PermissionedDomains is live on testnet — no need for devnet
-  - `--credential <issuer>:<type>` splits on first `:`, type is UTF-8 auto-encoded to hex
-  - `--credentials-json` takes pre-hex `credential_type` in each item
-  - JSON output format is `{result, domainId, tx}` per PRD spec (simpler than other commands)
-  - Domain ID is extracted from `CreatedNode.LedgerIndex` where `LedgerEntryType === 'PermissionedDomain'`
-  - For US-002 (update): same file, add `update` subcommand with `--domain-id` required option
-  - For US-003 (delete): add `delete` subcommand using `PermissionedDomainDelete` tx type
----
-
-## 2026-03-06 - US-002
-- Added `update` subcommand to `src/commands/permissioned-domain.ts` with `--domain-id` required option
-- Added 6 validation tests to `permissioned-domain.validation.test.ts` (missing/invalid domain-id, missing creds, mutually exclusive flags, invalid issuer, missing key material)
-- Created `tests/e2e/permissioned-domain/permissioned-domain.update.test.ts` with 7 network tests (basic update, credentials-json, account_objects verify, --json, --dry-run, --no-wait, --account/keystore)
-- Files changed: src/commands/permissioned-domain.ts, permissioned-domain.validation.test.ts, new permissioned-domain.update.test.ts
-- **Learnings for future iterations:**
-  - `PermissionedDomainSet.DomainID` is an optional field in xrpl.js types — no cast needed
-  - Update test pattern: each test calls `createDomain()` helper to get a fresh domain, then updates it (clean isolation)
-  - For --dry-run, the `DomainID` field appears in `tx` in the output — assert it to verify correct domain targeted
-  - For US-003 (delete): use `PermissionedDomainDelete` tx type with required `DomainID`; check `isDeletedNode` in metadata to confirm; output "Deleted domain: <hash>"
+  - `PermissionedDomainDelete` is in xrpl.js types, requires `DomainID` field (not optional)
+  - Existing tests use `fundFromFaucet` directly (not the ticket-pool helper) since each test file funds only one master wallet and distributes to sub-wallets via direct Payment
+  - The `createDomain` helper pattern (run CLI, parse domain ID from stdout) is clean and reusable for test setup
+  - `account_objects` with `type: "permissioned_domain"` confirms domain presence/absence on-chain
 ---
