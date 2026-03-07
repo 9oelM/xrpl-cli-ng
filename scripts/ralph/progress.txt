@@ -1,33 +1,21 @@
-## Codebase Patterns
-- MPToken tests use testnet (MPTokensV1 is live on testnet)
-- MPTokenIssuanceID is available in `txResult.meta.mpt_issuance_id` after create (MPTokenIssuanceCreateMetadata type)
-- Fallback: extract from AffectedNodes where LedgerEntryType === "MPTokenIssuance"
-- `ledger_entry` request uses `mpt_issuance: issuanceId` (string) for MPT issuance lookup
-- `account_objects` type for MPT issuances: `"mpt_issuance"`; for holder balances: `"mptoken"`
-- MPTokenIssuanceSet uses `Holder` field (not `MPTokenHolder`); same for MPTokenAuthorize
-- MPTokenIssuanceSetFlags: tfMPTLock=1, tfMPTUnlock=2
-- MPTokenAuthorizeFlags: tfMPTUnauthorize=1
-- Tests use `fundFromFaucet` from `tests/helpers/testnet.ts` (not a ticket-based fund.ts helper)
-- Multiple issuance creates from same wallet are fine — each gets a unique issuanceId
-
 # Ralph Progress Log
-Started: Fri Mar  6 04:35:57 PM Universal 2026
+Started: Sat Mar  7 08:49:20 AM Universal 2026
 ---
 
-## 2026-03-06 - US-001
-- Implemented `xrpl mptoken issuance create` with all flags, metadata options, and standard output modes
-- Implemented `xrpl mptoken issuance get` (needed for create test verification)
-- Implemented stubs for remaining commands: `issuance destroy`, `issuance set`, `issuance list`, `mptoken authorize`
-- Files changed:
-  - src/commands/mptoken.ts (new)
-  - src/commands/index.ts (added export)
-  - src/index.ts (added addCommand)
-  - tests/e2e/mptoken/mptoken.validation.test.ts (new)
-  - tests/e2e/mptoken/mptoken.create.test.ts (new)
+## 2026-03-07 - US-002
+- Implemented E2E tests for `mptoken issuance destroy` and `mptoken issuance set` commands
+- Both commands were already implemented in `src/commands/mptoken.ts`; validation tests were already in `mptoken.validation.test.ts`
+- Created `tests/e2e/mptoken/mptoken.issuance.test.ts` with 11 tests covering:
+  - Create issuance with `can-lock` flag via CLI
+  - Lock globally (`--lock`), unlock globally (`--unlock`)
+  - Lock per-holder (`--lock --holder <addr>`), unlock per-holder with `--json`
+  - `--dry-run` for set (verifies TransactionType MPTokenIssuanceSet)
+  - `--no-wait` for set (verifies hash output)
+  - Destroy issuance, destroy `--json`, destroy `--dry-run`, destroy `--no-wait`
+- Files changed: `tests/e2e/mptoken/mptoken.issuance.test.ts` (new), `scripts/ralph/prd.json`
 - **Learnings for future iterations:**
-  - `MPTokenIssuanceCreateMetadata` has `mpt_issuance_id?: string` — use this to extract issuanceId from tx response
-  - All four MPToken tx types are exported from xrpl.js: MPTokenIssuanceCreate, MPTokenIssuanceDestroy, MPTokenIssuanceSet, MPTokenAuthorize
-  - `MPTokenIssuanceSet.Holder` and `MPTokenAuthorize.Holder` use `Account` type (string)
-  - The oracle.ts `submitTx` helper pattern is used here; for create we need the raw response to extract issuanceId, so create is inlined
-  - Testnet supports MPTokensV1 (confirmed by clawback.mpt.test.ts)
+  - `beforeAll` pre-creates a `holderIssuance` with `can-lock|can-transfer` flags and has the holder opt in via `MPTokenAuthorize` — required for per-holder lock tests
+  - For destroy tests: create a fresh issuance in the test body (via CLI) to ensure 0 outstanding MPT
+  - Tests run sequentially in describe block — `globalIssuanceId` is set by first test and reused by later tests
+  - Existing `tests/helpers/testnet.ts` exports `fundFromFaucet` and `TESTNET_URL`; the `fund.ts` pattern from MEMORY.md doesn't exist in this project
 ---
