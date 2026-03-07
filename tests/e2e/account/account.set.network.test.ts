@@ -15,8 +15,8 @@ import {
   fundAddress,
 } from "../helpers/fund.js";
 
-// Budget: 15 tickets × 0.2 = 3 XRP; 12 wallets × 2 XRP = 24 XRP; total 27 ≤ 99 ✓
-// 12 wallets: 3 fields + 2 flags + 1 mnemonic + 1 keystore + 1 clawback + 1 domain + 1 dry-run + 1 json = 11 wallets (+1 buffer)
+// 12 tests concurrent with wallets (11 funded + 1 mnemonic via fundAddress); +3 buffer = 15
+// Budget: 15 × 0.2 + 12 × 2 XRP = 3 + 24 = 27 ≤ 99 ✓
 const TICKET_COUNT = 15;
 const FUND_AMOUNT = 2;
 
@@ -37,7 +37,7 @@ afterAll(async () => {
 // ─── account set fields ───────────────────────────────────────────────────────
 
 describe("account set fields", () => {
-  it("--email-hash sets EmailHash on-chain", async () => {
+  it.concurrent("--email-hash sets EmailHash on-chain", async () => {
     const [wallet] = await createFunded(client, master, 1, FUND_AMOUNT);
     const emailHash = "AABBCCDDEEFF00112233445566778899";
 
@@ -57,7 +57,7 @@ describe("account set fields", () => {
     expect(data.EmailHash?.toUpperCase()).toBe(emailHash.toUpperCase());
   }, 90_000);
 
-  it("--transfer-rate sets TransferRate on-chain", async () => {
+  it.concurrent("--transfer-rate sets TransferRate on-chain", async () => {
     const [wallet] = await createFunded(client, master, 1, FUND_AMOUNT);
 
     const result = runCLI([
@@ -76,7 +76,7 @@ describe("account set fields", () => {
     expect(data.TransferRate).toBe(1005000000);
   }, 90_000);
 
-  it("--tick-size sets TickSize on-chain", async () => {
+  it.concurrent("--tick-size sets TickSize on-chain", async () => {
     const [wallet] = await createFunded(client, master, 1, FUND_AMOUNT);
 
     const result = runCLI([
@@ -99,7 +99,7 @@ describe("account set fields", () => {
 // ─── account set flags ────────────────────────────────────────────────────────
 
 describe("account set flags", () => {
-  it("--set-flag defaultRipple sets lsfDefaultRipple bit on-chain", async () => {
+  it.concurrent("--set-flag defaultRipple sets lsfDefaultRipple bit on-chain", async () => {
     const [wallet] = await createFunded(client, master, 1, FUND_AMOUNT);
 
     const result = runCLI([
@@ -119,7 +119,7 @@ describe("account set flags", () => {
     expect(data.Flags! & 0x00800000).not.toBe(0);
   }, 90_000);
 
-  it("--clear-flag defaultRipple clears lsfDefaultRipple bit on-chain", async () => {
+  it.concurrent("--clear-flag defaultRipple clears lsfDefaultRipple bit on-chain", async () => {
     const [wallet] = await createFunded(client, master, 1, FUND_AMOUNT);
 
     const result = runCLI([
@@ -139,7 +139,7 @@ describe("account set flags", () => {
     expect(data.Flags! & 0x00800000).toBe(0);
   }, 90_000);
 
-  it("--mnemonic key material submits AccountSet successfully", async () => {
+  it.concurrent("--mnemonic key material submits AccountSet successfully", async () => {
     const mnemonic = generateMnemonic(wordlist);
     const mnemonicWallet = Wallet.fromMnemonic(mnemonic, {
       mnemonicEncoding: "bip39",
@@ -157,7 +157,7 @@ describe("account set flags", () => {
     expect(result.stdout).toMatch(/Transaction submitted:/);
   }, 90_000);
 
-  it("--account + --keystore + --password submits AccountSet successfully", async () => {
+  it.concurrent("--account + --keystore + --password submits AccountSet successfully", async () => {
     const [wallet] = await createFunded(client, master, 1, FUND_AMOUNT);
     const tmpDir = mkdtempSync(resolve(tmpdir(), "xrpl-test-keystore-"));
     try {
@@ -191,7 +191,7 @@ describe("account set flags", () => {
 const LSF_ALLOW_TRUST_LINE_CLAWBACK = 0x80000000;
 
 describe("account set --allow-clawback", () => {
-  it("exits 1 with correct error message when --allow-clawback is used without --confirm", () => {
+  it.concurrent("exits 1 with correct error message when --allow-clawback is used without --confirm", () => {
     const result = runCLI([
       "--node", "testnet",
       "account", "set",
@@ -204,7 +204,7 @@ describe("account set --allow-clawback", () => {
     );
   });
 
-  it("sets lsfAllowTrustLineClawback on-chain when --allow-clawback --confirm are both provided", async () => {
+  it.concurrent("sets lsfAllowTrustLineClawback on-chain when --allow-clawback --confirm are both provided", async () => {
     const [wallet] = await createFunded(client, master, 1, FUND_AMOUNT);
 
     const result = runCLI([
@@ -228,7 +228,7 @@ describe("account set --allow-clawback", () => {
 // ─── account set (domain + misc) ─────────────────────────────────────────────
 
 describe("account set", () => {
-  it("sets domain and output contains transaction hash", async () => {
+  it.concurrent("sets domain and output contains transaction hash", async () => {
     const [wallet] = await createFunded(client, master, 1, FUND_AMOUNT);
 
     const result = runCLI([
@@ -242,7 +242,7 @@ describe("account set", () => {
     expect(result.stdout).toMatch(/Transaction submitted: [A-F0-9]+/i);
   }, 90_000);
 
-  it("--dry-run prints AccountSet JSON without submitting", async () => {
+  it.concurrent("--dry-run prints AccountSet JSON without submitting", async () => {
     const [wallet] = await createFunded(client, master, 1, FUND_AMOUNT);
 
     const result = runCLI([
@@ -261,7 +261,7 @@ describe("account set", () => {
     );
   }, 90_000);
 
-  it("--json outputs hash, result, tx_blob", async () => {
+  it.concurrent("--json outputs hash, result, tx_blob", async () => {
     const [wallet] = await createFunded(client, master, 1, FUND_AMOUNT);
 
     const result = runCLI([
@@ -278,7 +278,7 @@ describe("account set", () => {
     expect(typeof data.tx_blob).toBe("string");
   }, 90_000);
 
-  it("exits 1 when no key material provided", () => {
+  it.concurrent("exits 1 when no key material provided", () => {
     const result = runCLI([
       "--node", "testnet",
       "account", "set",
@@ -288,7 +288,7 @@ describe("account set", () => {
     expect(result.stderr).toContain("Error: provide key material");
   });
 
-  it("exits 1 when no setting fields provided", () => {
+  it.concurrent("exits 1 when no setting fields provided", () => {
     const result = runCLI([
       "--node", "testnet",
       "account", "set",

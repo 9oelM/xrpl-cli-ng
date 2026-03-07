@@ -7,7 +7,7 @@ const KNOWN_TESTNET_ADDRESS = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
 // ─── account info ─────────────────────────────────────────────────────────────
 
 describe("account info", () => {
-  it("returns account data with --node testnet flag", () => {
+  it.concurrent("returns account data with --node testnet flag", () => {
     const result = runCLI(["--node", "testnet", "account", "info", KNOWN_TESTNET_ADDRESS]);
     expect(result.status).toBe(0);
     expect(result.stdout).toContain("Address:");
@@ -18,7 +18,7 @@ describe("account info", () => {
     expect(result.stdout).toContain("Flags:");
   });
 
-  it("returns account data using XRPL_NODE env var", () => {
+  it.concurrent("returns account data using XRPL_NODE env var", () => {
     const result = runCLI(["account", "info", KNOWN_TESTNET_ADDRESS], {
       XRPL_NODE: "testnet",
     });
@@ -27,7 +27,7 @@ describe("account info", () => {
     expect(result.stdout).toContain("Balance:");
   });
 
-  it("--json outputs Account and Balance fields", () => {
+  it.concurrent("--json outputs Account and Balance fields", () => {
     const result = runCLI(["--node", "testnet", "account", "info", "--json", KNOWN_TESTNET_ADDRESS]);
     expect(result.status).toBe(0);
     const data = JSON.parse(result.stdout) as { Account: string; Balance: string };
@@ -35,7 +35,7 @@ describe("account info", () => {
     expect(typeof data.Balance).toBe("string");
   });
 
-  it("alias 'i' works", () => {
+  it.concurrent("alias 'i' works", () => {
     const result = runCLI(["--node", "testnet", "account", "i", KNOWN_TESTNET_ADDRESS]);
     expect(result.status).toBe(0);
     expect(result.stdout).toContain("Address:");
@@ -45,19 +45,19 @@ describe("account info", () => {
 // ─── account balance ──────────────────────────────────────────────────────────
 
 describe("account balance", () => {
-  it("outputs balance in XRP format", () => {
+  it.concurrent("outputs balance in XRP format", () => {
     const result = runCLI(["--node", "testnet", "account", "balance", KNOWN_TESTNET_ADDRESS]);
     expect(result.status).toBe(0);
     expect(result.stdout.trim()).toMatch(/^\d+(\.\d+)? XRP$/);
   });
 
-  it("alias 'bal' works", () => {
+  it.concurrent("alias 'bal' works", () => {
     const result = runCLI(["--node", "testnet", "account", "bal", KNOWN_TESTNET_ADDRESS]);
     expect(result.status).toBe(0);
     expect(result.stdout.trim()).toMatch(/^\d+(\.\d+)? XRP$/);
   });
 
-  it("--drops outputs a plain integer string with no 'XRP' suffix", () => {
+  it.concurrent("--drops outputs a plain integer string with no 'XRP' suffix", () => {
     const result = runCLI(["--node", "testnet", "account", "balance", "--drops", KNOWN_TESTNET_ADDRESS]);
     expect(result.status).toBe(0);
     const output = result.stdout.trim();
@@ -65,7 +65,7 @@ describe("account balance", () => {
     expect(output).not.toContain("XRP");
   });
 
-  it("--json outputs address, balanceXrp, and balanceDrops fields", () => {
+  it.concurrent("--json outputs address, balanceXrp, and balanceDrops fields", () => {
     const result = runCLI(["--node", "testnet", "account", "balance", "--json", KNOWN_TESTNET_ADDRESS]);
     expect(result.status).toBe(0);
     const data = JSON.parse(result.stdout) as { address: string; balanceXrp: number; balanceDrops: string };
@@ -79,7 +79,7 @@ describe("account balance", () => {
 // ─── account transactions ─────────────────────────────────────────────────────
 
 describe("account transactions", () => {
-  it("lists transactions for an account with history", () => {
+  it.concurrent("lists transactions for an account with history", () => {
     const result = runCLI(["--node", "testnet", "account", "transactions", KNOWN_TESTNET_ADDRESS]);
     expect(result.status).toBe(0);
     const lines = result.stdout.trim().split("\n");
@@ -89,20 +89,20 @@ describe("account transactions", () => {
     expect(lines[0]).toMatch(/^\d+\s+\S+\s+\S+\s+\S+$/);
   });
 
-  it("alias 'txs' works", () => {
+  it.concurrent("alias 'txs' works", () => {
     const result = runCLI(["--node", "testnet", "account", "txs", KNOWN_TESTNET_ADDRESS]);
     expect(result.status).toBe(0);
     expect(result.stdout.trim()).not.toBe("");
   });
 
-  it("--limit restricts number of results", () => {
+  it.concurrent("--limit restricts number of results", () => {
     const result = runCLI(["--node", "testnet", "account", "transactions", "--limit", "3", KNOWN_TESTNET_ADDRESS]);
     expect(result.status).toBe(0);
     const lines = result.stdout.trim().split("\n").filter(Boolean);
     expect(lines.length).toBeLessThanOrEqual(3);
   });
 
-  it("--json outputs transactions array and optional marker", () => {
+  it.concurrent("--json outputs transactions array and optional marker", () => {
     const result = runCLI(["--node", "testnet", "account", "transactions", "--json", KNOWN_TESTNET_ADDRESS]);
     expect(result.status).toBe(0);
     const data = JSON.parse(result.stdout) as { transactions: unknown[]; marker?: unknown };
@@ -114,7 +114,7 @@ describe("account transactions", () => {
 // ─── account trust-lines ──────────────────────────────────────────────────────
 
 describe("account trust-lines", () => {
-  it("shows (no trust lines) or a list for a testnet account", () => {
+  it.concurrent("shows (no trust lines) or a list for a testnet account", () => {
     const result = runCLI(["--node", "testnet", "account", "trust-lines", KNOWN_TESTNET_ADDRESS]);
     expect(result.status).toBe(0);
     const stdout = result.stdout.trim();
@@ -129,12 +129,12 @@ describe("account trust-lines", () => {
     }
   });
 
-  it("alias 'lines' works", () => {
+  it.concurrent("alias 'lines' works", () => {
     const result = runCLI(["--node", "testnet", "account", "lines", KNOWN_TESTNET_ADDRESS]);
     expect(result.status).toBe(0);
   });
 
-  it("--json outputs an array", () => {
+  it.concurrent("--json outputs an array", () => {
     const result = runCLI(["--node", "testnet", "account", "trust-lines", "--json", KNOWN_TESTNET_ADDRESS]);
     expect(result.status).toBe(0);
     const data = JSON.parse(result.stdout) as unknown[];
@@ -145,7 +145,7 @@ describe("account trust-lines", () => {
 // ─── account offers ───────────────────────────────────────────────────────────
 
 describe("account offers", () => {
-  it("shows (no open offers) or a list for a testnet account", () => {
+  it.concurrent("shows (no open offers) or a list for a testnet account", () => {
     const result = runCLI(["--node", "testnet", "account", "offers", KNOWN_TESTNET_ADDRESS]);
     expect(result.status).toBe(0);
     const stdout = result.stdout.trim();
@@ -157,12 +157,12 @@ describe("account offers", () => {
     }
   });
 
-  it("alias 'of' works", () => {
+  it.concurrent("alias 'of' works", () => {
     const result = runCLI(["--node", "testnet", "account", "of", KNOWN_TESTNET_ADDRESS]);
     expect(result.status).toBe(0);
   });
 
-  it("--json outputs an array", () => {
+  it.concurrent("--json outputs an array", () => {
     const result = runCLI(["--node", "testnet", "account", "offers", "--json", KNOWN_TESTNET_ADDRESS]);
     expect(result.status).toBe(0);
     const data = JSON.parse(result.stdout) as unknown[];
@@ -173,7 +173,7 @@ describe("account offers", () => {
 // ─── account channels ─────────────────────────────────────────────────────────
 
 describe("account channels", () => {
-  it("shows (no payment channels) or a list for a testnet account", () => {
+  it.concurrent("shows (no payment channels) or a list for a testnet account", () => {
     const result = runCLI(["--node", "testnet", "account", "channels", KNOWN_TESTNET_ADDRESS]);
     expect(result.status).toBe(0);
     const stdout = result.stdout.trim();
@@ -188,12 +188,12 @@ describe("account channels", () => {
     }
   });
 
-  it("alias 'chan' works", () => {
+  it.concurrent("alias 'chan' works", () => {
     const result = runCLI(["--node", "testnet", "account", "chan", KNOWN_TESTNET_ADDRESS]);
     expect(result.status).toBe(0);
   });
 
-  it("--json outputs an array", () => {
+  it.concurrent("--json outputs an array", () => {
     const result = runCLI(["--node", "testnet", "account", "channels", "--json", KNOWN_TESTNET_ADDRESS]);
     expect(result.status).toBe(0);
     const data = JSON.parse(result.stdout) as unknown[];
@@ -204,7 +204,7 @@ describe("account channels", () => {
 // ─── account nfts ─────────────────────────────────────────────────────────────
 
 describe("account nfts", () => {
-  it("shows (no NFTs) or a list for a testnet account", () => {
+  it.concurrent("shows (no NFTs) or a list for a testnet account", () => {
     const result = runCLI(["--node", "testnet", "account", "nfts", KNOWN_TESTNET_ADDRESS]);
     expect(result.status).toBe(0);
     const stdout = result.stdout.trim();
@@ -219,12 +219,12 @@ describe("account nfts", () => {
     }
   });
 
-  it("alias 'nft' works", () => {
+  it.concurrent("alias 'nft' works", () => {
     const result = runCLI(["--node", "testnet", "account", "nft", KNOWN_TESTNET_ADDRESS]);
     expect(result.status).toBe(0);
   });
 
-  it("--json outputs an array", () => {
+  it.concurrent("--json outputs an array", () => {
     const result = runCLI(["--node", "testnet", "account", "nfts", "--json", KNOWN_TESTNET_ADDRESS]);
     expect(result.status).toBe(0);
     const data = JSON.parse(result.stdout) as unknown[];

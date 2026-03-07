@@ -2,6 +2,27 @@
 Started: Sat Mar  7 07:30:14 AM Universal 2026
 ---
 
+## 2026-03-07 - US-002
+- Converted all `it(` to `it.concurrent(` in:
+  - tests/e2e/payment/payment.network.test.ts
+  - tests/e2e/payment/payment.tokens.test.ts
+  - tests/e2e/clawback/clawback.network.test.ts
+  - tests/e2e/ticket/ticket.network.test.ts
+  - tests/e2e/multisig/multisig.network.test.ts
+  - tests/e2e/account/account.set.network.test.ts
+  - tests/e2e/account/account.keys.test.ts
+  - tests/e2e/account/account.query.test.ts
+- Updated budget comments to reflect concurrent execution in all 8 files
+- Changed `}, 60_000)` to `}, 90_000)` in payment.network.test.ts and multisig.network.test.ts
+- All files already had createFunded inside each test body — zero shared wallet state to move
+- All TICKET_COUNTs were already adequate for concurrent execution
+- 94 tests pass; typecheck passes
+- **Learnings for future iterations:**
+  - All target files already had per-test wallet isolation — the previous US that created these tests followed the pattern correctly
+  - `it.concurrent` + per-test createFunded works seamlessly with the ticket pool pattern
+  - Tests that previously had `}, 60_000)` needed bumping to `}, 90_000)` since concurrent tests can queue behind each other
+---
+
 ## 2026-03-07 - US-001
 - Converted all `it(` to `it.concurrent(` in:
   - 14 validation test files (tests/e2e/**/*.validation.test.ts)
