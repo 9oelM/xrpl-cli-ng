@@ -118,6 +118,46 @@ Here's the overarching spec:
 1. Cover all amendments and features supported by [xrpl.js](https://js.xrpl.org/) and seen as enabled on https://livenet.xrpl.org/amendments. If an amendment is still being voted for but is supported by xrpl.js, xrpl-cli must be support the amendment.
 1. Refer to the design choices of popular CLIs for other blockchains such as [`cast` for Ethereum](https://www.getfoundry.sh/reference/cast/cast), or [`starkli` for Starknet](https://book.starkli.rs/) whenever you're lost.
 
+## E2E Test Structure
+
+### File layout per command
+- `<command>.validation.test.ts` — no-network tests only (invalid args, missing flags, mutually exclusive options). Use hardcoded dummy values. No `beforeAll`. Fast (~3s).
+- `<command>.network.test.ts` (and optionally `<command>.<area>.test.ts`) — all network tests, ~5–6 per file, **one faucet call per file**.
+
+### Wallet funding pattern — ALWAYS use this
+
+Use `tests/e2e/helpers/fund.ts`. The canonical `beforeAll`:
+
+```typescript
+import { fundMaster, initTicketPool, createFunded, XRPL_WS } from '../helpers/fund.js'
+
+let client: Client
+let master: Wallet
+
+beforeAll(async () => {
+  client = new Client(XRPL_WS)
+  await client.connect()
+  master = await fundMaster(client)         // 1 faucet call
+  await initTicketPool(client, master, 20)  // pre-create 20 tickets
+}, 60_000)
+
+afterAll(async () => { await client.disconnect() })
+```
+
+Each `it()` block creates its own wallets:
+```typescript
+it('some test', async () => {
+  const [sender, receiver] = await createFunded(client, master, 2, 10)
+  // sender and receiver each have 10 XRP, funded via ticket-based payments
+})
+```
+
+### Rules (never break these)
+1. **One faucet call per test file** — only `fundMaster()` in `beforeAll`, never `client.fundWallet()` elsewhere
+2. **Never share wallets across test cases** — every `it()` calls `createFunded` for its own fresh wallets
+3. **Use tickets for concurrent funding** — `createFunded` uses `Sequence:0 + TicketSequence` so all payments go out in parallel without sequence conflicts. Call `initTicketPool(client, master, N)` where N ≥ total wallets needed across all tests in the file.
+4. **Ticket usage**: set `Sequence: 0` and `TicketSequence: <n>` on a transaction to use a ticket instead of the account's normal sequence number
+
 ## Testing Requirements
 
 **Every CLI option and flag must be covered by at least one test.**

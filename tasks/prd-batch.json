@@ -1,0 +1,50 @@
+{
+  "project": "xrpl-cli",
+  "branchName": "ralph/batch",
+  "description": "Batch transaction command — atomically bundle multiple transactions with --build-only flag for composable shell substitution",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "--build-only flag on all commands",
+      "description": "As a developer, I want every command to support --build-only so I can generate unsigned transaction JSON for use in batch submissions.",
+      "acceptanceCriteria": [
+        "Add --build-only boolean flag to all transaction commands: payment, trust, offer, channel, escrow, check, clawback, credential, nft, multisig, oracle, ticket, deposit-preauth, account set, account set-regular-key, account delete, did, mptoken issuance create/destroy/set, mptoken authorize",
+        "When --build-only is set: derive Account from key material without connecting to network; output JSON of tx fields + Account to stdout; exit 0",
+        "--build-only output does NOT include Fee, Sequence, LastLedgerSequence, SigningPubKey, TxnSignature",
+        "--build-only is incompatible with --dry-run, --no-wait, --json — CLI exits with error if combined",
+        "Key material (--seed/--mnemonic/--account+--keystore) is still required with --build-only",
+        "tests/e2e/batch/batch.build-only.test.ts: payment --build-only outputs valid JSON with TransactionType and Account; output has no Fee or Sequence; --build-only with --dry-run errors (no network)",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "xrpl batch command",
+      "description": "As a developer, I want to submit multiple transactions atomically so I can guarantee they all succeed or handle failures according to a defined policy.",
+      "acceptanceCriteria": [
+        "Read Batch transaction source at https://github.com/XRPLF/xrpl.js/blob/main/packages/xrpl/src/models/transactions/batch.ts before implementing",
+        "Create src/commands/batch.ts and register it in src/commands/index.ts and src/index.ts",
+        "xrpl batch with: --tx <json> (repeatable, from --build-only output), --txs-file <path> (JSON array alternative), --mode all-or-nothing|only-one|until-failure|independent (required)",
+        "Standard key material options: --seed, --mnemonic, --account/--keystore/--password",
+        "Standard output options: --node, --json, --dry-run, --no-wait",
+        "CLI adds to each inner tx: tfInnerBatchTxn flag (bitwise OR into Flags), Fee: '0', SigningPubKey: '', removes TxnSignature/Signers/LastLedgerSequence",
+        "Outer Batch tx Flags from --mode: all-or-nothing=0x00010000, only-one=0x00020000, until-failure=0x00040000, independent=0x00080000",
+        "CLI exits with error if neither --tx nor --txs-file is provided",
+        "CLI exits with error if both --tx and --txs-file are provided",
+        "CLI exits with error if --mode is missing or invalid",
+        "CLI exits with error if any --tx value is not valid JSON",
+        "CLI exits with error if --txs-file does not exist or is not a valid JSON array",
+        "CLI exits with error if any inner tx has TransactionType 'Batch' (nested batch forbidden)",
+        "tests/e2e/batch/batch.validation.test.ts: no input, both inputs, invalid JSON, missing mode, invalid mode, nested batch (no network)",
+        "tests/e2e/batch/batch.test.ts: 2-tx batch using --tx $(xrpl payment ... --build-only) syntax; batch via --txs-file; mode all-or-nothing; mode independent; --json, --dry-run",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

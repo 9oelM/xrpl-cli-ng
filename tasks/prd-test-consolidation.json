@@ -1,0 +1,103 @@
+{
+  "project": "xrpl-cli",
+  "branchName": "ralph/test-consolidation",
+  "description": "Consolidate E2E test files to reduce faucet calls — group ~5-6 tests per file with one beforeAll that funds a master wallet then distributes 5-10 XRP to sub-wallets",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Create shared test funding helper",
+      "description": "As a test author, I want a shared utility to fund wallets efficiently so I don't have to call the faucet multiple times per test file.",
+      "acceptanceCriteria": [
+        "Create tests/e2e/helpers/fund.ts with: fundMaster(client) calls faucet once; initTicketPool(client, master, count) submits TicketCreate and extracts TicketSequence values from meta.AffectedNodes; nextTicket() returns next ticket synchronously; generateWallets(count) creates unfunded wallets; createFunded(client, master, count, amountXrp=10) generates wallets and funds each concurrently using Sequence:0 + TicketSequence:nextTicket() via Promise.all",
+        "Export XRPL_WS constant (testnet WebSocket URL) from the helper",
+        "RULE: each individual it() block calls createFunded to get its own fresh wallets — wallets are NEVER shared across test cases",
+        "RULE: all funding payments use Sequence:0 + TicketSequence from the pool — never rely on account sequence for concurrent payments from master",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Consolidate payment + trust + offer tests",
+      "description": "As a developer, I want payment, trust, and offer tests consolidated so each group uses one faucet call.",
+      "acceptanceCriteria": [
+        "payment: merge payment.core.test.ts + payment.iou.test.ts + payment.mpt.test.ts + payment.paths.test.ts into payment.network.test.ts (XRP/--json/--dry-run/--no-wait) and payment.tokens.test.ts (IOU/MPT/paths); delete originals",
+        "trust: merge trust.core.test.ts + trust.issuer.test.ts into trust.network.test.ts (1 faucet call, master funds issuer+holder+extras with 10 XRP); delete originals",
+        "offer: merge offer.core.test.ts + offer.flags.test.ts into offer.network.test.ts (1 faucet call); delete originals",
+        "All consolidated files use fundMaster + createFunded from tests/e2e/helpers/fund.ts",
+        "All tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Consolidate channel + escrow tests",
+      "description": "As a developer, I want channel and escrow tests consolidated so each group uses one faucet call.",
+      "acceptanceCriteria": [
+        "channel: merge channel.create.test.ts + channel.fund.test.ts + channel.list.test.ts + channel.claim.test.ts into channel.network.test.ts (1 faucet call, participants funded with 20 XRP for channel ops); leave channel.sign.test.ts unchanged (no faucet); delete merged originals",
+        "escrow: merge escrow.create.test.ts + escrow.finish.test.ts + escrow.cancel.test.ts + escrow.list.test.ts into escrow.network.test.ts (1 faucet call, participants funded with 20 XRP); delete originals",
+        "All consolidated files use fundMaster + createFunded from tests/e2e/helpers/fund.ts",
+        "All tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Consolidate check + clawback + multisig tests",
+      "description": "As a developer, I want check, clawback, and multisig tests consolidated so each group uses one faucet call.",
+      "acceptanceCriteria": [
+        "check: merge check.create.test.ts + check.cash.test.ts + check.cancel.test.ts + check.list.test.ts into check.network.test.ts (1 faucet call); delete originals",
+        "clawback: merge clawback.iou.test.ts + clawback.mpt.test.ts into clawback.network.test.ts (1 faucet call); delete originals",
+        "multisig: merge multisig.set.test.ts + multisig.delete.test.ts + multisig.list.test.ts into multisig.network.test.ts (1 faucet call, master funds main account + 3 signer wallets with 10 XRP each); delete originals",
+        "All consolidated files use fundMaster + createFunded from tests/e2e/helpers/fund.ts",
+        "All tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Consolidate credential + oracle + ticket + deposit-preauth tests",
+      "description": "As a developer, I want credential, oracle, ticket, and deposit-preauth tests consolidated so each group uses one faucet call.",
+      "acceptanceCriteria": [
+        "credential: merge credential.create.test.ts + credential.accept.test.ts + credential.delete.test.ts + credential.list.test.ts into credential.network.test.ts (1 faucet call); delete originals",
+        "oracle: merge oracle.set.test.ts + oracle.get.test.ts + oracle.delete.test.ts into oracle.network.test.ts (1 faucet call); delete originals",
+        "ticket: merge ticket.create.test.ts + ticket.list.test.ts into ticket.network.test.ts (1 faucet call); delete originals",
+        "deposit-preauth: merge deposit-preauth.set.test.ts + deposit-preauth.list.test.ts into deposit-preauth.network.test.ts (1 faucet call); delete originals",
+        "All consolidated files use fundMaster + createFunded from tests/e2e/helpers/fund.ts",
+        "All tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Consolidate nft + account tests",
+      "description": "As a developer, I want nft and account tests consolidated so each group uses one faucet call per file.",
+      "acceptanceCriteria": [
+        "nft: merge nft.mint.test.ts + nft.burn.test.ts + nft.modify.test.ts into nft.core.test.ts (1 faucet call); merge nft.offer.create.test.ts + nft.offer.cancel.test.ts + nft.offer.accept.test.ts + nft.offer.list.test.ts into nft.offers.test.ts (1 faucet call); delete originals",
+        "account set: merge account.set.fields.test.ts + account.set.flags.test.ts + account.set.clawback.test.ts into account.set.network.test.ts (1 faucet call); delete originals",
+        "account keys: merge account.set-regular-key.test.ts + account.delete.test.ts into account.keys.test.ts (1 faucet call); delete originals",
+        "account queries: consolidate info.test.ts + balance.test.ts + transactions.test.ts + trust-lines.test.ts + offers.test.ts + channels.test.ts + nfts.test.ts into account.query.test.ts (1 faucet call, master sets up state for all query tests); delete originals",
+        "All consolidated files use fundMaster + createFunded from tests/e2e/helpers/fund.ts",
+        "All tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
