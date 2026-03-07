@@ -6,6 +6,30 @@ export const DEVNET_WS = "wss://s.devnet.rippletest.net:51233";
 const DEVNET_FAUCET_URL = "https://faucet.devnet.rippletest.net/accounts";
 const FAUCET_MAX_RETRIES = 30;
 const FAUCET_RETRY_BASE_MS = 5000;
+const RETRY_SLEEP_MS = 2_000;
+const RETRY_MAX = 5;
+
+/**
+ * Wraps client.request with retry on TimeoutError (same node — devnet has no fallback).
+ * Sleeps 2 s between each attempt; gives up after RETRY_MAX tries.
+ */
+export async function resilientRequestDevnet<TResponse = Record<string, unknown>>(
+  client: Client,
+  params: Parameters<Client["request"]>[0],
+): Promise<TResponse> {
+  let lastErr: unknown;
+  for (let i = 0; i < RETRY_MAX; i++) {
+    if (i > 0) await new Promise((r) => setTimeout(r, RETRY_SLEEP_MS));
+    try {
+      return (await client.request(params)) as TResponse;
+    } catch (err) {
+      lastErr = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!msg.includes("Timeout")) throw err;
+    }
+  }
+  throw lastErr;
+}
 
 // Module-level ticket pool — shared across all test cases within a file.
 // JS is single-threaded so nextTicketDevnet() is race-free.

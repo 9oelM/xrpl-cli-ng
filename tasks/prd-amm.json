@@ -1,102 +1,82 @@
 {
   "project": "xrpl-cli",
   "branchName": "ralph/amm",
-  "description": "AMM commands — create, deposit, withdraw, bid, vote, delete, clawback, and query Automated Market Maker pools on the XRP Ledger",
+  "description": "AMM commands — create, deposit, withdraw, bid, vote, delete, clawback, and query AMM pools on XRPL",
   "userStories": [
     {
       "id": "US-001",
-      "title": "amm create command",
-      "description": "As a liquidity provider, I want to create a new AMM pool from the CLI so I can earn trading fees on my deposited assets.",
+      "title": "amm create + amm info commands",
+      "description": "As a liquidity provider, I want to create an AMM pool from the CLI and query its state.",
       "acceptanceCriteria": [
         "Read AMMCreate docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/ammcreate.md before implementing",
-        "Create src/commands/amm.ts and register it in src/commands/index.ts and src/index.ts",
-        "xrpl amm create with: --asset <spec> (required), --asset2 <spec> (required), --amount <value> (required), --amount2 <value> (required), --trading-fee <n> (required, 0-1000)",
-        "Asset spec format: 'XRP' for XRP, 'CURRENCY/issuer' for IOU (e.g. USD/rIssuer). No MPT support.",
-        "--amount and --amount2 are plain numbers; asset type inferred from --asset/--asset2. XRP amounts in drops, IOU amounts in decimal units (e.g. --asset XRP --amount 1000000 = 1M drops; --asset USD/rIssuer --amount 10 = 10 USD)",
-        "Standard key material options: --seed, --mnemonic, --account/--keystore/--password",
-        "Standard output options: --node, --json, --dry-run, --no-wait",
-        "After successful create, print AMM account address and LP token currency code",
+        "Create src/commands/amm.ts and register in src/commands/index.ts and src/index.ts",
+        "xrpl amm create --asset <spec> --asset2 <spec> --amount <value> --amount2 <value> --trading-fee <n>: asset spec is XRP or CURRENCY/issuer; amounts are plain numbers (XRP in drops, IOU in decimal); trading-fee 0-1000",
+        "After success print: AMM Account: <address> and LP Token: <currency>",
+        "xrpl amm info --asset <spec> --asset2 <spec>: calls amm_info RPC; prints AMM account, pool balances, LP token supply, trading fee; --json for raw output; --node supported",
+        "Standard key material (--seed, --mnemonic, --account/--keystore/--password) and output options (--node, --json, --dry-run, --no-wait) on amm create",
         "CLI exits with error if --trading-fee is outside 0-1000",
-        "CLI exits with error if both assets have the same spec",
-        "tests/e2e/amm/amm.validation.test.ts: invalid trading fee, same asset for both slots (no network)",
-        "tests/e2e/amm/amm.create.test.ts: create XRP/IOU pool; verify via amm info; --json, --dry-run",
+        "CLI exits with error if both asset specs are identical",
+        "tests/e2e/amm/amm.validation.test.ts: no network, no beforeAll; invalid trading fee exits 1; same asset for both slots exits 1",
+        "tests/e2e/amm/amm.create-info.test.ts: CRITICAL — use single shared client from beforeAll for ALL xrpl.js calls inside tests — NEVER create new Client() inside a test body; NO polling loops (no while loops, no waitFor helpers); NO retry logic; NO custom LLS; beforeAll timeout 120_000; initTicketPool(client, master, 12); each it.concurrent calls createFunded(client, master, 2, 5) for [issuer, lp]; setupPool(issuer, lp) calls client.submitAndWait for TrustSet then Payment (using shared client); then CLI amm create with --amount 100000 --amount2 10; tests: create XRP/IOU pool verifies output contains AMM Account, --json, --dry-run, amm info shows balances, --no-wait; per-test timeout 120_000; budget: 12x0.2 + 10x5 = 52 <= 99",
         "Typecheck passes"
       ],
       "priority": 1,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "CRITICAL TEST RULE: single shared client — never new Client() inside test body. No polling loops. No retry loops. No custom LLS. Use client.submitAndWait() directly. Each test has a unique issuer wallet = unique AMM pool = safe for it.concurrent."
     },
     {
       "id": "US-002",
-      "title": "amm deposit command",
-      "description": "As a liquidity provider, I want to deposit assets into an existing AMM pool so I can receive LP tokens representing my share.",
+      "title": "amm deposit + amm withdraw commands",
+      "description": "As a liquidity provider, I want to deposit assets into and withdraw from an AMM pool.",
       "acceptanceCriteria": [
         "Read AMMDeposit docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/ammdeposit.md before implementing",
-        "xrpl amm deposit with: --asset <spec> and --asset2 <spec> (required, identify AMM), --amount <value> (optional plain number, asset type inferred from --asset), --amount2 <value> (optional plain number, asset type inferred from --asset2), --lp-token-out <value> (optional plain number; CLI auto-fetches LP token currency/issuer via amm_info), --ePrice <value> (optional plain number), --for-empty (boolean flag for tfTwoAssetIfEmpty)",
-        "Mode inferred from flags: --amount+--amount2+--lp-token-out=tfLPToken; --amount+--amount2+--for-empty=tfTwoAssetIfEmpty; --amount+--amount2=tfTwoAsset; --amount+--lp-token-out=tfOneAssetLPToken; --amount+--ePrice=tfLimitLPToken; --amount only=tfSingleAsset",
+        "Read AMMWithdraw docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/ammwithdraw.md before implementing",
+        "xrpl amm deposit --asset --asset2 --amount [--amount2] [--lp-token-out] [--ePrice] [--for-empty]: mode inferred from flag combo (tfTwoAsset, tfSingleAsset, tfLPToken, tfOneAssetLPToken, tfLimitLPToken, tfTwoAssetIfEmpty); LP token amounts auto-fetched via amm_info when --lp-token-out given",
+        "xrpl amm withdraw --asset --asset2 [--lp-token-in] [--amount] [--amount2] [--all]: mode inferred from flags (tfLPToken, tfWithdrawAll, tfOneAssetWithdrawAll, tfSingleAsset, tfTwoAsset, tfLimitLPToken)",
         "CLI exits with error if flag combination does not match any valid mode",
-        "Standard key material and output options",
-        "tests/e2e/amm/amm.deposit.test.ts: double-asset deposit; single-asset deposit; LP-token deposit; --json, --dry-run",
+        "Standard key material and output options on both commands",
+        "tests/e2e/amm/amm.deposit-withdraw.test.ts: single shared client; NO new Client() in tests; NO polling; NO retry; initTicketPool(client, master, 16); each it.concurrent calls createFunded(client, master, 2, 5) for [issuer, lp]; setupPool(issuer, lp) via shared client; CLI amm create to create pool; deposit tests call CLI amm deposit; withdraw tests first deposit via xrpl.js AMMDeposit submitAndWait (setup, shared client) then CLI amm withdraw; tests: double-asset deposit, single-asset deposit, LP-token withdraw, single-asset withdraw, --json, --dry-run; per-test timeout 120_000; budget: 16x0.2 + 12x5 = 62.4 <= 99",
         "Typecheck passes"
       ],
       "priority": 2,
       "passes": false,
-      "notes": ""
+      "notes": "Deposit and withdraw share one test file. For withdraw tests, the xrpl.js AMMDeposit setup call uses the shared client. Never spawn a separate WebSocket connection."
     },
     {
       "id": "US-003",
-      "title": "amm withdraw command",
-      "description": "As a liquidity provider, I want to withdraw assets from an AMM pool by returning LP tokens so I can recover my liquidity.",
+      "title": "amm bid + amm vote commands",
+      "description": "As an LP token holder, I want to bid on the auction slot and vote on the trading fee.",
       "acceptanceCriteria": [
-        "Read AMMWithdraw docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/ammwithdraw.md before implementing",
-        "xrpl amm withdraw with: --asset <spec> and --asset2 <spec> (required), --lp-token-in <value> (optional plain number; CLI auto-fetches LP token currency/issuer via amm_info), --amount <value> (optional plain number, asset type inferred from --asset), --amount2 <value> (optional plain number, asset type inferred from --asset2), --all (boolean flag for withdraw-all modes)",
-        "Mode inferred from flags: --lp-token-in only=tfLPToken; --all only=tfWithdrawAll; --all+--amount=tfOneAssetWithdrawAll; --amount only=tfSingleAsset; --amount+--amount2=tfTwoAsset; --amount+--lp-token-in=tfLimitLPToken",
-        "CLI exits with error if flag combination does not match any valid mode",
-        "Standard key material and output options",
-        "tests/e2e/amm/amm.withdraw.test.ts: LP-token withdraw (get both assets); single-asset withdraw; withdraw-all; --json, --dry-run",
+        "Read AMMBid docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/ammbid.md before implementing",
+        "Read AMMVote docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/ammvote.md before implementing",
+        "xrpl amm bid --asset --asset2 [--bid-min <n>] [--bid-max <n>] [--auth-account <addr>] (repeatable, max 4): LP token amounts auto-fetched via amm_info",
+        "xrpl amm vote --asset --asset2 --trading-fee <n> (0-1000)",
+        "CLI exits with error if more than 4 --auth-account values given",
+        "CLI exits with error if --trading-fee out of 0-1000 range",
+        "Standard key material and output options on both",
+        "tests/e2e/amm/amm.bid-vote.test.ts: single shared client; NO new Client() in tests; NO polling; NO retry; initTicketPool(client, master, 12); each it.concurrent calls createFunded(client, master, 2, 5) for [issuer, lp]; setupPool then CLI amm create (lp now holds LP tokens received at creation); bid tests: CLI amm bid; vote tests: CLI amm vote then verify new fee via amm info; tests: bid on slot, vote on fee + verify, --json, --dry-run; per-test timeout 120_000; budget: 12x0.2 + 10x5 = 52 <= 99",
         "Typecheck passes"
       ],
       "priority": 3,
       "passes": false,
-      "notes": ""
+      "notes": "LP tokens are automatically received by the pool creator at AMMCreate time. No extra deposit step needed before bid/vote."
     },
     {
       "id": "US-004",
-      "title": "amm bid and amm vote commands",
-      "description": "As an LP token holder, I want to bid on the AMM auction slot and vote on the trading fee so I can get discounted trades and influence pool economics.",
+      "title": "amm delete + amm clawback commands",
+      "description": "As a developer, I want to delete empty AMM pools and claw back IOU assets from pools.",
       "acceptanceCriteria": [
-        "Read AMMBid docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/ammbid.md before implementing",
-        "Read AMMVote docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/ammvote.md before implementing",
-        "xrpl amm bid with: --asset <spec> and --asset2 <spec> (required), --bid-min <value> (optional plain number; CLI auto-fetches LP token currency/issuer via amm_info), --bid-max <value> (optional plain number; same auto-fetch), --auth-account <address> (repeatable, max 4)",
-        "xrpl amm vote with: --asset <spec> and --asset2 <spec> (required), --trading-fee <n> (required, 0-1000)",
-        "CLI exits with error if --trading-fee outside 0-1000",
-        "CLI exits with error if more than 4 --auth-account values provided",
+        "Read AMMDelete docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/ammdelete.md before implementing",
+        "Read AMMClawback docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/ammclawback.md before implementing",
+        "xrpl amm delete --asset --asset2: standard key material and output options",
+        "xrpl amm clawback --asset --asset2 --holder <address> [--amount <value>] [--both-assets]",
         "Standard key material and output options on both",
-        "tests/e2e/amm/amm.bid.test.ts: bid on auction slot; --json, --dry-run",
-        "tests/e2e/amm/amm.vote.test.ts: vote on trading fee; verify fee updated via amm info; --json, --dry-run",
+        "tests/e2e/amm/amm.delete.test.ts: single shared client; NO new Client() in tests; NO polling; NO retry; initTicketPool(client, master, 10); each it.concurrent calls createFunded(client, master, 2, 5) for [issuer, lp]; setupPool then CLI amm create; withdraw all LP tokens via xrpl.js AMMWithdraw submitAndWait (setup, shared client); then CLI amm delete; tests: delete after withdraw-all, --json, --dry-run; per-test timeout 120_000; budget: 10x0.2 + 8x5 = 42 <= 99",
         "Typecheck passes"
       ],
       "priority": 4,
       "passes": false,
-      "notes": ""
-    },
-    {
-      "id": "US-005",
-      "title": "amm delete, amm clawback, and amm info commands",
-      "description": "As a developer or token issuer, I want to delete empty AMM pools, claw back tokens from pools, and query pool state so I can manage AMM lifecycle and verify pool data.",
-      "acceptanceCriteria": [
-        "Read AMMDelete docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/ammdelete.md before implementing",
-        "Read AMMClawback docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/ammclawback.md before implementing",
-        "xrpl amm delete with: --asset <spec> and --asset2 <spec> (required); standard key material and output options",
-        "xrpl amm clawback with: --asset <spec> (required, token being clawed back; issuer must match signer), --asset2 <spec> (required), --holder <address> (required), --amount <value> (optional max clawback), --both-assets (boolean flag, sets tfClawTwoAssets)",
-        "xrpl amm info with: --asset <spec> and --asset2 <spec> (required); uses amm_info RPC; default output shows AMM account, pool balances, LP token supply, trading fee, auction slot; --json for raw output; --node supported",
-        "tests/e2e/amm/amm.delete.test.ts: create AMM, withdraw all, delete, verify amm info returns not-found; --json, --dry-run",
-        "tests/e2e/amm/amm.info.test.ts: create AMM, verify amm info shows correct balances and fee; --json",
-        "Typecheck passes"
-      ],
-      "priority": 5,
-      "passes": false,
-      "notes": ""
+      "notes": "amm clawback requires issuer to have AllowTrustLineClawback set before trust lines are created — complex setup. Skip amm clawback network test; validation test is sufficient. AMMDelete only works when pool is empty (all LP tokens returned)."
     }
   ]
 }

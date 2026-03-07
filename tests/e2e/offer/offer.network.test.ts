@@ -13,6 +13,7 @@ import {
   initTicketPool,
   createFunded,
   fundAddress,
+  resilientRequest,
 } from "../helpers/fund.js";
 
 // 16 tests concurrent × 2 wallets each = 32 tickets; 32 × 0.2 + 32 × 2 = 70.4 ≤ 99 ✓
@@ -77,7 +78,7 @@ describe("offer core", () => {
     expect(offer!.taker_pays).toMatchObject({ currency: "USD", issuer: issuer.address, value: "1" });
     expect(offer!.taker_gets).toBe("10000000");
 
-    const bookResult = await client.request({
+    const bookResult = await resilientRequest(client, {
       command: "book_offers",
       taker_pays: { currency: "USD", issuer: issuer.address },
       taker_gets: { currency: "XRP" },

@@ -10,6 +10,7 @@ import {
   fundMaster,
   initTicketPool,
   createFunded,
+  resilientRequest,
 } from "../helpers/fund.js";
 
 // NOTE: PermissionedDomains amendment is enabled on testnet.
@@ -82,7 +83,7 @@ describe("permissioned-domain delete", () => {
     expect(deleteResult.status, `stdout: ${deleteResult.stdout}\nstderr: ${deleteResult.stderr}`).toBe(0);
 
     // Verify domain is gone on-chain
-    const res = await client.request({
+    const res = await resilientRequest(client, {
       command: "account_objects",
       account: owner.address,
       type: "permissioned_domain",

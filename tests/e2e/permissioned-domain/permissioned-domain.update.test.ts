@@ -10,6 +10,7 @@ import {
   fundMaster,
   initTicketPool,
   createFunded,
+  resilientRequest,
 } from "../helpers/fund.js";
 
 // NOTE: PermissionedDomains amendment is enabled on testnet.
@@ -104,7 +105,7 @@ describe("permissioned-domain update", () => {
     expect(updateResult.status, `stdout: ${updateResult.stdout}\nstderr: ${updateResult.stderr}`).toBe(0);
 
     // Verify on-chain state
-    const res = await client.request({
+    const res = await resilientRequest(client, {
       command: "account_objects",
       account: owner.address,
       type: "permissioned_domain",

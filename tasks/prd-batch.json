@@ -8,17 +8,17 @@
       "title": "--build-only flag on all commands",
       "description": "As a developer, I want every command to support --build-only so I can generate unsigned transaction JSON for use in batch submissions.",
       "acceptanceCriteria": [
-        "Add --build-only boolean flag to all transaction commands: payment, trust, offer, channel, escrow, check, clawback, credential, nft, multisig, oracle, ticket, deposit-preauth, account set, account set-regular-key, account delete, did, mptoken issuance create/destroy/set, mptoken authorize",
+        "Add --build-only boolean flag to all transaction commands: payment, trust, offer, channel, escrow, check, clawback, credential, nft, multisig, oracle, ticket, deposit-preauth, account set, account set-regular-key, account delete, did, mptoken issuance create/destroy/set, mptoken authorize, vault create/set/deposit/withdraw/delete/clawback, permissioned-domain create/update/delete",
         "When --build-only is set: derive Account from key material without connecting to network; output JSON of tx fields + Account to stdout; exit 0",
         "--build-only output does NOT include Fee, Sequence, LastLedgerSequence, SigningPubKey, TxnSignature",
         "--build-only is incompatible with --dry-run, --no-wait, --json — CLI exits with error if combined",
         "Key material (--seed/--mnemonic/--account+--keystore) is still required with --build-only",
-        "tests/e2e/batch/batch.build-only.test.ts: payment --build-only outputs valid JSON with TransactionType and Account; output has no Fee or Sequence; --build-only with --dry-run errors (no network)",
+        "tests/e2e/batch/batch.build-only.test.ts: no network, no beforeAll; payment --build-only outputs valid JSON with TransactionType and Account; output has no Fee or Sequence; --build-only with --dry-run exits with error; --build-only with --no-wait exits with error; use hardcoded static seed and address values",
         "Typecheck passes"
       ],
       "priority": 1,
       "passes": false,
-      "notes": ""
+      "notes": "--build-only is a pure offline operation — it only needs the key material to derive Account. No network connection required. This makes it safe to test without any faucet calls."
     },
     {
       "id": "US-002",
@@ -38,13 +38,13 @@
         "CLI exits with error if any --tx value is not valid JSON",
         "CLI exits with error if --txs-file does not exist or is not a valid JSON array",
         "CLI exits with error if any inner tx has TransactionType 'Batch' (nested batch forbidden)",
-        "tests/e2e/batch/batch.validation.test.ts: no input, both inputs, invalid JSON, missing mode, invalid mode, nested batch (no network)",
-        "tests/e2e/batch/batch.test.ts: 2-tx batch using --tx $(xrpl payment ... --build-only) syntax; batch via --txs-file; mode all-or-nothing; mode independent; --json, --dry-run",
+        "tests/e2e/batch/batch.validation.test.ts: no network, no beforeAll; no input, both inputs, invalid JSON, missing mode, invalid mode, nested batch — use hardcoded static values",
+        "tests/e2e/batch/batch.network.test.ts: beforeAll uses fundMaster + initTicketPool(client, master, 15); afterAll disconnects; all tests use it.concurrent; each it.concurrent calls createFunded(client, master, 2, 3) for fresh [sender, receiver]; tests: 2-tx batch using --tx flags (use sender --build-only payment + --build-only payment), --txs-file with JSON array, mode all-or-nothing (both succeed), mode independent, --json, --dry-run; budget: 15×0.2 + 10×3 = 33 ≤ 99",
         "Typecheck passes"
       ],
       "priority": 2,
       "passes": false,
-      "notes": ""
+      "notes": "Each it.concurrent in batch.network.test.ts creates its own sender+receiver pair. The --build-only output from inner commands is generated inline using runCLI with --build-only and the test's sender seed, then passed to xrpl batch via --tx. No shared wallets across tests."
     }
   ]
 }

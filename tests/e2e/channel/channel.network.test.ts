@@ -6,6 +6,7 @@ import {
   fundMaster,
   initTicketPool,
   createFunded,
+  resilientRequest,
 } from "../helpers/fund.js";
 
 // Dummy channel ID for dry-run tests (valid 64-hex-char format)
@@ -206,7 +207,7 @@ describe("channel fund", () => {
     expect(result.stdout).toContain("tesSUCCESS");
 
     // Verify updated amount via account_channels RPC (0.5 + 0.2 = 0.7 XRP = 700_000 drops)
-    const res = await client.request({
+    const res = await resilientRequest(client, {
       command: "account_channels",
       account: source.address,
       destination_account: destination.address,

@@ -8,10 +8,76 @@ const FAUCET_URL = "https://faucet.altnet.rippletest.net/accounts";
 const FAUCET_URL_FALLBACK = "https://testnet.xrpl-labs.com/accounts";
 const FAUCET_MAX_RETRIES = 30;
 const FAUCET_RETRY_BASE_MS = 5000;
+const RETRY_SLEEP_MS = 2_000;
+const RETRY_MAX = 5;
 
 // Module-level ticket pool — shared across all test cases within a file.
 // JS is single-threaded so nextTicket() is race-free.
 const ticketPool: number[] = [];
+
+/**
+ * Wraps client.request with alternating-node retry on TimeoutError.
+ * Odd-numbered attempts use the fallback node; even attempts use the primary client.
+ * Sleeps 2 s between each attempt; gives up after RETRY_MAX tries.
+ */
+export async function resilientRequest<TResponse = Record<string, unknown>>(
+  client: Client,
+  params: Parameters<Client["request"]>[0],
+): Promise<TResponse> {
+  let lastErr: unknown;
+  for (let i = 0; i < RETRY_MAX; i++) {
+    if (i > 0) await new Promise((r) => setTimeout(r, RETRY_SLEEP_MS));
+    const useFallback = i % 2 === 1;
+    try {
+      if (useFallback) {
+        const fb = new Client(XRPL_WS_FALLBACK);
+        try {
+          await fb.connect();
+          return (await fb.request(params)) as TResponse;
+        } finally {
+          await fb.disconnect().catch(() => {});
+        }
+      }
+      return (await client.request(params)) as TResponse;
+    } catch (err) {
+      lastErr = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!msg.includes("Timeout")) throw err;
+    }
+  }
+  throw lastErr;
+}
+
+/**
+ * Wraps client.submitAndWait with alternating-node retry on TimeoutError.
+ */
+export async function resilientSubmitAndWait(
+  client: Client,
+  tx_blob: string,
+): Promise<Awaited<ReturnType<typeof client.submitAndWait>>> {
+  let lastErr: unknown;
+  for (let i = 0; i < RETRY_MAX; i++) {
+    if (i > 0) await new Promise((r) => setTimeout(r, RETRY_SLEEP_MS));
+    const useFallback = i % 2 === 1;
+    try {
+      if (useFallback) {
+        const fb = new Client(XRPL_WS_FALLBACK);
+        try {
+          await fb.connect();
+          return await fb.submitAndWait(tx_blob);
+        } finally {
+          await fb.disconnect().catch(() => {});
+        }
+      }
+      return await client.submitAndWait(tx_blob);
+    } catch (err) {
+      lastErr = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!msg.includes("Timeout")) throw err;
+    }
+  }
+  throw lastErr;
+}
 
 /**
  * Fund a master wallet from the testnet faucet (1 faucet call).
@@ -90,22 +156,7 @@ export async function initTicketPool(
   });
   const signed = master.sign(ticketTx);
 
-  let result: Awaited<ReturnType<typeof client.submitAndWait>>;
-  try {
-    result = await client.submitAndWait(signed.tx_blob);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (!msg.includes("Timeout")) throw err;
-    const fallbackClient = new Client(XRPL_WS_FALLBACK);
-    try {
-      await fallbackClient.connect();
-      result = await fallbackClient.submitAndWait(signed.tx_blob);
-    } catch (fallbackErr) {
-      throw err;
-    } finally {
-      await fallbackClient.disconnect();
-    }
-  }
+  const result = await resilientSubmitAndWait(client, signed.tx_blob);
 
   const meta = result.result.meta;
   if (!meta || typeof meta === "string") {
@@ -177,22 +228,7 @@ export async function createFunded(
       (tx as typeof tx & { TicketSequence: number }).TicketSequence = ticket;
 
       const signed = master.sign(tx);
-      let res: Awaited<ReturnType<typeof client.submitAndWait>>;
-      try {
-        res = await client.submitAndWait(signed.tx_blob);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (!msg.includes("Timeout")) throw err;
-        const fallbackClient = new Client(XRPL_WS_FALLBACK);
-        try {
-          await fallbackClient.connect();
-          res = await fallbackClient.submitAndWait(signed.tx_blob);
-        } catch (fallbackErr) {
-          throw err;
-        } finally {
-          await fallbackClient.disconnect();
-        }
-      }
+      const res = await resilientSubmitAndWait(client, signed.tx_blob);
       const txResult = (res.result.meta as { TransactionResult?: string })
         ?.TransactionResult;
       if (txResult !== "tesSUCCESS") {

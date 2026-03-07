@@ -6,6 +6,7 @@ import {
   fundMaster,
   initTicketPool,
   createFunded,
+  resilientRequest,
 } from "../helpers/fund.js";
 
 // Budget: 42 tickets × 0.2 = 8.4 XRP; 40 wallets × 2 XRP = 80 XRP; total 88.4 ≤ 99 ✓
@@ -159,7 +160,7 @@ describe("credential accept", () => {
     expect(acceptResult.stdout).toContain("tesSUCCESS");
 
     // Verify on-chain: lsfAccepted flag must be set
-    const res = await client.request({
+    const res = await resilientRequest(client, {
       command: "account_objects",
       account: subject.address,
       type: "credential",
@@ -300,7 +301,7 @@ describe("credential delete", () => {
     expect(deleteResult.status, `delete: ${deleteResult.stderr}`).toBe(0);
     expect(deleteResult.stdout).toContain("tesSUCCESS");
 
-    const res = await client.request({
+    const res = await resilientRequest(client, {
       command: "account_objects",
       account: subject.address,
       type: "credential",
@@ -345,7 +346,7 @@ describe("credential delete", () => {
     expect(deleteResult.status, `delete: ${deleteResult.stderr}`).toBe(0);
     expect(deleteResult.stdout).toContain("tesSUCCESS");
 
-    const res = await client.request({
+    const res = await resilientRequest(client, {
       command: "account_objects",
       account: subject.address,
       type: "credential",

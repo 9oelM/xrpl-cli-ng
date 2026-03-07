@@ -9,6 +9,7 @@ import {
   fundMasterDevnet,
   initTicketPoolDevnet,
   createFundedDevnet,
+  resilientRequestDevnet,
 } from "../helpers/devnet.js";
 
 let client: Client;
@@ -59,7 +60,7 @@ it.concurrent("creates a vault then deletes it; outputs 'Deleted vault' and tesS
   // Verify vault is gone via ledger_entry RPC
   let gone = false;
   try {
-    await client.request({
+    await resilientRequestDevnet(client, {
       command: "ledger_entry",
       index: vaultId,
       ledger_index: "validated",
@@ -117,7 +118,7 @@ it.concurrent("--dry-run prints VaultDelete tx JSON without submitting (vault st
   // Vault should still exist since dry-run did not submit
   let stillExists = false;
   try {
-    await client.request({
+    await resilientRequestDevnet(client, {
       command: "ledger_entry",
       index: vaultId,
       ledger_index: "validated",

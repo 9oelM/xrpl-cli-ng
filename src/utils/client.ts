@@ -21,6 +21,9 @@ export function resolveNodeUrl(nodeOrNetwork: string): string {
   return nodeOrNetwork;
 }
 
+const RETRY_SLEEP_MS = 2_000;
+const RETRY_MAX = 5;
+
 async function withClientOnce<T>(nodeUrl: string, fn: (client: Client) => Promise<T>): Promise<T> {
   const client = new Client(nodeUrl);
   await client.connect();
@@ -32,19 +35,31 @@ async function withClientOnce<T>(nodeUrl: string, fn: (client: Client) => Promis
 }
 
 /** Connects to an XRPL node, runs `fn`, then disconnects — even on error.
- *  If the primary testnet node times out, retries once on the fallback node. */
+ *  For testnet nodes, retries up to 5 times alternating between primary and
+ *  fallback, sleeping 2 s between each attempt. */
 export async function withClient<T>(
   nodeUrl: string,
   fn: (client: Client) => Promise<T>
 ): Promise<T> {
-  try {
-    return await withClientOnce(nodeUrl, fn);
-  } catch (err) {
-    const isTimeout = err instanceof Error && err.message.includes("Timeout");
-    const isFallbackable = nodeUrl === TESTNET_URL || nodeUrl === TESTNET_FALLBACK_URL;
-    if (isTimeout && isFallbackable) {
-      return await withClientOnce(TESTNET_FALLBACK_URL, fn);
-    }
-    throw err;
+  const isFallbackable = nodeUrl === TESTNET_URL || nodeUrl === TESTNET_FALLBACK_URL;
+  if (!isFallbackable) {
+    return withClientOnce(nodeUrl, fn);
   }
+
+  const alt = nodeUrl === TESTNET_URL ? TESTNET_FALLBACK_URL : TESTNET_URL;
+  const urls = [nodeUrl, alt];
+  let lastErr: unknown;
+
+  for (let i = 0; i < RETRY_MAX; i++) {
+    if (i > 0) await new Promise((r) => setTimeout(r, RETRY_SLEEP_MS));
+    try {
+      return await withClientOnce(urls[i % 2], fn);
+    } catch (err) {
+      lastErr = err;
+      const isTimeout = err instanceof Error && err.message.includes("Timeout");
+      if (!isTimeout) throw err;
+    }
+  }
+
+  throw lastErr;
 }
