@@ -15,3 +15,4 @@ export { ticketCommand } from "./ticket.js";
 export { depositPreauthCommand } from "./deposit-preauth.js";
 export { mptokenCommand } from "./mptoken.js";
 export { permissionedDomainCommand } from "./permissioned-domain.js";
+export { didCommand } from "./did.js";
