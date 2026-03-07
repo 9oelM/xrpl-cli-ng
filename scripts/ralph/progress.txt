@@ -20,3 +20,13 @@ Started: Sat Mar  7 08:49:21 AM Universal 2026
   - Each test deposits 2 XRP then withdraws 1 XRP to keep vault state consistent; tests are sequential so sharing the vault across tests works
   - Devnet faucet provides ~100 XRP; 6 tests × ~2 XRP deposits = ~12 XRP, well within budget
 ---
+
+## 2026-03-07 - US-005
+- Created `tests/e2e/vault/vault.delete.network.test.ts` with 5 tests: create+delete+verify-gone, --json, --dry-run, --no-wait, --account/--keystore/--password
+- vault delete implementation was already complete in `src/commands/vault.ts`; validation tests already in `vault.create.validation.test.ts`
+- **Learnings for future iterations:**
+  - Use `ledger_entry` with `index: vaultId` (direct LedgerIndex lookup) to verify a vault was deleted — NOT `vault: { account, vault_id }` which requires an 'owner' field that the RPC doesn't accept
+  - The `ledger_entry` error for a deleted/missing entry is `data.error === "entryNotFound"`
+  - For dry-run existence check: same `index: vaultId` pattern works to verify vault still exists
+  - Each test creates its own vault (vault delete consumes the vault), so no shared vault across tests
+---

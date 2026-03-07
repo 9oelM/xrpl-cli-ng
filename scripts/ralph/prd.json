@@ -112,7 +112,7 @@
         "Tests pass"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "Vault must be completely empty before deletion — tecHAS_OBLIGATIONS if not. E2E delete test should use a fresh vault with no deposits."
     },
     {
