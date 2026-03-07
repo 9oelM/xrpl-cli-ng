@@ -34,33 +34,20 @@ Started: Fri Mar  6 11:22:04 AM Universal 2026
   - `convertHexToString` from xrpl.js decodes hex credential type; wrap in try/catch for resilience
 ---
 
-## 2026-03-07 - US-003
-- Consolidated channel tests: channel.create + channel.fund + channel.list + channel.claim → channel.network.test.ts (22 tests, 1 faucet call)
-- Consolidated escrow tests: escrow.create + escrow.finish + escrow.cancel + escrow.list → escrow.network.test.ts (23 tests, 1 faucet call)
-- Updated tests/e2e/helpers/fund.ts: added TransactionResult check in createFunded/fundAddress to surface tecUNFUNDED_PAYMENT errors clearly
-- Files changed: tests/e2e/channel/channel.network.test.ts (new), tests/e2e/escrow/escrow.network.test.ts (new), tests/e2e/helpers/fund.ts, deleted 8 original test files
-- **Learnings for future iterations:**
-  - XRPL testnet faucet gives ~100 XRP (NOT 1000). Budget formula: available = 100 - 1(base_reserve) - TICKET_COUNT×0.2(owner_reserve). Net cost per wallet = amountXrp - 0.2 (ticket reserve freed on use)
-  - Testnet base_reserve = 1 XRP, owner_reserve = 0.2 XRP per object (confirmed via server_info). Old notes saying 10 XRP base were wrong.
-  - For channel tests with 44 wallets: use FUND_AMOUNT=2 XRP and TICKET_COUNT=48. Channel amount=0.5 XRP, fund amount=0.2 XRP fits in 2 XRP wallet (1 base + 1 available).
-  - For escrow tests: shared sender/receiver wallets (TICKET_COUNT=5). Fund sender with 30 XRP — supports 10 pre-created escrows (2 XRP×10 locks + 0.2×10 reserves = 22 XRP) plus test-body creates.
-  - Always add result check after submitAndWait in funding helpers — otherwise tecUNFUNDED_PAYMENT causes confusing "account not found" timeout instead of clear error message.
----
-
-## 2026-03-07 - US-004
-- Consolidated check tests: check.create + check.cash + check.cancel + check.list → check.network.test.ts (20 tests, 1 faucet call)
-- Consolidated clawback tests: clawback.iou + clawback.mpt → clawback.network.test.ts (7 tests, 1 faucet call)
-- Consolidated multisig tests: multisig.set + multisig.delete + multisig.list → multisig.network.test.ts (12 tests, 1 faucet call)
-- Deleted 9 original test files
-- Files changed: tests/e2e/check/check.network.test.ts (new), tests/e2e/clawback/clawback.network.test.ts (new), tests/e2e/multisig/multisig.network.test.ts (new), deleted 9 originals
-- **Learnings for future iterations:**
-  - CheckCreate requires destination to be an activated (funded) account — `tecNO_DST` if using `Wallet.generate()` as destination in submit tests. Dry-run tests are fine with any address.
-  - For clawback setup inside each test, run 3-4 direct xrpl.js calls (AccountSet, TrustSet, Payment) before the CLI command — this keeps each test self-contained and avoids shared state.
-  - Multisig signer wallets don't need to be funded — XRPL only requires valid addresses in the SignerList. Use `Wallet.generate()` for signer addresses.
-  - `SignerList` counts as ONE owner object regardless of signer count — 0.2 XRP reserve for any size signer list.
-  - For clawback MPT dry-run: dummy MPT issuance ID must be 48 hex chars (4 bytes seq + 20 bytes account) — use `"00000001" + "AABBCCDD".repeat(5)`.
----
-
 # Ralph Progress Log
-Started: Sat Mar  7 04:22:54 AM Universal 2026
+Started: Sat Mar  7 06:07:48 AM Universal 2026
+---
+
+## 2026-03-07 - US-005
+- Consolidated credential, oracle, ticket, and deposit-preauth tests into single network test files
+- credential: merged credential.create/accept/delete/list test files into credential.network.test.ts (42 tickets, 20 test × 2 wallets)
+- oracle: merged oracle.set/get/delete test files into oracle.network.test.ts (20 tickets, 18 tests × 1 wallet)
+- ticket: merged ticket.create/list test files into ticket.network.test.ts (12 tickets, 10 tests × 1 wallet)
+- deposit-preauth: merged deposit-preauth.set/list test files into deposit-preauth.network.test.ts (30 tickets, ~27 wallets)
+- All deleted originals; all new files use fundMaster + initTicketPool + createFunded pattern
+- Files changed: tests/e2e/credential/credential.network.test.ts (new), tests/e2e/oracle/oracle.network.test.ts (new), tests/e2e/ticket/ticket.network.test.ts (new), tests/e2e/deposit-preauth/deposit-preauth.network.test.ts (new); deleted 11 old test files; scripts/ralph/prd.json (US-001–005 marked passes: true)
+- **Learnings for future iterations:**
+  - enableDepositAuth helper inside the test file works well for tests that need DepositAuth on individual wallets
+  - Credential tests need extra wallet count (2 per test) since both issuer and subject are separate wallets
+  - deposit-preauth list tests with 1 wallet still need TICKET_COUNT accounting — make sure budget covers them
 ---
