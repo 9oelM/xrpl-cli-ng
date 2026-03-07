@@ -1,27 +1,36 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { runCLI } from "../../helpers/cli.js";
-import { Client, Wallet, xrpToDrops, isModifiedNode } from "xrpl";
-import type { Payment as XrplPayment, AccountObjectsRequest } from "xrpl";
-import { fundFromFaucet, TESTNET_URL } from "../../helpers/testnet.js";
+import { Client, Wallet } from "xrpl";
+import type { AccountObjectsRequest } from "xrpl";
 import { mkdtempSync, rmSync } from "fs";
 import { resolve } from "path";
 import { tmpdir } from "os";
+import {
+  XRPL_WS,
+  fundMaster,
+  initTicketPool,
+  createFunded,
+} from "../helpers/fund.js";
 
 // NOTE: PermissionedDomains amendment is enabled on testnet.
 
-let owner: Wallet;
-let credIssuer: Wallet;
+// 7 tests, each needs 1 owner + 1 credIssuer = 2 wallets per test
+// Total wallets: 14; +6 buffer = 20 tickets
+// Budget: 20 × 0.2 + 14 × 3 = 4 + 42 = 46 ≤ 99 ✓
+const TICKET_COUNT = 20;
+
 let client: Client;
+let master: Wallet;
 
 /**
  * Helper: create a domain via CLI and return its domain ID.
  */
-function createDomain(seed: string, credentialArg: string): string {
+function createDomain(ownerSeed: string, credentialArg: string): string {
   const result = runCLI([
     "--node", "testnet",
     "permissioned-domain", "create",
     "--credential", credentialArg,
-    "--seed", seed,
+    "--seed", ownerSeed,
   ]);
   if (result.status !== 0) {
     throw new Error(`Domain creation failed: ${result.stderr}`);
@@ -34,27 +43,19 @@ function createDomain(seed: string, credentialArg: string): string {
 }
 
 beforeAll(async () => {
-  client = new Client(TESTNET_URL);
+  client = new Client(XRPL_WS);
   await client.connect();
-  owner = await fundFromFaucet(client);
-
-  // Fund credIssuer from owner to avoid extra faucet calls
-  credIssuer = Wallet.generate();
-  const fundTx = await client.autofill({
-    TransactionType: "Payment",
-    Account: owner.address,
-    Amount: xrpToDrops(15),
-    Destination: credIssuer.address,
-  } as XrplPayment);
-  await client.submitAndWait(owner.sign(fundTx).tx_blob);
-}, 180_000);
+  master = await fundMaster(client);
+  await initTicketPool(client, master, TICKET_COUNT);
+}, 120_000);
 
 afterAll(async () => {
   await client.disconnect();
 });
 
 describe("permissioned-domain update", () => {
-  it("updates domain credentials via --credential", async () => {
+  it.concurrent("updates domain credentials via --credential", async () => {
+    const [owner, credIssuer] = await createFunded(client, master, 2, 3);
     const domainId = createDomain(owner.seed!, `${credIssuer.address}:KYC`);
 
     const result = runCLI([
@@ -69,7 +70,8 @@ describe("permissioned-domain update", () => {
     expect(result.stdout).toContain("Tx:");
   }, 120_000);
 
-  it("updates domain credentials via --credentials-json", async () => {
+  it.concurrent("updates domain credentials via --credentials-json", async () => {
+    const [owner, credIssuer] = await createFunded(client, master, 2, 3);
     const domainId = createDomain(owner.seed!, `${credIssuer.address}:KYC`);
     const credsJson = JSON.stringify([
       { issuer: credIssuer.address, credential_type: "414D4C" }, // "AML" in hex
@@ -87,7 +89,8 @@ describe("permissioned-domain update", () => {
     expect(result.stdout).toContain("Tx:");
   }, 120_000);
 
-  it("verifies updated credentials via account_objects", async () => {
+  it.concurrent("verifies updated credentials via account_objects", async () => {
+    const [owner, credIssuer] = await createFunded(client, master, 2, 3);
     const domainId = createDomain(owner.seed!, `${credIssuer.address}:KYC`);
 
     // Update with a different credential type
@@ -114,7 +117,8 @@ describe("permissioned-domain update", () => {
     expect(domainObj).toBeDefined();
   }, 120_000);
 
-  it("--json outputs {result, domainId, tx}", async () => {
+  it.concurrent("--json outputs {result, domainId, tx}", async () => {
+    const [owner, credIssuer] = await createFunded(client, master, 2, 3);
     const domainId = createDomain(owner.seed!, `${credIssuer.address}:KYC`);
 
     const result = runCLI([
@@ -136,7 +140,8 @@ describe("permissioned-domain update", () => {
     expect(out.tx).toMatch(/^[0-9A-Fa-f]{64}$/);
   }, 120_000);
 
-  it("--dry-run prints signed tx JSON without submitting", async () => {
+  it.concurrent("--dry-run prints signed tx JSON without submitting", async () => {
+    const [owner, credIssuer] = await createFunded(client, master, 2, 3);
     const domainId = createDomain(owner.seed!, `${credIssuer.address}:KYC`);
 
     const result = runCLI([
@@ -157,7 +162,8 @@ describe("permissioned-domain update", () => {
     expect(typeof out.tx_blob).toBe("string");
   }, 90_000);
 
-  it("--no-wait submits without waiting for validation", async () => {
+  it.concurrent("--no-wait submits without waiting for validation", async () => {
+    const [owner, credIssuer] = await createFunded(client, master, 2, 3);
     const domainId = createDomain(owner.seed!, `${credIssuer.address}:KYC`);
 
     const result = runCLI([
@@ -172,7 +178,8 @@ describe("permissioned-domain update", () => {
     expect(result.stdout).toContain("Transaction:");
   }, 90_000);
 
-  it("--account/--keystore/--password key material updates domain successfully", async () => {
+  it.concurrent("--account/--keystore/--password key material updates domain successfully", async () => {
+    const [owner, credIssuer] = await createFunded(client, master, 2, 3);
     const domainId = createDomain(owner.seed!, `${credIssuer.address}:KYC`);
     const tmpDir = mkdtempSync(resolve(tmpdir(), "xrpl-test-keystore-"));
     try {

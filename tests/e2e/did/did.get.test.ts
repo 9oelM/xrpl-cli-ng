@@ -1,34 +1,46 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { runCLI } from "../../helpers/cli.js";
 import { Client, Wallet } from "xrpl";
-import { fundFromFaucet, TESTNET_URL } from "../../helpers/testnet.js";
+import {
+  XRPL_WS,
+  fundMaster,
+  initTicketPool,
+  createFunded,
+} from "../helpers/fund.js";
 
-let owner: Wallet;
+// 4 tests: 3 need a funded wallet (1 wallet each), 1 uses a fresh unfunded address
+// Total wallets: 3; +3 buffer = 6 tickets
+// Budget: 6 × 0.2 + 3 × 3 = 1.2 + 9 = 10.2 ≤ 99 ✓
+const TICKET_COUNT = 6;
+
+let client: Client;
+let master: Wallet;
 
 beforeAll(async () => {
-  const client = new Client(TESTNET_URL);
+  client = new Client(XRPL_WS);
   await client.connect();
-  try {
-    owner = await fundFromFaucet(client);
-  } finally {
-    await client.disconnect();
-  }
+  master = await fundMaster(client);
+  await initTicketPool(client, master, TICKET_COUNT);
+}, 120_000);
 
-  // Create a DID with URI and Data for get tests
-  const setupResult = runCLI([
-    "--node", "testnet",
-    "did", "set",
-    "--uri", "https://example.com/did/get-test",
-    "--data", "attestation-payload",
-    "--seed", owner.seed!,
-  ]);
-  if (setupResult.status !== 0) {
-    throw new Error(`DID setup failed: ${setupResult.stderr}`);
-  }
-}, 180_000);
+afterAll(async () => {
+  await client.disconnect();
+});
 
 describe("did get", () => {
-  it("returns decoded URI and raw hex data", () => {
+  it.concurrent("returns decoded URI and raw hex data", async () => {
+    const [owner] = await createFunded(client, master, 1, 3);
+
+    // Set up a DID with URI and Data
+    const setupResult = runCLI([
+      "--node", "testnet",
+      "did", "set",
+      "--uri", "https://example.com/did/get-test",
+      "--data", "attestation-payload",
+      "--seed", owner.seed!,
+    ]);
+    expect(setupResult.status, `setup: ${setupResult.stderr}`).toBe(0);
+
     const result = runCLI([
       "--node", "testnet",
       "did", "get",
@@ -40,9 +52,20 @@ describe("did get", () => {
     // Data shown as raw hex
     const expectedDataHex = Buffer.from("attestation-payload").toString("hex");
     expect(result.stdout.toLowerCase()).toContain(expectedDataHex.toLowerCase());
-  }, 30_000);
+  }, 90_000);
 
-  it("--json outputs raw ledger entry JSON", () => {
+  it.concurrent("--json outputs raw ledger entry JSON", async () => {
+    const [owner] = await createFunded(client, master, 1, 3);
+
+    // Set up a DID
+    const setupResult = runCLI([
+      "--node", "testnet",
+      "did", "set",
+      "--uri", "https://example.com/did/json-test",
+      "--seed", owner.seed!,
+    ]);
+    expect(setupResult.status, `setup: ${setupResult.stderr}`).toBe(0);
+
     const result = runCLI([
       "--node", "testnet",
       "did", "get",
@@ -53,13 +76,11 @@ describe("did get", () => {
     const out = JSON.parse(result.stdout) as { LedgerEntryType?: string; URI?: string; Data?: string };
     expect(out.LedgerEntryType).toBe("DID");
     expect(typeof out.URI).toBe("string");
-  }, 30_000);
+  }, 90_000);
 
-  it("returns not-found message for address with no DID", () => {
-    // Use a fresh wallet that has no DID
+  it.concurrent("returns not-found message for address with no DID", async () => {
+    // Use a fresh wallet that has no DID — no funding needed, just need an address
     const fresh = Wallet.generate();
-    // Fund is not needed — we only need an address that definitely has no DID object.
-    // Use a well-known testnet genesis address unlikely to have a DID.
     const result = runCLI([
       "--node", "testnet",
       "did", "get",
@@ -73,13 +94,24 @@ describe("did get", () => {
     }
   }, 30_000);
 
-  it("--node option is accepted on did get", () => {
+  it.concurrent("--node option is accepted on did get", async () => {
+    const [owner] = await createFunded(client, master, 1, 3);
+
+    // Set up a DID
+    const setupResult = runCLI([
+      "--node", "testnet",
+      "did", "set",
+      "--uri", "https://example.com/did/node-test",
+      "--seed", owner.seed!,
+    ]);
+    expect(setupResult.status, `setup: ${setupResult.stderr}`).toBe(0);
+
     const result = runCLI([
       "--node", "wss://s.altnet.rippletest.net:51233",
       "did", "get",
       owner.address,
     ]);
     expect(result.status, `stdout: ${result.stdout} stderr: ${result.stderr}`).toBe(0);
-    expect(result.stdout).toContain("https://example.com/did/get-test");
-  }, 30_000);
+    expect(result.stdout).toContain("https://example.com/did/node-test");
+  }, 90_000);
 });

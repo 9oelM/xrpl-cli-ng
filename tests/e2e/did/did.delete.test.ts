@@ -1,22 +1,35 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { runCLI } from "../../helpers/cli.js";
 import { Client, Wallet } from "xrpl";
-import { fundFromFaucet, TESTNET_URL } from "../../helpers/testnet.js";
+import {
+  XRPL_WS,
+  fundMaster,
+  initTicketPool,
+  createFunded,
+} from "../helpers/fund.js";
 
-let owner: Wallet;
+// 4 tests × 1 wallet each = 4 wallets; +3 buffer = 7 tickets
+// Budget: 7 × 0.2 + 4 × 3 = 1.4 + 12 = 13.4 ≤ 99 ✓
+const TICKET_COUNT = 7;
+
+let client: Client;
+let master: Wallet;
 
 beforeAll(async () => {
-  const client = new Client(TESTNET_URL);
+  client = new Client(XRPL_WS);
   await client.connect();
-  try {
-    owner = await fundFromFaucet(client);
-  } finally {
-    await client.disconnect();
-  }
-}, 180_000);
+  master = await fundMaster(client);
+  await initTicketPool(client, master, TICKET_COUNT);
+}, 120_000);
+
+afterAll(async () => {
+  await client.disconnect();
+});
 
 describe("did delete", () => {
-  it("creates DID then deletes it; did get returns not-found", () => {
+  it.concurrent("creates DID then deletes it; did get returns not-found", async () => {
+    const [owner] = await createFunded(client, master, 1, 3);
+
     // Create DID
     const createResult = runCLI([
       "--node", "testnet",
@@ -46,7 +59,9 @@ describe("did delete", () => {
     expect(getResult.stdout).toContain(`No DID found for ${owner.address}`);
   }, 90_000);
 
-  it("--json outputs structured result on delete", () => {
+  it.concurrent("--json outputs structured result on delete", async () => {
+    const [owner] = await createFunded(client, master, 1, 3);
+
     // Create DID first
     const createResult = runCLI([
       "--node", "testnet",
@@ -70,7 +85,8 @@ describe("did delete", () => {
     expect(typeof out.ledger).toBe("number");
   }, 90_000);
 
-  it("--dry-run prints tx_blob without submitting", () => {
+  it.concurrent("--dry-run prints tx_blob without submitting", async () => {
+    const [owner] = await createFunded(client, master, 1, 3);
     const result = runCLI([
       "--node", "testnet",
       "did", "delete",
@@ -81,9 +97,11 @@ describe("did delete", () => {
     const out = JSON.parse(result.stdout) as { tx_blob: string; tx: { TransactionType: string } };
     expect(out.tx.TransactionType).toBe("DIDDelete");
     expect(typeof out.tx_blob).toBe("string");
-  }, 30_000);
+  }, 90_000);
 
-  it("--no-wait exits 0 with a hash", () => {
+  it.concurrent("--no-wait exits 0 with a hash", async () => {
+    const [owner] = await createFunded(client, master, 1, 3);
+
     // Create DID first to have something to delete
     runCLI([
       "--node", "testnet",

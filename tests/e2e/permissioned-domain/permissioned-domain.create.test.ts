@@ -1,42 +1,40 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { runCLI } from "../../helpers/cli.js";
-import { Client, Wallet, xrpToDrops } from "xrpl";
-import type { Payment as XrplPayment } from "xrpl";
-import { fundFromFaucet, TESTNET_URL } from "../../helpers/testnet.js";
+import { Client, Wallet } from "xrpl";
 import { mkdtempSync, rmSync } from "fs";
 import { resolve } from "path";
 import { tmpdir } from "os";
+import {
+  XRPL_WS,
+  fundMaster,
+  initTicketPool,
+  createFunded,
+} from "../helpers/fund.js";
 
 // NOTE: PermissionedDomains amendment is enabled on testnet.
 
-let owner: Wallet;
-// A second wallet used as credential issuer
-let credIssuer: Wallet;
+// 7 tests, each needs 1 owner + 1 credIssuer = 2 wallets per test
+// Total wallets: 14; +6 buffer = 20 tickets
+// Budget: 20 × 0.2 + 14 × 3 = 4 + 42 = 46 ≤ 99 ✓
+const TICKET_COUNT = 20;
 
 let client: Client;
+let master: Wallet;
 
 beforeAll(async () => {
-  client = new Client(TESTNET_URL);
+  client = new Client(XRPL_WS);
   await client.connect();
-  owner = await fundFromFaucet(client);
-
-  // Fund credIssuer from owner (to avoid extra faucet calls)
-  credIssuer = Wallet.generate();
-  const fundTx = await client.autofill({
-    TransactionType: "Payment",
-    Account: owner.address,
-    Amount: xrpToDrops(15),
-    Destination: credIssuer.address,
-  } as XrplPayment);
-  await client.submitAndWait(owner.sign(fundTx).tx_blob);
-}, 180_000);
+  master = await fundMaster(client);
+  await initTicketPool(client, master, TICKET_COUNT);
+}, 120_000);
 
 afterAll(async () => {
   await client.disconnect();
 });
 
 describe("permissioned-domain create", () => {
-  it("creates a domain with 1 credential via --credential", () => {
+  it.concurrent("creates a domain with 1 credential via --credential", async () => {
+    const [owner, credIssuer] = await createFunded(client, master, 2, 3);
     const result = runCLI([
       "--node", "testnet",
       "permissioned-domain", "create",
@@ -48,7 +46,8 @@ describe("permissioned-domain create", () => {
     expect(result.stdout).toContain("Tx:");
   }, 90_000);
 
-  it("creates a domain with 3 credentials via --credential", () => {
+  it.concurrent("creates a domain with 3 credentials via --credential", async () => {
+    const [owner, credIssuer] = await createFunded(client, master, 2, 3);
     const result = runCLI([
       "--node", "testnet",
       "permissioned-domain", "create",
@@ -61,7 +60,8 @@ describe("permissioned-domain create", () => {
     expect(result.stdout).toContain("Domain ID:");
   }, 90_000);
 
-  it("creates a domain via --credentials-json", () => {
+  it.concurrent("creates a domain via --credentials-json", async () => {
+    const [owner, credIssuer] = await createFunded(client, master, 2, 3);
     const credsJson = JSON.stringify([
       { issuer: credIssuer.address, credential_type: "4B5943" }, // "KYC" in hex
     ]);
@@ -75,7 +75,8 @@ describe("permissioned-domain create", () => {
     expect(result.stdout).toContain("Domain ID:");
   }, 90_000);
 
-  it("--json outputs {result, domainId, tx}", () => {
+  it.concurrent("--json outputs {result, domainId, tx}", async () => {
+    const [owner, credIssuer] = await createFunded(client, master, 2, 3);
     const result = runCLI([
       "--node", "testnet",
       "permissioned-domain", "create",
@@ -95,7 +96,8 @@ describe("permissioned-domain create", () => {
     expect(out.tx).toMatch(/^[0-9A-Fa-f]{64}$/);
   }, 90_000);
 
-  it("--dry-run prints unsigned tx JSON without submitting", () => {
+  it.concurrent("--dry-run prints unsigned tx JSON without submitting", async () => {
+    const [owner, credIssuer] = await createFunded(client, master, 2, 3);
     const result = runCLI([
       "--node", "testnet",
       "permissioned-domain", "create",
@@ -109,7 +111,8 @@ describe("permissioned-domain create", () => {
     expect(typeof out.tx_blob).toBe("string");
   }, 60_000);
 
-  it("--no-wait submits without waiting for validation", () => {
+  it.concurrent("--no-wait submits without waiting for validation", async () => {
+    const [owner, credIssuer] = await createFunded(client, master, 2, 3);
     const result = runCLI([
       "--node", "testnet",
       "permissioned-domain", "create",
@@ -121,7 +124,8 @@ describe("permissioned-domain create", () => {
     expect(result.stdout).toContain("Transaction:");
   }, 60_000);
 
-  it("--account/--keystore/--password key material creates domain successfully", () => {
+  it.concurrent("--account/--keystore/--password key material creates domain successfully", async () => {
+    const [owner, credIssuer] = await createFunded(client, master, 2, 3);
     const tmpDir = mkdtempSync(resolve(tmpdir(), "xrpl-test-keystore-"));
     try {
       const importResult = runCLI([

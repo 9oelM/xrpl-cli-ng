@@ -1,25 +1,37 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { runCLI } from "../../helpers/cli.js";
-import { Client, Wallet, xrpToDrops } from "xrpl";
-import { mkdtempSync, rmSync } from "fs";
 import { resolve } from "path";
+import { mkdtempSync, rmSync } from "fs";
 import { tmpdir } from "os";
-import { fundFromFaucet, TESTNET_URL } from "../../helpers/testnet.js";
+import { Client, Wallet } from "xrpl";
+import {
+  XRPL_WS,
+  fundMaster,
+  initTicketPool,
+  createFunded,
+} from "../helpers/fund.js";
 
-let owner: Wallet;
+// 11 tests × 1 wallet each = 11 wallets; +4 buffer = 15 tickets
+// Budget: 15 × 0.2 + 11 × 3 = 3 + 33 = 36 ≤ 99 ✓
+const TICKET_COUNT = 15;
+
+let client: Client;
+let master: Wallet;
 
 beforeAll(async () => {
-  const client = new Client(TESTNET_URL);
+  client = new Client(XRPL_WS);
   await client.connect();
-  try {
-    owner = await fundFromFaucet(client);
-  } finally {
-    await client.disconnect();
-  }
-}, 180_000);
+  master = await fundMaster(client);
+  await initTicketPool(client, master, TICKET_COUNT);
+}, 120_000);
+
+afterAll(async () => {
+  await client.disconnect();
+});
 
 describe("did set", () => {
-  it("creates DID with --uri succeeds", () => {
+  it.concurrent("creates DID with --uri succeeds", async () => {
+    const [owner] = await createFunded(client, master, 1, 3);
     const result = runCLI([
       "--node", "testnet",
       "did", "set",
@@ -28,9 +40,10 @@ describe("did set", () => {
     ]);
     expect(result.status, `stdout: ${result.stdout} stderr: ${result.stderr}`).toBe(0);
     expect(result.stdout).toContain("tesSUCCESS");
-  });
+  }, 90_000);
 
-  it("creates DID with --data succeeds", () => {
+  it.concurrent("creates DID with --data succeeds", async () => {
+    const [owner] = await createFunded(client, master, 1, 3);
     const result = runCLI([
       "--node", "testnet",
       "did", "set",
@@ -39,9 +52,19 @@ describe("did set", () => {
     ]);
     expect(result.status, `stdout: ${result.stdout} stderr: ${result.stderr}`).toBe(0);
     expect(result.stdout).toContain("tesSUCCESS");
-  });
+  }, 90_000);
 
-  it("updates existing DID URI", () => {
+  it.concurrent("updates existing DID URI", async () => {
+    const [owner] = await createFunded(client, master, 1, 3);
+    // First set
+    const first = runCLI([
+      "--node", "testnet",
+      "did", "set",
+      "--uri", "https://example.com/did/first",
+      "--seed", owner.seed!,
+    ]);
+    expect(first.status, `first: ${first.stderr}`).toBe(0);
+    // Then update
     const result = runCLI([
       "--node", "testnet",
       "did", "set",
@@ -50,9 +73,18 @@ describe("did set", () => {
     ]);
     expect(result.status, `stdout: ${result.stdout} stderr: ${result.stderr}`).toBe(0);
     expect(result.stdout).toContain("tesSUCCESS");
-  });
+  }, 90_000);
 
-  it("clears URI field with --clear-uri", () => {
+  it.concurrent("clears URI field with --clear-uri", async () => {
+    const [owner] = await createFunded(client, master, 1, 3);
+    // Set a URI first
+    const setResult = runCLI([
+      "--node", "testnet",
+      "did", "set",
+      "--uri", "https://example.com/did/to-clear",
+      "--seed", owner.seed!,
+    ]);
+    expect(setResult.status, `set: ${setResult.stderr}`).toBe(0);
     const result = runCLI([
       "--node", "testnet",
       "did", "set",
@@ -61,9 +93,10 @@ describe("did set", () => {
     ]);
     expect(result.status, `stdout: ${result.stdout} stderr: ${result.stderr}`).toBe(0);
     expect(result.stdout).toContain("tesSUCCESS");
-  });
+  }, 90_000);
 
-  it("--uri '' empty string clears URI (equivalent to --clear-uri)", () => {
+  it.concurrent("--uri '' empty string clears URI (equivalent to --clear-uri)", async () => {
+    const [owner] = await createFunded(client, master, 1, 3);
     // First set a URI so we have something to clear
     runCLI([
       "--node", "testnet",
@@ -79,9 +112,10 @@ describe("did set", () => {
     ]);
     expect(result.status, `stdout: ${result.stdout} stderr: ${result.stderr}`).toBe(0);
     expect(result.stdout).toContain("tesSUCCESS");
-  });
+  }, 90_000);
 
-  it("--json outputs hash, result, fee, ledger", () => {
+  it.concurrent("--json outputs hash, result, fee, ledger", async () => {
+    const [owner] = await createFunded(client, master, 1, 3);
     const result = runCLI([
       "--node", "testnet",
       "did", "set",
@@ -100,9 +134,10 @@ describe("did set", () => {
     expect(out.hash).toMatch(/^[0-9A-Fa-f]{64}$/);
     expect(typeof out.fee).toBe("string");
     expect(typeof out.ledger).toBe("number");
-  });
+  }, 90_000);
 
-  it("--dry-run prints tx_blob and tx without submitting", () => {
+  it.concurrent("--dry-run prints tx_blob and tx without submitting", async () => {
+    const [owner] = await createFunded(client, master, 1, 3);
     const result = runCLI([
       "--node", "testnet",
       "did", "set",
@@ -120,9 +155,10 @@ describe("did set", () => {
     // URI should be hex-encoded
     const expectedHex = Buffer.from("https://example.com/did/dry").toString("hex").toUpperCase();
     expect(out.tx.URI?.toUpperCase()).toBe(expectedHex);
-  });
+  }, 90_000);
 
-  it("--no-wait exits 0 with a hash", () => {
+  it.concurrent("--no-wait exits 0 with a hash", async () => {
+    const [owner] = await createFunded(client, master, 1, 3);
     const result = runCLI([
       "--node", "testnet",
       "did", "set",
@@ -132,9 +168,10 @@ describe("did set", () => {
     ]);
     expect(result.status, `stdout: ${result.stdout} stderr: ${result.stderr}`).toBe(0);
     expect(result.stdout).toMatch(/[0-9A-Fa-f]{64}/);
-  });
+  }, 90_000);
 
-  it("--uri-hex sets URI as raw hex without re-encoding", () => {
+  it.concurrent("--uri-hex sets URI as raw hex without re-encoding", async () => {
+    const [owner] = await createFunded(client, master, 1, 3);
     const uriHex = Buffer.from("https://example.com/did/hex").toString("hex");
     const result = runCLI([
       "--node", "testnet",
@@ -146,9 +183,10 @@ describe("did set", () => {
     expect(result.status, `stdout: ${result.stdout} stderr: ${result.stderr}`).toBe(0);
     const out = JSON.parse(result.stdout) as { tx: { URI?: string } };
     expect(out.tx.URI?.toLowerCase()).toBe(uriHex.toLowerCase());
-  });
+  }, 90_000);
 
-  it("--data-hex sets Data as raw hex without re-encoding", () => {
+  it.concurrent("--data-hex sets Data as raw hex without re-encoding", async () => {
+    const [owner] = await createFunded(client, master, 1, 3);
     const dataHex = Buffer.from("some-attestation").toString("hex");
     const result = runCLI([
       "--node", "testnet",
@@ -160,9 +198,10 @@ describe("did set", () => {
     expect(result.status, `stdout: ${result.stdout} stderr: ${result.stderr}`).toBe(0);
     const out = JSON.parse(result.stdout) as { tx: { Data?: string } };
     expect(out.tx.Data?.toLowerCase()).toBe(dataHex.toLowerCase());
-  });
+  }, 90_000);
 
-  it("--did-document sets DIDDocument hex-encoded", () => {
+  it.concurrent("--did-document sets DIDDocument hex-encoded", async () => {
+    const [owner] = await createFunded(client, master, 1, 3);
     const doc = '{"@context":"https://www.w3.org/ns/did/v1"}';
     const result = runCLI([
       "--node", "testnet",
@@ -175,9 +214,10 @@ describe("did set", () => {
     const out = JSON.parse(result.stdout) as { tx: { DIDDocument?: string } };
     const expectedHex = Buffer.from(doc).toString("hex").toUpperCase();
     expect(out.tx.DIDDocument?.toUpperCase()).toBe(expectedHex);
-  });
+  }, 90_000);
 
-  it("--account + --keystore + --password key material succeeds", () => {
+  it.concurrent("--account + --keystore + --password key material succeeds", async () => {
+    const [owner] = await createFunded(client, master, 1, 3);
     const tmpDir = mkdtempSync(resolve(tmpdir(), "xrpl-test-did-"));
     try {
       const importResult = runCLI([
@@ -201,5 +241,5 @@ describe("did set", () => {
     } finally {
       rmSync(tmpDir, { recursive: true, force: true });
     }
-  });
+  }, 90_000);
 });

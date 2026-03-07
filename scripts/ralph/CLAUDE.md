@@ -155,8 +155,10 @@ it('some test', async () => {
 ### Rules (never break these)
 1. **One faucet call per test file** — only `fundMaster()` in `beforeAll`, never `client.fundWallet()` elsewhere
 2. **Never share wallets across test cases** — every `it()` calls `createFunded` for its own fresh wallets
-3. **Use tickets for concurrent funding** — `createFunded` uses `Sequence:0 + TicketSequence` so all payments go out in parallel without sequence conflicts. Call `initTicketPool(client, master, N)` where N ≥ total wallets needed across all tests in the file.
-4. **Ticket usage**: set `Sequence: 0` and `TicketSequence: <n>` on a transaction to use a ticket instead of the account's normal sequence number
+3. **All `it()` blocks MUST be `it.concurrent`** — never use plain `it(`. Concurrent execution requires each test to be fully independent.
+4. **Each `it.concurrent` block MUST call `createFunded`** for its own fresh wallets. Never create wallets at file scope for sharing across tests (only `master` is allowed at file scope). Wallet creation inside `beforeAll` for sharing is forbidden.
+5. **Use tickets for concurrent funding** — `createFunded` uses `Sequence:0 + TicketSequence` so all payments go out in parallel without sequence conflicts. Call `initTicketPool(client, master, N)` where N ≥ total wallets needed across all tests in the file.
+6. **Ticket usage**: set `Sequence: 0` and `TicketSequence: <n>` on a transaction to use a ticket instead of the account's normal sequence number
 
 ### XRPL Testnet Reserve & Faucet Facts (CRITICAL)
 - **Faucet gives exactly 100 XRP** — NOT 1000 XRP
