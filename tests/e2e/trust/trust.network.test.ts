@@ -33,7 +33,7 @@ afterAll(async () => {
 
 describe("trust set core", () => {
   it("creates a USD trust line and prints tesSUCCESS", async () => {
-    const [trustor, issuer] = await createFunded(client, master, 2, 25);
+    const [trustor, issuer] = await createFunded(client, master, 2, 3);
 
     const result = runCLI([
       "--node", "testnet",
@@ -54,7 +54,7 @@ describe("trust set core", () => {
   }, 60_000);
 
   it("alias 's' works", async () => {
-    const [trustor, issuer] = await createFunded(client, master, 2, 25);
+    const [trustor, issuer] = await createFunded(client, master, 2, 3);
 
     const result = runCLI([
       "--node", "testnet",
@@ -75,7 +75,7 @@ describe("trust set core", () => {
   }, 60_000);
 
   it("--dry-run outputs JSON with TransactionType TrustSet and does not submit", async () => {
-    const [trustor, issuer] = await createFunded(client, master, 2, 25);
+    const [trustor, issuer] = await createFunded(client, master, 2, 3);
 
     const linesBefore = runCLI([
       "--node", "testnet",
@@ -107,7 +107,7 @@ describe("trust set core", () => {
   }, 60_000);
 
   it("--no-wait exits 0 and stdout contains a 64-char hex hash", async () => {
-    const [trustor, issuer] = await createFunded(client, master, 2, 25);
+    const [trustor, issuer] = await createFunded(client, master, 2, 3);
 
     const result = runCLI([
       "--node", "testnet",
@@ -123,7 +123,7 @@ describe("trust set core", () => {
   }, 60_000);
 
   it("--json outputs hash, result, fee, ledger", async () => {
-    const [trustor, issuer] = await createFunded(client, master, 2, 25);
+    const [trustor, issuer] = await createFunded(client, master, 2, 3);
 
     const result = runCLI([
       "--node", "testnet",
@@ -143,7 +143,7 @@ describe("trust set core", () => {
   }, 60_000);
 
   it("--no-ripple sets no_ripple: true on trust line", async () => {
-    const [trustor, issuer] = await createFunded(client, master, 2, 25);
+    const [trustor, issuer] = await createFunded(client, master, 2, 3);
 
     const result = runCLI([
       "--node", "testnet",
@@ -169,7 +169,7 @@ describe("trust set core", () => {
   }, 60_000);
 
   it("--account + --keystore + --password signs and submits trust set", async () => {
-    const [trustor, issuer] = await createFunded(client, master, 2, 25);
+    const [trustor, issuer] = await createFunded(client, master, 2, 3);
     const tmpDir = mkdtempSync(resolve(tmpdir(), "xrpl-test-keystore-"));
     try {
       const importResult = runCLI([
@@ -204,7 +204,7 @@ describe("trust set core", () => {
   }, 60_000);
 
   it("--clear-no-ripple clears the NoRipple flag on an existing trust line", async () => {
-    const [trustor, issuer] = await createFunded(client, master, 2, 25);
+    const [trustor, issuer] = await createFunded(client, master, 2, 3);
 
     const setResult = runCLI([
       "--node", "testnet",
@@ -246,8 +246,8 @@ describe("trust set core", () => {
       mnemonicEncoding: "bip39",
       derivationPath: "m/44'/144'/0'/0/0",
     });
-    const [issuer] = await createFunded(client, master, 1, 25);
-    await fundAddress(client, master, mnemonicWallet.address, 20);
+    const [issuer] = await createFunded(client, master, 1, 3);
+    await fundAddress(client, master, mnemonicWallet.address, 3);
 
     const result = runCLI([
       "--node", "testnet",
@@ -268,7 +268,7 @@ describe("trust set core", () => {
   }, 60_000);
 
   it("--quality-in and --quality-out set quality values on trust line", async () => {
-    const [trustor, issuer] = await createFunded(client, master, 2, 25);
+    const [trustor, issuer] = await createFunded(client, master, 2, 3);
 
     const result = runCLI([
       "--node", "testnet",
@@ -298,7 +298,7 @@ describe("trust set core", () => {
 
 describe("trust set issuer-side flags", () => {
   it("--freeze freezes a trust line (freeze_peer: true on trustor side)", async () => {
-    const [trustor, issuer] = await createFunded(client, master, 2, 25);
+    const [trustor, issuer] = await createFunded(client, master, 2, 3);
 
     const createResult = runCLI([
       "--node", "testnet",
@@ -334,7 +334,7 @@ describe("trust set issuer-side flags", () => {
   }, 60_000);
 
   it("--unfreeze clears the freeze on a trust line", async () => {
-    const [trustor, issuer] = await createFunded(client, master, 2, 25);
+    const [trustor, issuer] = await createFunded(client, master, 2, 3);
 
     // Set up: create trust line and freeze it
     const createResult = runCLI([
@@ -383,7 +383,7 @@ describe("trust set issuer-side flags", () => {
   }, 60_000);
 
   it("--auth authorizes a trust line (peer_authorized: true on trustor side)", async () => {
-    const [trustor, authIssuer] = await createFunded(client, master, 2, 25);
+    const [trustor, authIssuer] = await createFunded(client, master, 2, 3);
 
     // Enable RequireAuth on authIssuer
     const setFlagTx = await client.autofill({

@@ -104,7 +104,7 @@ export async function createFunded(
   client: Client,
   master: Wallet,
   count: number,
-  amountXrp = 10,
+  amountXrp = 3,
 ): Promise<Wallet[]> {
   const wallets = generateWallets(count);
 
@@ -153,7 +153,7 @@ export async function fundAddress(
   client: Client,
   master: Wallet,
   targetAddress: string,
-  amountXrp = 10,
+  amountXrp = 3,
 ): Promise<void> {
   const ticket = nextTicket();
   const tx = await client.autofill({

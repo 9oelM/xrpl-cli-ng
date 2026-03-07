@@ -15,8 +15,8 @@ import {
   fundAddress,
 } from "../helpers/fund.js";
 
-// 16 tests × 2 wallets + 1 mnemonic wallet = 33 tickets
-const TICKET_COUNT = 35;
+// 16 tests × 2 wallets = 32 tickets (32 × 0.2 + 32 × 2 = 70.4 ≤ 99 XRP budget)
+const TICKET_COUNT = 32;
 
 let client: Client;
 let master: Wallet;
@@ -34,7 +34,7 @@ afterAll(async () => {
 
 /** Set up a fresh maker+issuer pair with a USD trust line from maker to issuer. */
 async function setupMakerIssuer(): Promise<{ maker: Wallet; issuer: Wallet }> {
-  const [maker, issuer] = await createFunded(client, master, 2, 30);
+  const [maker, issuer] = await createFunded(client, master, 2, 2);
   const trustTx: TrustSet = await client.autofill({
     TransactionType: "TrustSet",
     Account: maker.address,
@@ -447,8 +447,8 @@ describe("offer flags", () => {
       mnemonicEncoding: "bip39",
       derivationPath: "m/44'/144'/0'/0/0",
     });
-    const [issuer] = await createFunded(client, master, 1, 25);
-    await fundAddress(client, master, mnemonicWallet.address, 25);
+    const [issuer] = await createFunded(client, master, 1, 2);
+    await fundAddress(client, master, mnemonicWallet.address, 2);
 
     // Set up trust line from mnemonicWallet to issuer
     const trustTx: TrustSet = await client.autofill({
