@@ -1,83 +1,73 @@
 {
   "project": "xrpl-cli",
-  "branchName": "ralph/mptoken",
-  "description": "MPToken issuance commands — create, destroy, set, authorize, and query Multi-Purpose Token issuances on the XRP Ledger",
+  "branchName": "ralph/permissioned-domain",
+  "description": "Permissioned Domain Commands - Create, update, and delete permissioned domains that gate access via credentials on XRPL",
   "userStories": [
     {
       "id": "US-001",
-      "title": "mptoken issuance create command",
-      "description": "As a token issuer, I want to define a new MPT issuance from the CLI so I can issue fungible tokens with customizable properties.",
+      "title": "permissioned-domain create command",
+      "description": "As a CLI user, I want to create a permissioned domain with a set of accepted credentials so that I can define which credential holders are permitted in my domain.",
       "acceptanceCriteria": [
-        "Read MPTokenIssuanceCreate docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/mptokenissuancecreate.md before implementing",
-        "Create src/commands/mptoken.ts and register it in src/commands/index.ts and src/index.ts",
-        "xrpl mptoken issuance create with: --asset-scale <n> (optional, 0-255, default 0), --max-amount <string> (optional UInt64 base-10 string), --transfer-fee <n> (optional, 0-50000), --flags <list> (optional, comma-separated: can-lock,require-auth,can-escrow,can-trade,can-transfer,can-clawback)",
-        "--metadata <string> (auto hex-encoded), --metadata-hex <hex> (raw hex), --metadata-file <path> (file contents hex-encoded) — all mutually exclusive",
-        "Standard key material options: --seed, --mnemonic, --account/--keystore/--password",
-        "Standard output options: --node, --json, --dry-run, --no-wait",
-        "After successful create, print MPTokenIssuanceID prominently",
-        "CLI exits with error if an unknown flag name is given in --flags",
-        "CLI exits with error if --transfer-fee is set without can-transfer in --flags",
-        "CLI exits with error if more than one of --metadata, --metadata-hex, --metadata-file is provided",
-        "CLI exits with error if --metadata-file path does not exist",
-        "tests/e2e/mptoken/mptoken.validation.test.ts: unknown flag name, transfer-fee without can-transfer, multiple metadata flags (no network)",
-        "tests/e2e/mptoken/mptoken.create.test.ts: create basic issuance, create with flags and transfer fee, create with --metadata; verify via mptoken issuance get; --json, --dry-run",
-        "Typecheck passes"
+        "Implement src/commands/permissioned-domain.ts with permissionedDomainCommand registered in src/commands/index.ts and src/index.ts",
+        "`xrpl permissioned-domain create --credential <issuer>:<type>` submits PermissionedDomainSet tx with no DomainID field (creates new domain)",
+        "--credential is repeatable (collect array); 1–10 credentials accepted; error if 0 or >10 provided",
+        "<type> in --credential <issuer>:<type> is treated as UTF-8 and auto-encoded to hex via convertStringToHex from xrpl",
+        "`--credentials-json <json>` accepts JSON array of {\"issuer\":\"r...\",\"credential_type\":\"hex...\"} objects as alternative input",
+        "--credential and --credentials-json are mutually exclusive; error if both provided",
+        "On success, outputs `Domain ID: <hash>` extracted from CreatedNode where LedgerEntryType === 'PermissionedDomain' in tx metadata",
+        "`--json` outputs {\"result\":\"success\",\"domainId\":\"<hash>\",\"tx\":\"<hash>\"}",
+        "`--dry-run` prints unsigned tx JSON and exits without submitting",
+        "`--no-wait` submits without waiting for validation",
+        "Supports --seed, --mnemonic, --account/--keystore/--password key material",
+        "Validation tests (no network): missing credentials exits with error, >10 credentials exits with error, both --credential and --credentials-json exits with error, invalid issuer address format exits with error",
+        "E2E tests on testnet: create with 1 credential, create with 3 credentials, --json, --dry-run, --no-wait",
+        "Typecheck passes",
+        "Tests pass"
       ],
       "priority": 1,
       "passes": true,
-      "notes": ""
+      "notes": "Requires PermissionedDomains and Credentials amendments. AcceptedCredentials wire format uses Issuer (address) and CredentialType (hex). If testnet does not have the amendment, use devnet instead and note this in a comment."
     },
     {
       "id": "US-002",
-      "title": "mptoken issuance destroy and mptoken issuance set commands",
-      "description": "As a token issuer, I want to delete an MPT issuance and lock/unlock token balances so I can manage the issuance lifecycle and compliance controls.",
+      "title": "permissioned-domain update command",
+      "description": "As a CLI user, I want to update the accepted credentials of an existing permissioned domain I own so that I can change which credentials grant access.",
       "acceptanceCriteria": [
-        "Read MPTokenIssuanceDestroy docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/mptokenissuancedestroy.md before implementing",
-        "Read MPTokenIssuanceSet docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/mptokenissuanceset.md before implementing",
-        "xrpl mptoken issuance destroy <issuance-id>: positional MPTokenIssuanceID argument, standard key material and output options",
-        "xrpl mptoken issuance set <issuance-id>: positional MPTokenIssuanceID, --lock (boolean), --unlock (boolean, mutually exclusive with --lock), --holder <address> (optional, per-holder operation)",
-        "CLI exits with error if neither --lock nor --unlock is provided for issuance set",
-        "CLI exits with error if both --lock and --unlock are provided",
-        "tests/e2e/mptoken/mptoken.issuance.test.ts: create issuance, lock globally, unlock globally, lock per-holder, destroy issuance; --json, --dry-run",
-        "Typecheck passes"
+        "`xrpl permissioned-domain update --domain-id <hash> --credential <issuer>:<type>` submits PermissionedDomainSet tx with DomainID field set",
+        "--domain-id required; must be 64-char hex string; error if missing or malformed",
+        "Same --credential / --credentials-json rules as create (1–10, mutually exclusive)",
+        "Help text clearly states update replaces the entire credentials list (not a merge)",
+        "On success, outputs `Domain ID: <hash>` and `Tx: <hash>`",
+        "`--json`, `--dry-run`, `--no-wait` supported",
+        "Supports --seed, --mnemonic, --account/--keystore/--password",
+        "Validation tests (no network): missing --domain-id exits with error, invalid --domain-id format exits with error, missing credentials exits with error",
+        "E2E tests on testnet: create domain in beforeAll, update credential list, verify via account_objects, --json, --dry-run",
+        "Typecheck passes",
+        "Tests pass"
       ],
       "priority": 2,
       "passes": true,
-      "notes": ""
+      "notes": "PermissionedDomainSet with DomainID = update; without DomainID = create. The AcceptedCredentials array fully replaces the existing list on update."
     },
     {
       "id": "US-003",
-      "title": "mptoken authorize command",
-      "description": "As a token holder or issuer, I want to opt in to holding an MPT or grant/revoke allow-list permissions so I can receive and manage MPT balances.",
+      "title": "permissioned-domain delete command",
+      "description": "As a CLI user, I want to delete a permissioned domain I own so that I can remove it from the ledger and reclaim the reserve.",
       "acceptanceCriteria": [
-        "Read MPTokenAuthorize docs at https://github.com/XRPLF/xrpl-dev-portal/blob/master/docs/references/protocol/transactions/types/mptokenauthorize.md before implementing",
-        "xrpl mptoken authorize <issuance-id>: positional MPTokenIssuanceID, --holder <address> (optional, issuer-side only), --unauthorize (boolean flag to revoke instead of grant)",
-        "Standard key material and output options",
-        "tests/e2e/mptoken/mptoken.authorize.test.ts: holder opts in, holder opts out (balance must be zero), issuer authorizes holder on require-auth issuance, issuer revokes; --json, --dry-run",
-        "Typecheck passes"
+        "`xrpl permissioned-domain delete --domain-id <hash>` submits PermissionedDomainDelete tx",
+        "--domain-id required; must be 64-char hex string; error if missing or malformed",
+        "On success, outputs `Deleted domain: <hash>` and `Tx: <hash>`",
+        "`--json` outputs {\"result\":\"success\",\"domainId\":\"<hash>\",\"tx\":\"<hash>\"}",
+        "`--dry-run`, `--no-wait` supported",
+        "Supports --seed, --mnemonic, --account/--keystore/--password",
+        "Validation tests (no network): missing --domain-id exits with error, invalid --domain-id format exits with error",
+        "E2E tests on testnet: create domain in beforeAll then delete it, verify gone via account_objects (type: 'permissioned_domain'), --json, --dry-run, --no-wait",
+        "Typecheck passes",
+        "Tests pass"
       ],
       "priority": 3,
       "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-004",
-      "title": "mptoken issuance list and mptoken issuance get commands",
-      "description": "As a token issuer or developer, I want to query MPT issuances so I can verify properties and track issuance state.",
-      "acceptanceCriteria": [
-        "xrpl mptoken issuance list <address> using account_objects RPC with type: 'mpt_issuance'",
-        "mptoken issuance list default output: each issuance on its own line with ID, AssetScale, MaximumAmount, OutstandingAmount, active flags",
-        "Shows 'No MPT issuances.' if the account has none",
-        "xrpl mptoken issuance get <issuance-id> using ledger_entry RPC with { mpt_issuance: issuanceId }",
-        "mptoken issuance get default output: ID, Issuer, AssetScale, MaximumAmount, OutstandingAmount, TransferFee, flags (decoded names), Metadata (decoded from hex to UTF-8 if valid, else raw hex)",
-        "--json outputs raw JSON on both commands",
-        "--node supported on both commands",
-        "tests/e2e/mptoken/mptoken.query.test.ts: create issuance, verify mptoken issuance list shows it, verify mptoken issuance get shows correct properties; --json",
-        "Typecheck passes"
-      ],
-      "priority": 4,
-      "passes": true,
-      "notes": ""
+      "notes": "Error conditions: tecNO_ENTRY if domain doesn't exist, tecNO_PERMISSION if not the owner. Use isDeletedNode from xrpl to confirm deletion in metadata if needed."
     }
   ]
 }
