@@ -158,6 +158,17 @@ it('some test', async () => {
 3. **Use tickets for concurrent funding** — `createFunded` uses `Sequence:0 + TicketSequence` so all payments go out in parallel without sequence conflicts. Call `initTicketPool(client, master, N)` where N ≥ total wallets needed across all tests in the file.
 4. **Ticket usage**: set `Sequence: 0` and `TicketSequence: <n>` on a transaction to use a ticket instead of the account's normal sequence number
 
+### XRPL Testnet Reserve & Faucet Facts (CRITICAL)
+- **Faucet gives exactly 100 XRP** — NOT 1000 XRP
+- **Base reserve: 1 XRP** per account — NOT 10 XRP
+- **Owner reserve: 0.2 XRP** per ledger object (ticket, offer, trust line, escrow, etc.) — NOT 2 XRP
+- Master available XRP after faucet = 100 - 1 (base) - (TICKET_COUNT × 0.2)
+- Net cost per funded wallet = amountXrp - 0.2 (ticket reserve freed on use)
+- **Budget check before writing a test file**: TICKET_COUNT × 0.2 + N_wallets × amountXrp ≤ 99
+- Example: 20 tests × 2 wallets = 40 wallets at 2 XRP each + 40 tickets = 40×0.2 + 40×2 = 8 + 80 = 88 ≤ 99 ✓
+- **Safe default per wallet**: 2–3 XRP (1 XRP base reserve + 1–2 XRP for transaction fees and payments)
+- For tests that lock XRP (escrow, payment channel): fund those specific wallets with more (10–25 XRP) and account for it in the budget
+
 ## Testing Requirements
 
 **Every CLI option and flag must be covered by at least one test.**
