@@ -1,0 +1,38 @@
+{
+  "project": "xrpl-cli",
+  "branchName": "ralph/test-throttle",
+  "description": "Cap vitest concurrency to 3 files × 3 cases (max 9 simultaneous test cases) and add fallback XRPL node wss://testnet.xrpl-labs.com/ with automatic retry on TimeoutError.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Cap vitest file and test-case concurrency",
+      "description": "As a developer, I want vitest to run at most 3 files and 3 test cases concurrently so that the testnet node is not overwhelmed.",
+      "acceptanceCriteria": [
+        "In vitest.config.ts, add `poolOptions: { forks: { maxForks: 3 } }` inside the test config block",
+        "In vitest.config.ts, add `maxConcurrency: 3` inside the test config block",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "poolOptions.forks.maxForks limits concurrent test files (worker processes). maxConcurrency limits concurrent it.concurrent cases within a single file. Together: 3 × 3 = 9 max simultaneous test cases."
+    },
+    {
+      "id": "US-002",
+      "title": "Fallback XRPL node on timeout errors in fund.ts",
+      "description": "As a developer, I want the test helper to automatically retry on a fallback XRPL node when the primary node times out, so that transient congestion errors don't fail tests.",
+      "acceptanceCriteria": [
+        "Add `export const XRPL_WS_FALLBACK = \"wss://testnet.xrpl-labs.com/\"` to tests/e2e/helpers/fund.ts",
+        "Add `const FAUCET_URL_FALLBACK = \"https://testnet.xrpl-labs.com/accounts\"` to tests/e2e/helpers/fund.ts",
+        "In fundMaster: wrap the faucet HTTP call and submitAndWait in try/catch; if error message contains \"Timeout\", retry once using FAUCET_URL_FALLBACK and a fresh Client connected to XRPL_WS_FALLBACK; if fallback also throws, rethrow original error",
+        "In initTicketPool: wrap submitAndWait in try/catch; if error message contains \"Timeout\", retry once using a fresh Client connected to XRPL_WS_FALLBACK; if fallback also throws, rethrow original error",
+        "In createFunded: wrap each payment submitAndWait in try/catch; if error message contains \"Timeout\", retry once using a fresh Client connected to XRPL_WS_FALLBACK; if fallback also throws, rethrow original error",
+        "Fallback Client must be freshly created, connected before use, and disconnected after the retry attempt in a finally block",
+        "No changes to any test files — retry logic lives entirely in fund.ts",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "TimeoutError from xrpl.js has message matching 'Timeout for request'. Only retry on timeout — do not catch tecNO_PERMISSION, temBAD_FEE, or other XRPL error codes. The fallback client is ephemeral: connect, use, disconnect."
+    }
+  ]
+}

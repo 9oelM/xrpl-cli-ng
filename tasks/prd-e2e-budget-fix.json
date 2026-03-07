@@ -1,0 +1,53 @@
+{
+  "project": "xrpl-cli",
+  "branchName": "ralph/e2e-budget-fix",
+  "description": "Fix E2E test wallet funding amounts — tests were written assuming 1000 XRP faucet but actual faucet gives 100 XRP with base reserve 1 XRP and owner reserve 0.2 XRP per object",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Fix fund.ts default and high-amount test files",
+      "description": "As a developer, I want the shared funding helper and test files that hardcode 25–30 XRP per wallet to be fixed so tests don't fail with tecUNFUNDED_PAYMENT.",
+      "acceptanceCriteria": [
+        "XRPL testnet facts to use throughout: faucet=100 XRP, base reserve=1 XRP, owner reserve=0.2 XRP per object. Budget formula: TICKET_COUNT × 0.2 + N_wallets × amountXrp ≤ 99",
+        "tests/e2e/helpers/fund.ts: change default amountXrp=10 → amountXrp=3",
+        "tests/e2e/payment/payment.network.test.ts: change all createFunded(..., 25) → createFunded(..., 3); change fundAddress(..., 20) → fundAddress(..., 3); change createFunded(..., 15) → createFunded(..., 3); verify budget passes",
+        "tests/e2e/payment/payment.tokens.test.ts: change all createFunded(..., 25) → createFunded(..., 3); verify budget passes",
+        "tests/e2e/trust/trust.network.test.ts: change all createFunded(..., 25) → createFunded(..., 3); change all fundAddress(..., 20) → fundAddress(..., 3); verify budget: 30 × 0.2 + N_wallets × 3 ≤ 99",
+        "tests/e2e/offer/offer.network.test.ts: change createFunded(client, master, 2, 30) in setupMakerIssuer → createFunded(client, master, 2, 3); change createFunded(..., 25) → createFunded(..., 3); change fundAddress(..., 25) → fundAddress(..., 3); do NOT change --taker-gets/--taker-pays values (XRPL allows placing offers for amounts above current balance); verify budget: TICKET_COUNT × 0.2 + N_wallets × 3 ≤ 99 — reduce TICKET_COUNT if needed",
+        "tests/e2e/escrow/escrow.network.test.ts: change createFunded(client, master, 2, 30) → createFunded(client, master, 2, 20) — escrow tests lock XRP so 20 XRP per wallet is necessary; verify budget: 5 × 0.2 + 2 × 20 = 41 ≤ 99",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Audit and fix remaining network test files",
+      "description": "As a developer, I want all remaining network test files audited so no file exceeds the 100 XRP budget.",
+      "acceptanceCriteria": [
+        "XRPL testnet facts: faucet=100 XRP, base reserve=1 XRP, owner reserve=0.2 XRP per object. Budget formula: TICKET_COUNT × 0.2 + N_wallets × amountXrp ≤ 99",
+        "For each file, count N_wallets (sum of all createFunded count args + fundAddress calls across all it() blocks). Verify TICKET_COUNT × 0.2 + N_wallets × FUND_AMOUNT ≤ 99. Fix FUND_AMOUNT or TICKET_COUNT if over budget",
+        "Audit tests/e2e/account/account.keys.test.ts (FUND_AMOUNT=2)",
+        "Audit tests/e2e/account/account.set.network.test.ts (FUND_AMOUNT=2, TICKET_COUNT=15)",
+        "Audit tests/e2e/account/account.query.test.ts",
+        "Audit tests/e2e/channel/channel.network.test.ts (FUND_AMOUNT=2) — if any test funds a channel with >1 XRP, that wallet needs channel_amount + 2 XRP",
+        "Audit tests/e2e/check/check.network.test.ts (FUND_AMOUNT=2)",
+        "Audit tests/e2e/clawback/clawback.network.test.ts (FUND_AMOUNT=5)",
+        "Audit tests/e2e/credential/credential.network.test.ts (FUND_AMOUNT=2)",
+        "Audit tests/e2e/deposit-preauth/deposit-preauth.network.test.ts (FUND_AMOUNT=2, TICKET_COUNT=30) — reduce TICKET_COUNT if actual wallet count is lower",
+        "Audit tests/e2e/multisig/multisig.network.test.ts (FUND_AMOUNT=3)",
+        "Audit tests/e2e/nft/nft.core.test.ts (FUND_AMOUNT=3)",
+        "Audit tests/e2e/nft/nft.offers.test.ts (FUND_AMOUNT=2)",
+        "Audit tests/e2e/oracle/oracle.network.test.ts (FUND_AMOUNT=4, TICKET_COUNT=20)",
+        "Audit tests/e2e/ticket/ticket.network.test.ts (FUND_AMOUNT=5)",
+        "Reduce any TICKET_COUNT that is higher than actual N_wallets (excess tickets waste 0.2 XRP each)",
+        "Do NOT change test assertions or logic — only funding amounts and ticket counts",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
