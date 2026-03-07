@@ -1,0 +1,87 @@
+{
+  "project": "xrpl-cli",
+  "branchName": "ralph/vault-test-fix",
+  "description": "Fix vault E2E test conventions — add devnet helper, convert all it() to it.concurrent, fresh wallets per test, consolidate 5 files into 3, write clawback test (US-006 completion)",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Create devnet funding helper",
+      "description": "As a developer, I need a devnet.ts helper that mirrors fund.ts so vault tests can use ticket-based concurrent wallet funding on devnet.",
+      "acceptanceCriteria": [
+        "Create tests/e2e/helpers/devnet.ts",
+        "Export DEVNET_WS = 'wss://s.devnet.rippletest.net:51233'",
+        "Export fundMasterDevnet(client): Promise<Wallet> — calls devnet faucet (POST https://faucet.devnet.rippletest.net/accounts with body {destination: address, userAgent: 'xrpl-cli-tests'}), waits for funding, returns Wallet",
+        "Export initTicketPoolDevnet(client, master, count) — identical logic to initTicketPool in fund.ts",
+        "Export createFundedDevnet(client, master, count, amountXrp=3) — identical logic to createFunded in fund.ts",
+        "Export fundAddressDevnet(client, master, address, amountXrp=3) — identical logic to fundAddress in fund.ts",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Copy the logic from tests/e2e/helpers/fund.ts — the ticket and payment logic is identical for devnet. Only the faucet URL changes. Devnet faucet: POST https://faucet.devnet.rippletest.net/accounts"
+    },
+    {
+      "id": "US-002",
+      "title": "Fix and consolidate vault create + set tests",
+      "description": "As a developer, I want the create and set test files merged into one concurrent-safe file so tests run faster with no wallet sharing.",
+      "acceptanceCriteria": [
+        "Delete vault.create.network.test.ts and vault.set.network.test.ts",
+        "Create tests/e2e/vault/vault.create-set.network.test.ts with all 13 tests (7 create + 6 set)",
+        "beforeAll: fundMasterDevnet + initTicketPoolDevnet(client, master, 15)",
+        "afterAll: await client.disconnect()",
+        "Every test uses it.concurrent",
+        "Each it.concurrent calls createFundedDevnet(client, master, 1, 3) for its own fresh wallet — no shared wallets at file scope except master",
+        "Each test creates its own vault inline via CLI (using --seed from the per-test wallet)",
+        "VaultCreate CLI calls must use --node devnet",
+        "Budget: 15 × 0.2 + 13 × 3 = 42 ≤ 99",
+        "All original test assertions preserved (no test logic removed)",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "vault.create has 7 tests (XRP vault creation, --assets-maximum, --json, --dry-run, --no-wait, --account/keystore/password, --non-transferable). vault.set has 6 tests. Each test gets its own wallet and creates its own vault. VaultCreate elevated fee (200000 drops) is handled by the CLI automatically."
+    },
+    {
+      "id": "US-003",
+      "title": "Fix and consolidate vault deposit + withdraw tests",
+      "description": "As a developer, I want deposit and withdraw tests merged into one concurrent-safe file where each test is fully self-contained.",
+      "acceptanceCriteria": [
+        "Delete vault.deposit.network.test.ts and vault.withdraw.network.test.ts",
+        "Create tests/e2e/vault/vault.deposit-withdraw.network.test.ts with all 11 tests (5 deposit + 6 withdraw)",
+        "beforeAll: fundMasterDevnet + initTicketPoolDevnet(client, master, 13)",
+        "afterAll: await client.disconnect()",
+        "Every test uses it.concurrent",
+        "Each it.concurrent calls createFundedDevnet(client, master, 1, 5) for its own wallet (5 XRP: 1 base + owner reserves + deposit amounts)",
+        "Each test creates its own XRP vault via xrpl.js VaultCreate directly (not CLI — setup only, Fee: '200000') then uses CLI for the operation under test",
+        "Withdraw tests: each test does its own VaultDeposit via xrpl.js first, then calls the CLI to withdraw — fully self-contained",
+        "Budget: 13 × 0.2 + 11 × 5 = 57.6 ≤ 99",
+        "All original test assertions preserved",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Withdraw tests must deposit first (via xrpl.js VaultDeposit) within each it.concurrent body before calling the CLI withdraw command. Each test is fully self-contained. XRP vault creation uses xrpl.js directly with Fee: '200000'."
+    },
+    {
+      "id": "US-004",
+      "title": "Fix vault delete test and write vault clawback test",
+      "description": "As a developer, I want the delete test fixed and the clawback test written correctly so all vault tests follow conventions.",
+      "acceptanceCriteria": [
+        "Fix tests/e2e/vault/vault.delete.network.test.ts in place: beforeAll with fundMasterDevnet + initTicketPoolDevnet(client, master, 7); all 5 tests changed to it.concurrent; each test calls createFundedDevnet(client, master, 1, 3) and creates its own vault; budget: 7 × 0.2 + 5 × 3 = 16.4 ≤ 99",
+        "Delete the uncommitted/broken vault.clawback.network.test.ts from the worktree if it exists",
+        "Write tests/e2e/vault/vault.clawback.network.test.ts with 6 tests: full clawback (no --amount), partial clawback (--amount), --json, --dry-run, --no-wait, --account/--keystore/--password",
+        "beforeAll for clawback: call fundMasterDevnet for master; then separately fund ONE issuer wallet via createFundedDevnet(client, master, 1, 10); set up issuer: enable DefaultRipple (AccountSet asfDefaultRipple), enable AllowTrustLineClawback (AccountSet asfAllowTrustLineClawback); create IOU vault via VaultCreate with Asset: {currency: 'VCB', issuer: issuer.address} and Fee: '200000'; store vaultId from CreatedNode metadata",
+        "initTicketPoolDevnet(client, master, 8) for funding holders",
+        "Each it.concurrent: createFundedDevnet(client, master, 1, 3) for fresh holder; holder sets up TrustSet to issuer; issuer sends 100 VCB Payment to holder; holder calls VaultDeposit via xrpl.js; then CLI vault clawback is called",
+        "issuer wallet and vaultId are shared in beforeAll — this is an allowed exception because only the holder (fresh per test) is consumed by clawback",
+        "Budget: 8 × 0.2 + (1 issuer × 10) + (6 holders × 3) = 1.6 + 10 + 18 = 29.6 ≤ 99",
+        "Update scripts/ralph/prd.json to mark US-006 as passes: true",
+        "Commit all changes with message: feat: [US-006] - vault clawback test and test convention fixes",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "Clawback requires: issuer has asfAllowTrustLineClawback AND asfDefaultRipple set. These must be set before any trust lines are created. The issuer sequence conflicts are avoided by using xrpl.js autofill + submitAndWait sequentially within each test body (not concurrent issuer txs). VCB = vault clawback test currency."
+    }
+  ]
+}

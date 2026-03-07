@@ -1,0 +1,73 @@
+{
+  "project": "xrpl-cli",
+  "branchName": "ralph/permissioned-domain",
+  "description": "Permissioned Domain Commands - Create, update, and delete permissioned domains that gate access via credentials on XRPL",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "permissioned-domain create command",
+      "description": "As a CLI user, I want to create a permissioned domain with a set of accepted credentials so that I can define which credential holders are permitted in my domain.",
+      "acceptanceCriteria": [
+        "Implement src/commands/permissioned-domain.ts with permissionedDomainCommand registered in src/commands/index.ts and src/index.ts",
+        "`xrpl permissioned-domain create --credential <issuer>:<type>` submits PermissionedDomainSet tx with no DomainID field (creates new domain)",
+        "--credential is repeatable (collect array); 1–10 credentials accepted; error if 0 or >10 provided",
+        "<type> in --credential <issuer>:<type> is treated as UTF-8 and auto-encoded to hex via convertStringToHex from xrpl",
+        "`--credentials-json <json>` accepts JSON array of {\"issuer\":\"r...\",\"credential_type\":\"hex...\"} objects as alternative input",
+        "--credential and --credentials-json are mutually exclusive; error if both provided",
+        "On success, outputs `Domain ID: <hash>` extracted from CreatedNode where LedgerEntryType === 'PermissionedDomain' in tx metadata",
+        "`--json` outputs {\"result\":\"success\",\"domainId\":\"<hash>\",\"tx\":\"<hash>\"}",
+        "`--dry-run` prints unsigned tx JSON and exits without submitting",
+        "`--no-wait` submits without waiting for validation",
+        "Supports --seed, --mnemonic, --account/--keystore/--password key material",
+        "Validation tests (no network): missing credentials exits with error, >10 credentials exits with error, both --credential and --credentials-json exits with error, invalid issuer address format exits with error",
+        "E2E tests on testnet: create with 1 credential, create with 3 credentials, --json, --dry-run, --no-wait",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Requires PermissionedDomains and Credentials amendments. AcceptedCredentials wire format uses Issuer (address) and CredentialType (hex). If testnet does not have the amendment, use devnet instead and note this in a comment."
+    },
+    {
+      "id": "US-002",
+      "title": "permissioned-domain update command",
+      "description": "As a CLI user, I want to update the accepted credentials of an existing permissioned domain I own so that I can change which credentials grant access.",
+      "acceptanceCriteria": [
+        "`xrpl permissioned-domain update --domain-id <hash> --credential <issuer>:<type>` submits PermissionedDomainSet tx with DomainID field set",
+        "--domain-id required; must be 64-char hex string; error if missing or malformed",
+        "Same --credential / --credentials-json rules as create (1–10, mutually exclusive)",
+        "Help text clearly states update replaces the entire credentials list (not a merge)",
+        "On success, outputs `Domain ID: <hash>` and `Tx: <hash>`",
+        "`--json`, `--dry-run`, `--no-wait` supported",
+        "Supports --seed, --mnemonic, --account/--keystore/--password",
+        "Validation tests (no network): missing --domain-id exits with error, invalid --domain-id format exits with error, missing credentials exits with error",
+        "E2E tests on testnet: create domain in beforeAll, update credential list, verify via account_objects, --json, --dry-run",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "PermissionedDomainSet with DomainID = update; without DomainID = create. The AcceptedCredentials array fully replaces the existing list on update."
+    },
+    {
+      "id": "US-003",
+      "title": "permissioned-domain delete command",
+      "description": "As a CLI user, I want to delete a permissioned domain I own so that I can remove it from the ledger and reclaim the reserve.",
+      "acceptanceCriteria": [
+        "`xrpl permissioned-domain delete --domain-id <hash>` submits PermissionedDomainDelete tx",
+        "--domain-id required; must be 64-char hex string; error if missing or malformed",
+        "On success, outputs `Deleted domain: <hash>` and `Tx: <hash>`",
+        "`--json` outputs {\"result\":\"success\",\"domainId\":\"<hash>\",\"tx\":\"<hash>\"}",
+        "`--dry-run`, `--no-wait` supported",
+        "Supports --seed, --mnemonic, --account/--keystore/--password",
+        "Validation tests (no network): missing --domain-id exits with error, invalid --domain-id format exits with error",
+        "E2E tests on testnet: create domain in beforeAll then delete it, verify gone via account_objects (type: 'permissioned_domain'), --json, --dry-run, --no-wait",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "Error conditions: tecNO_ENTRY if domain doesn't exist, tecNO_PERMISSION if not the owner. Use isDeletedNode from xrpl to confirm deletion in metadata if needed."
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+# Ralph Progress Log
+Started: Sat Mar  7 08:49:21 AM Universal 2026
+---
+
+## 2026-03-07 - US-003
+- Implemented `permissioned-domain delete` subcommand in `src/commands/permissioned-domain.ts`
+- Added `PermissionedDomainDelete` tx type (imported from xrpl); uses `DomainID` field
+- Added `isDeletedNode` import (available from xrpl but not needed in output logic since we use domainId from options)
+- Added delete validation tests to `permissioned-domain.validation.test.ts` (missing --domain-id, invalid format, missing key material)
+- Created `tests/e2e/permissioned-domain/permissioned-domain.delete.test.ts` with 6 network tests: basic delete, verify-gone-via-account_objects, --json, --dry-run, --no-wait, --account/--keystore/--password
+- All 15 validation tests and 6 network tests pass
+- Files changed: src/commands/permissioned-domain.ts, tests/e2e/permissioned-domain/permissioned-domain.validation.test.ts, tests/e2e/permissioned-domain/permissioned-domain.delete.test.ts
+- **Learnings for future iterations:**
+  - `PermissionedDomainDelete` is in xrpl.js types, requires `DomainID` field (not optional)
+  - Existing tests use `fundFromFaucet` directly (not the ticket-pool helper) since each test file funds only one master wallet and distributes to sub-wallets via direct Payment
+  - The `createDomain` helper pattern (run CLI, parse domain ID from stdout) is clean and reusable for test setup
+  - `account_objects` with `type: "permissioned_domain"` confirms domain presence/absence on-chain
+---
