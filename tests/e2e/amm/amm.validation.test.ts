@@ -218,3 +218,47 @@ describe("amm withdraw validation (no network)", () => {
     expect(result.stderr).toContain("Error:");
   });
 });
+
+describe("amm bid validation (no network)", () => {
+  it("more than 4 --auth-account values exits 1", () => {
+    const result = runCLI([
+      "amm", "bid",
+      "--asset", "XRP",
+      "--asset2", `USD/${DUMMY_ISSUER}`,
+      "--auth-account", DUMMY_ISSUER,
+      "--auth-account", DUMMY_ISSUER,
+      "--auth-account", DUMMY_ISSUER,
+      "--auth-account", DUMMY_ISSUER,
+      "--auth-account", DUMMY_ISSUER,
+      "--seed", DUMMY_SEED,
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("--auth-account");
+  });
+});
+
+describe("amm vote validation (no network)", () => {
+  it("--trading-fee above 1000 exits 1", () => {
+    const result = runCLI([
+      "amm", "vote",
+      "--asset", "XRP",
+      "--asset2", `USD/${DUMMY_ISSUER}`,
+      "--trading-fee", "1001",
+      "--seed", DUMMY_SEED,
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("--trading-fee");
+  });
+
+  it("--trading-fee negative exits 1", () => {
+    const result = runCLI([
+      "amm", "vote",
+      "--asset", "XRP",
+      "--asset2", `USD/${DUMMY_ISSUER}`,
+      "--trading-fee", "-1",
+      "--seed", DUMMY_SEED,
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("--trading-fee");
+  });
+});

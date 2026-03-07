@@ -6,11 +6,14 @@ import type {
   AMMCreate,
   AMMDeposit,
   AMMWithdraw,
+  AMMBid,
+  AMMVote,
   AMMInfoRequest,
   AMMInfoResponse,
   IssuedCurrencyAmount,
   Currency,
   Client,
+  AuthAccount,
 } from "xrpl";
 import { deriveKeypair } from "ripple-keypairs";
 import { withClient } from "../utils/client.js";
@@ -392,7 +395,7 @@ const ammInfoCommand = new Command("info")
 async function submitTx(
   client: Client,
   signerWallet: Wallet,
-  baseTx: AMMDeposit | AMMWithdraw,
+  baseTx: AMMDeposit | AMMWithdraw | AMMBid | AMMVote,
   options: { wait: boolean; json: boolean; dryRun: boolean }
 ): Promise<void> {
   const filled = await client.autofill(baseTx);
@@ -718,6 +721,181 @@ const ammWithdrawCommand = new Command("withdraw")
     });
   });
 
+// ── amm bid ──────────────────────────────────────────────────────────────────
+
+interface AmmBidOptions {
+  asset: string;
+  asset2: string;
+  bidMin?: string;
+  bidMax?: string;
+  authAccount: string[];
+  seed?: string;
+  mnemonic?: string;
+  account?: string;
+  password?: string;
+  keystore?: string;
+  wait: boolean;
+  json: boolean;
+  dryRun: boolean;
+}
+
+const ammBidCommand = new Command("bid")
+  .description("Bid on an AMM auction slot to earn a reduced trading fee")
+  .requiredOption("--asset <spec>", 'First asset: "XRP" or "CURRENCY/issuer"')
+  .requiredOption("--asset2 <spec>", 'Second asset: "XRP" or "CURRENCY/issuer"')
+  .option("--bid-min <value>", "Minimum LP token amount to bid (auto-fetches currency/issuer)")
+  .option("--bid-max <value>", "Maximum LP token amount to bid (auto-fetches currency/issuer)")
+  .option("--auth-account <address>", "Address to authorize for discounted trading (repeatable, max 4)", (val: string, prev: string[]) => [...prev, val], [] as string[])
+  .option("--seed <seed>", "Family seed for signing")
+  .option("--mnemonic <phrase>", "BIP39 mnemonic for signing")
+  .option("--account <address-or-alias>", "Account address or alias from keystore")
+  .option("--password <password>", "Keystore decryption password (insecure)")
+  .option("--keystore <dir>", "Keystore directory (default: ~/.xrpl/keystore/)")
+  .option("--no-wait", "Submit without waiting for validation")
+  .option("--json", "Output as JSON", false)
+  .option("--dry-run", "Print signed tx without submitting", false)
+  .action(async (options: AmmBidOptions, cmd: Command) => {
+    let assetSpec: AssetSpec;
+    let assetSpec2: AssetSpec;
+    try {
+      assetSpec = parseAssetSpec(options.asset);
+    } catch (e: unknown) {
+      process.stderr.write(`Error: --asset: ${(e as Error).message}\n`);
+      process.exit(1);
+    }
+    try {
+      assetSpec2 = parseAssetSpec(options.asset2);
+    } catch (e: unknown) {
+      process.stderr.write(`Error: --asset2: ${(e as Error).message}\n`);
+      process.exit(1);
+    }
+
+    if (options.authAccount.length > 4) {
+      process.stderr.write("Error: --auth-account can be specified at most 4 times\n");
+      process.exit(1);
+    }
+
+    const keyMaterialCount = [options.seed, options.mnemonic, options.account].filter(Boolean).length;
+    if (keyMaterialCount === 0) {
+      process.stderr.write("Error: provide key material via --seed, --mnemonic, or --account\n");
+      process.exit(1);
+    }
+    if (keyMaterialCount > 1) {
+      process.stderr.write("Error: provide only one of --seed, --mnemonic, or --account\n");
+      process.exit(1);
+    }
+
+    const signerWallet = await resolveWallet(options);
+    const url = getNodeUrl(cmd);
+
+    await withClient(url, async (client) => {
+      const asset = assetSpecToXrplCurrency(assetSpec!);
+      const asset2 = assetSpecToXrplCurrency(assetSpec2!);
+
+      const baseTx: AMMBid = {
+        TransactionType: "AMMBid",
+        Account: signerWallet.address,
+        Asset: asset,
+        Asset2: asset2,
+      };
+
+      if (options.bidMin || options.bidMax) {
+        const lpInfo = await fetchLpToken(client, assetSpec!, assetSpec2!);
+        if (options.bidMin) {
+          baseTx.BidMin = { currency: lpInfo.currency, issuer: lpInfo.issuer, value: options.bidMin };
+        }
+        if (options.bidMax) {
+          baseTx.BidMax = { currency: lpInfo.currency, issuer: lpInfo.issuer, value: options.bidMax };
+        }
+      }
+
+      if (options.authAccount.length > 0) {
+        baseTx.AuthAccounts = options.authAccount.map((addr): AuthAccount => ({
+          AuthAccount: { Account: addr },
+        }));
+      }
+
+      await submitTx(client, signerWallet, baseTx, options);
+    });
+  });
+
+// ── amm vote ─────────────────────────────────────────────────────────────────
+
+interface AmmVoteOptions {
+  asset: string;
+  asset2: string;
+  tradingFee: string;
+  seed?: string;
+  mnemonic?: string;
+  account?: string;
+  password?: string;
+  keystore?: string;
+  wait: boolean;
+  json: boolean;
+  dryRun: boolean;
+}
+
+const ammVoteCommand = new Command("vote")
+  .description("Vote on the trading fee for an AMM pool")
+  .requiredOption("--asset <spec>", 'First asset: "XRP" or "CURRENCY/issuer"')
+  .requiredOption("--asset2 <spec>", 'Second asset: "XRP" or "CURRENCY/issuer"')
+  .requiredOption("--trading-fee <n>", "Desired trading fee in units of 1/100000 (0–1000)")
+  .option("--seed <seed>", "Family seed for signing")
+  .option("--mnemonic <phrase>", "BIP39 mnemonic for signing")
+  .option("--account <address-or-alias>", "Account address or alias from keystore")
+  .option("--password <password>", "Keystore decryption password (insecure)")
+  .option("--keystore <dir>", "Keystore directory (default: ~/.xrpl/keystore/)")
+  .option("--no-wait", "Submit without waiting for validation")
+  .option("--json", "Output as JSON", false)
+  .option("--dry-run", "Print signed tx without submitting", false)
+  .action(async (options: AmmVoteOptions, cmd: Command) => {
+    const tradingFee = parseInt(options.tradingFee, 10);
+    if (isNaN(tradingFee) || tradingFee < 0 || tradingFee > 1000) {
+      process.stderr.write("Error: --trading-fee must be an integer between 0 and 1000\n");
+      process.exit(1);
+    }
+
+    let assetSpec: AssetSpec;
+    let assetSpec2: AssetSpec;
+    try {
+      assetSpec = parseAssetSpec(options.asset);
+    } catch (e: unknown) {
+      process.stderr.write(`Error: --asset: ${(e as Error).message}\n`);
+      process.exit(1);
+    }
+    try {
+      assetSpec2 = parseAssetSpec(options.asset2);
+    } catch (e: unknown) {
+      process.stderr.write(`Error: --asset2: ${(e as Error).message}\n`);
+      process.exit(1);
+    }
+
+    const keyMaterialCount = [options.seed, options.mnemonic, options.account].filter(Boolean).length;
+    if (keyMaterialCount === 0) {
+      process.stderr.write("Error: provide key material via --seed, --mnemonic, or --account\n");
+      process.exit(1);
+    }
+    if (keyMaterialCount > 1) {
+      process.stderr.write("Error: provide only one of --seed, --mnemonic, or --account\n");
+      process.exit(1);
+    }
+
+    const signerWallet = await resolveWallet(options);
+    const url = getNodeUrl(cmd);
+
+    await withClient(url, async (client) => {
+      const baseTx: AMMVote = {
+        TransactionType: "AMMVote",
+        Account: signerWallet.address,
+        Asset: assetSpecToXrplCurrency(assetSpec!),
+        Asset2: assetSpecToXrplCurrency(assetSpec2!),
+        TradingFee: tradingFee,
+      };
+
+      await submitTx(client, signerWallet, baseTx, options);
+    });
+  });
+
 // ── export ───────────────────────────────────────────────────────────────────
 
 export const ammCommand = new Command("amm")
@@ -725,4 +903,6 @@ export const ammCommand = new Command("amm")
   .addCommand(ammCreateCommand)
   .addCommand(ammInfoCommand)
   .addCommand(ammDepositCommand)
-  .addCommand(ammWithdrawCommand);
+  .addCommand(ammWithdrawCommand)
+  .addCommand(ammBidCommand)
+  .addCommand(ammVoteCommand);
