@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
-import { Wallet, isCreatedNode, convertStringToHex, MPTokenIssuanceCreateFlags, MPTokenIssuanceSetFlags, MPTokenAuthorizeFlags } from "xrpl";
+import { Wallet, isCreatedNode, convertStringToHex, MPTokenIssuanceCreateFlags, MPTokenIssuanceSetFlags, MPTokenAuthorizeFlags, decodeAccountID } from "xrpl";
 import type { MPTokenIssuanceCreate, MPTokenIssuanceDestroy, MPTokenIssuanceSet, MPTokenAuthorize, TransactionMetadataBase } from "xrpl";
 import { deriveKeypair } from "ripple-keypairs";
 import { withClient } from "../utils/client.js";
@@ -546,8 +546,9 @@ interface IssuanceListOptions {
 }
 
 interface MPTokenIssuanceEntry {
-  LedgerIndex: string;
+  index: string;
   Issuer: string;
+  Sequence?: number;  // present in rippled response, used to compute 24-byte MPTokenIssuanceID
   AssetScale?: number;
   MaximumAmount?: string;
   OutstandingAmount?: string;
@@ -555,6 +556,13 @@ interface MPTokenIssuanceEntry {
   Flags?: number;
   MPTokenMetadata?: string;
   LedgerEntryType: string;
+}
+
+/** Compute the 24-byte MPTokenIssuanceID = Sequence (4 bytes BE) + AccountID (20 bytes). */
+function computeIssuanceId(sequence: number, issuer: string): string {
+  const seqBuf = Buffer.alloc(4);
+  seqBuf.writeUInt32BE(sequence, 0);
+  return Buffer.concat([seqBuf, Buffer.from(decodeAccountID(issuer))]).toString("hex").toUpperCase();
 }
 
 const issuanceListCommand = new Command("list")
@@ -586,13 +594,17 @@ const issuanceListCommand = new Command("list")
 
       for (const iss of issuances) {
         const flags = decodeIssuanceFlags(iss.Flags ?? 0);
+        const displayId =
+          iss.Sequence !== undefined
+            ? computeIssuanceId(iss.Sequence, iss.Issuer)
+            : iss.index;
         const parts = [
           `AssetScale=${iss.AssetScale ?? 0}`,
           `MaximumAmount=${iss.MaximumAmount ?? "(none)"}`,
           `OutstandingAmount=${iss.OutstandingAmount ?? "0"}`,
           `Flags=[${flags}]`,
         ];
-        console.log(`${iss.LedgerIndex}  ${parts.join("  ")}`);
+        console.log(`${displayId}  ${parts.join("  ")}`);
       }
     });
   });
@@ -636,7 +648,7 @@ const issuanceGetCommand = new Command("get")
       const flags = decodeIssuanceFlags(entry.Flags ?? 0);
       const metadata = entry.MPTokenMetadata ? tryDecodeHex(entry.MPTokenMetadata) : "(none)";
 
-      console.log(`MPTokenIssuanceID: ${entry.LedgerIndex}`);
+      console.log(`MPTokenIssuanceID: ${issuanceId}`);
       console.log(`Issuer:            ${entry.Issuer ?? "(unknown)"}`);
       console.log(`AssetScale:        ${entry.AssetScale ?? 0}`);
       console.log(`MaximumAmount:     ${entry.MaximumAmount ?? "(none)"}`);

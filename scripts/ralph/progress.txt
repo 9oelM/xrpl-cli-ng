@@ -20,6 +20,21 @@ Started: Sat Mar  7 08:49:20 AM Universal 2026
   - Existing `tests/helpers/testnet.ts` exports `fundFromFaucet` and `TESTNET_URL`; the `fund.ts` pattern from MEMORY.md doesn't exist in this project
 ---
 
+## 2026-03-07 - US-004
+- Implemented `tests/e2e/mptoken/mptoken.query.test.ts` with 5 tests covering `mptoken issuance list` and `mptoken issuance get`
+- Fixed bug in `src/commands/mptoken.ts`: `issuanceListCommand` used `iss.LedgerIndex` (undefined) — corrected to `iss.index`; `issuanceGetCommand` used `entry.index` (32-byte hash) — corrected to display the `issuanceId` argument passed by the user
+- Discovered critical distinction: MPTokenIssuanceID (24-byte, Sequence+AccountID) ≠ ledger entry `index` (32-byte SHA hash). The `account_objects` response returns 32-byte `index`, NOT the 24-byte transaction-level MPTokenIssuanceID
+- Fixed `issuanceListCommand` to compute the 24-byte MPTokenIssuanceID from `iss.Sequence + iss.Issuer` (Sequence field IS present in rippled API response for MPTokenIssuance entries even though not typed in xrpl.js types)
+- Fixed `issuanceGetCommand` to display the `issuanceId` argument (24-byte) as the MPTokenIssuanceID label, not `entry.index`
+- Tests cover: list text output with ID, list --json, list empty account ("No MPT issuances."), get text output with all properties, get --json
+- Files changed: `tests/e2e/mptoken/mptoken.query.test.ts` (new), `src/commands/mptoken.ts` (bug fix), `scripts/ralph/prd.json`
+- **Learnings for future iterations:**
+  - `MPTokenIssuance.index` from `account_objects` / `ledger_entry` is a 32-byte hash key, NOT the 24-byte MPTokenIssuanceID
+  - To get the 24-byte ID from an `account_objects` entry: use `Sequence` (present in rippled response, not in xrpl.js types) + `Issuer` via `computeIssuanceId()`
+  - For `get` command: display the issuanceId argument (user-provided 24-byte ID), not `entry.index`
+  - The `--json` output of `list` and `get` returns raw ledger data with 32-byte `index`; tests for `--json` should match by `Issuer`/`AssetScale` not by `index`
+---
+
 ## 2026-03-07 - US-003
 - Implemented `tests/e2e/mptoken/mptoken.authorize.test.ts` with 7 tests covering all authorize command options
 - The `authorize` command was already implemented in `src/commands/mptoken.ts`; only the E2E tests were missing
