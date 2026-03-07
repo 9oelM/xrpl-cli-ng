@@ -1,8 +1,17 @@
 import { Command } from "commander";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
-import { Wallet } from "xrpl";
-import type { AMMCreate, AMMInfoRequest, AMMInfoResponse, IssuedCurrencyAmount, Currency } from "xrpl";
+import { Wallet, AMMDepositFlags, AMMWithdrawFlags } from "xrpl";
+import type {
+  AMMCreate,
+  AMMDeposit,
+  AMMWithdraw,
+  AMMInfoRequest,
+  AMMInfoResponse,
+  IssuedCurrencyAmount,
+  Currency,
+  Client,
+} from "xrpl";
 import { deriveKeypair } from "ripple-keypairs";
 import { withClient } from "../utils/client.js";
 import { getNodeUrl } from "../utils/node.js";
@@ -378,9 +387,342 @@ const ammInfoCommand = new Command("info")
     });
   });
 
+// ── shared submit helper ─────────────────────────────────────────────────────
+
+async function submitTx(
+  client: Client,
+  signerWallet: Wallet,
+  baseTx: AMMDeposit | AMMWithdraw,
+  options: { wait: boolean; json: boolean; dryRun: boolean }
+): Promise<void> {
+  const filled = await client.autofill(baseTx);
+
+  if (options.dryRun) {
+    const signed = signerWallet.sign(filled);
+    console.log(JSON.stringify({ tx_blob: signed.tx_blob, tx: filled }));
+    return;
+  }
+
+  const signed = signerWallet.sign(filled);
+
+  if (!options.wait) {
+    await client.submit(signed.tx_blob);
+    if (options.json) {
+      console.log(JSON.stringify({ hash: signed.hash }));
+    } else {
+      console.log(signed.hash);
+    }
+    return;
+  }
+
+  const response = await client.submitAndWait(signed.tx_blob);
+  const txResult = response.result as {
+    hash?: string;
+    meta?: { TransactionResult?: string };
+  };
+  const resultCode = txResult.meta?.TransactionResult ?? "unknown";
+  const hash = txResult.hash ?? signed.hash;
+
+  if (/^te[cfm]/i.test(resultCode)) {
+    process.stderr.write(`Error: transaction failed with ${resultCode}\n`);
+    if (options.json) {
+      console.log(JSON.stringify({ hash, result: resultCode }));
+    }
+    process.exit(1);
+  }
+
+  if (options.json) {
+    console.log(JSON.stringify({ hash, result: resultCode }));
+  } else {
+    console.log(`Transaction: ${hash}`);
+    console.log(`Result:      ${resultCode}`);
+  }
+}
+
+// ── LP token auto-fetch ──────────────────────────────────────────────────────
+
+async function fetchLpToken(
+  client: Client,
+  assetSpec: AssetSpec,
+  assetSpec2: AssetSpec
+): Promise<{ currency: string; issuer: string }> {
+  const req: AMMInfoRequest = {
+    command: "amm_info",
+    asset: assetSpecToXrplCurrency(assetSpec),
+    asset2: assetSpecToXrplCurrency(assetSpec2),
+  };
+  const resp = (await client.request(req)) as AMMInfoResponse;
+  return {
+    currency: resp.result.amm.lp_token.currency,
+    issuer: resp.result.amm.lp_token.issuer,
+  };
+}
+
+// ── amm deposit ──────────────────────────────────────────────────────────────
+
+interface AmmDepositOptions {
+  asset: string;
+  asset2: string;
+  amount?: string;
+  amount2?: string;
+  lpTokenOut?: string;
+  ePrice?: string;
+  forEmpty: boolean;
+  seed?: string;
+  mnemonic?: string;
+  account?: string;
+  password?: string;
+  keystore?: string;
+  wait: boolean;
+  json: boolean;
+  dryRun: boolean;
+}
+
+const ammDepositCommand = new Command("deposit")
+  .description("Deposit assets into an AMM pool")
+  .requiredOption("--asset <spec>", 'First asset: "XRP" or "CURRENCY/issuer"')
+  .requiredOption("--asset2 <spec>", 'Second asset: "XRP" or "CURRENCY/issuer"')
+  .option("--amount <value>", "Amount of first asset to deposit (XRP: drops, IOU: decimal)")
+  .option("--amount2 <value>", "Amount of second asset to deposit (XRP: drops, IOU: decimal)")
+  .option("--lp-token-out <value>", "LP token amount to receive (auto-fetches currency/issuer)")
+  .option("--ePrice <value>", "Maximum effective price per LP token received")
+  .option("--for-empty", "Use tfTwoAssetIfEmpty mode (deposit to empty pool)", false)
+  .option("--seed <seed>", "Family seed for signing")
+  .option("--mnemonic <phrase>", "BIP39 mnemonic for signing")
+  .option("--account <address-or-alias>", "Account address or alias from keystore")
+  .option("--password <password>", "Keystore decryption password (insecure)")
+  .option("--keystore <dir>", "Keystore directory (default: ~/.xrpl/keystore/)")
+  .option("--no-wait", "Submit without waiting for validation")
+  .option("--json", "Output as JSON", false)
+  .option("--dry-run", "Print signed tx without submitting", false)
+  .action(async (options: AmmDepositOptions, cmd: Command) => {
+    let assetSpec: AssetSpec;
+    let assetSpec2: AssetSpec;
+    try {
+      assetSpec = parseAssetSpec(options.asset);
+    } catch (e: unknown) {
+      process.stderr.write(`Error: --asset: ${(e as Error).message}\n`);
+      process.exit(1);
+    }
+    try {
+      assetSpec2 = parseAssetSpec(options.asset2);
+    } catch (e: unknown) {
+      process.stderr.write(`Error: --asset2: ${(e as Error).message}\n`);
+      process.exit(1);
+    }
+
+    const { amount, amount2, lpTokenOut, ePrice, forEmpty } = options;
+
+    // Infer deposit mode from flag combination
+    type DepositMode =
+      | "tfLPToken"
+      | "tfSingleAsset"
+      | "tfTwoAsset"
+      | "tfTwoAssetIfEmpty"
+      | "tfOneAssetLPToken"
+      | "tfLimitLPToken";
+
+    let mode: DepositMode | null = null;
+    if (lpTokenOut && !amount)                                  mode = "tfLPToken";
+    else if (amount && lpTokenOut && !amount2)                  mode = "tfOneAssetLPToken";
+    else if (amount && ePrice && !amount2 && !lpTokenOut)       mode = "tfLimitLPToken";
+    else if (amount && amount2 && forEmpty)                     mode = "tfTwoAssetIfEmpty";
+    else if (amount && amount2 && !forEmpty)                    mode = "tfTwoAsset";
+    else if (amount && !amount2 && !lpTokenOut && !ePrice)      mode = "tfSingleAsset";
+
+    if (!mode) {
+      process.stderr.write(
+        "Error: invalid flag combination for amm deposit. Valid modes:\n" +
+        "  --lp-token-out                         (tfLPToken)\n" +
+        "  --amount                               (tfSingleAsset)\n" +
+        "  --amount --amount2                     (tfTwoAsset)\n" +
+        "  --amount --amount2 --for-empty         (tfTwoAssetIfEmpty)\n" +
+        "  --amount --lp-token-out                (tfOneAssetLPToken)\n" +
+        "  --amount --ePrice                      (tfLimitLPToken)\n"
+      );
+      process.exit(1);
+    }
+
+    const keyMaterialCount = [options.seed, options.mnemonic, options.account].filter(Boolean).length;
+    if (keyMaterialCount === 0) {
+      process.stderr.write("Error: provide key material via --seed, --mnemonic, or --account\n");
+      process.exit(1);
+    }
+    if (keyMaterialCount > 1) {
+      process.stderr.write("Error: provide only one of --seed, --mnemonic, or --account\n");
+      process.exit(1);
+    }
+
+    const signerWallet = await resolveWallet(options);
+    const url = getNodeUrl(cmd);
+
+    await withClient(url, async (client) => {
+      const asset = assetSpecToXrplCurrency(assetSpec!);
+      const asset2 = assetSpecToXrplCurrency(assetSpec2!);
+
+      const baseTx: AMMDeposit = {
+        TransactionType: "AMMDeposit",
+        Account: signerWallet.address,
+        Asset: asset,
+        Asset2: asset2,
+        Flags: AMMDepositFlags[mode!],
+      };
+
+      // Add amounts based on mode
+      if (amount) {
+        baseTx.Amount = buildAmmAmount(assetSpec!, amount) as AMMDeposit["Amount"];
+      }
+      if (amount2) {
+        baseTx.Amount2 = buildAmmAmount(assetSpec2!, amount2) as AMMDeposit["Amount2"];
+      }
+      if (ePrice) {
+        baseTx.EPrice = buildAmmAmount(assetSpec!, ePrice) as AMMDeposit["EPrice"];
+      }
+      if (lpTokenOut) {
+        const lpInfo = await fetchLpToken(client, assetSpec!, assetSpec2!);
+        baseTx.LPTokenOut = { currency: lpInfo.currency, issuer: lpInfo.issuer, value: lpTokenOut };
+      }
+
+      await submitTx(client, signerWallet, baseTx, options);
+    });
+  });
+
+// ── amm withdraw ─────────────────────────────────────────────────────────────
+
+interface AmmWithdrawOptions {
+  asset: string;
+  asset2: string;
+  lpTokenIn?: string;
+  amount?: string;
+  amount2?: string;
+  ePrice?: string;
+  all: boolean;
+  seed?: string;
+  mnemonic?: string;
+  account?: string;
+  password?: string;
+  keystore?: string;
+  wait: boolean;
+  json: boolean;
+  dryRun: boolean;
+}
+
+const ammWithdrawCommand = new Command("withdraw")
+  .description("Withdraw assets from an AMM pool")
+  .requiredOption("--asset <spec>", 'First asset: "XRP" or "CURRENCY/issuer"')
+  .requiredOption("--asset2 <spec>", 'Second asset: "XRP" or "CURRENCY/issuer"')
+  .option("--lp-token-in <value>", "LP token amount to redeem (auto-fetches currency/issuer)")
+  .option("--amount <value>", "Amount of first asset to withdraw (XRP: drops, IOU: decimal)")
+  .option("--amount2 <value>", "Amount of second asset to withdraw (XRP: drops, IOU: decimal)")
+  .option("--ePrice <value>", "Minimum effective price in LP tokens per unit withdrawn")
+  .option("--all", "Withdraw all LP tokens (tfWithdrawAll or tfOneAssetWithdrawAll)", false)
+  .option("--seed <seed>", "Family seed for signing")
+  .option("--mnemonic <phrase>", "BIP39 mnemonic for signing")
+  .option("--account <address-or-alias>", "Account address or alias from keystore")
+  .option("--password <password>", "Keystore decryption password (insecure)")
+  .option("--keystore <dir>", "Keystore directory (default: ~/.xrpl/keystore/)")
+  .option("--no-wait", "Submit without waiting for validation")
+  .option("--json", "Output as JSON", false)
+  .option("--dry-run", "Print signed tx without submitting", false)
+  .action(async (options: AmmWithdrawOptions, cmd: Command) => {
+    let assetSpec: AssetSpec;
+    let assetSpec2: AssetSpec;
+    try {
+      assetSpec = parseAssetSpec(options.asset);
+    } catch (e: unknown) {
+      process.stderr.write(`Error: --asset: ${(e as Error).message}\n`);
+      process.exit(1);
+    }
+    try {
+      assetSpec2 = parseAssetSpec(options.asset2);
+    } catch (e: unknown) {
+      process.stderr.write(`Error: --asset2: ${(e as Error).message}\n`);
+      process.exit(1);
+    }
+
+    const { lpTokenIn, amount, amount2, ePrice, all } = options;
+
+    // Infer withdraw mode from flag combination
+    type WithdrawMode =
+      | "tfLPToken"
+      | "tfWithdrawAll"
+      | "tfOneAssetWithdrawAll"
+      | "tfSingleAsset"
+      | "tfTwoAsset"
+      | "tfOneAssetLPToken"
+      | "tfLimitLPToken";
+
+    let mode: WithdrawMode | null = null;
+    if (lpTokenIn && !amount && !amount2)                             mode = "tfLPToken";
+    else if (all && !amount && !amount2)                              mode = "tfWithdrawAll";
+    else if (all && amount && !amount2)                               mode = "tfOneAssetWithdrawAll";
+    else if (amount && lpTokenIn)                                     mode = "tfOneAssetLPToken";
+    else if (amount && ePrice && !amount2 && !lpTokenIn && !all)      mode = "tfLimitLPToken";
+    else if (amount && amount2 && !lpTokenIn && !ePrice && !all)      mode = "tfTwoAsset";
+    else if (amount && !amount2 && !lpTokenIn && !ePrice && !all)     mode = "tfSingleAsset";
+
+    if (!mode) {
+      process.stderr.write(
+        "Error: invalid flag combination for amm withdraw. Valid modes:\n" +
+        "  --lp-token-in                          (tfLPToken)\n" +
+        "  --all                                  (tfWithdrawAll)\n" +
+        "  --all --amount                         (tfOneAssetWithdrawAll)\n" +
+        "  --amount                               (tfSingleAsset)\n" +
+        "  --amount --amount2                     (tfTwoAsset)\n" +
+        "  --amount --lp-token-in                 (tfOneAssetLPToken)\n" +
+        "  --amount --ePrice                      (tfLimitLPToken)\n"
+      );
+      process.exit(1);
+    }
+
+    const keyMaterialCount = [options.seed, options.mnemonic, options.account].filter(Boolean).length;
+    if (keyMaterialCount === 0) {
+      process.stderr.write("Error: provide key material via --seed, --mnemonic, or --account\n");
+      process.exit(1);
+    }
+    if (keyMaterialCount > 1) {
+      process.stderr.write("Error: provide only one of --seed, --mnemonic, or --account\n");
+      process.exit(1);
+    }
+
+    const signerWallet = await resolveWallet(options);
+    const url = getNodeUrl(cmd);
+
+    await withClient(url, async (client) => {
+      const asset = assetSpecToXrplCurrency(assetSpec!);
+      const asset2 = assetSpecToXrplCurrency(assetSpec2!);
+
+      const baseTx: AMMWithdraw = {
+        TransactionType: "AMMWithdraw",
+        Account: signerWallet.address,
+        Asset: asset,
+        Asset2: asset2,
+        Flags: AMMWithdrawFlags[mode!],
+      };
+
+      if (amount) {
+        baseTx.Amount = buildAmmAmount(assetSpec!, amount) as AMMWithdraw["Amount"];
+      }
+      if (amount2) {
+        baseTx.Amount2 = buildAmmAmount(assetSpec2!, amount2) as AMMWithdraw["Amount2"];
+      }
+      if (ePrice) {
+        baseTx.EPrice = buildAmmAmount(assetSpec!, ePrice) as AMMWithdraw["EPrice"];
+      }
+      if (lpTokenIn) {
+        const lpInfo = await fetchLpToken(client, assetSpec!, assetSpec2!);
+        baseTx.LPTokenIn = { currency: lpInfo.currency, issuer: lpInfo.issuer, value: lpTokenIn };
+      }
+
+      await submitTx(client, signerWallet, baseTx, options);
+    });
+  });
+
 // ── export ───────────────────────────────────────────────────────────────────
 
 export const ammCommand = new Command("amm")
   .description("Manage AMM liquidity pools on the XRP Ledger")
   .addCommand(ammCreateCommand)
-  .addCommand(ammInfoCommand);
+  .addCommand(ammInfoCommand)
+  .addCommand(ammDepositCommand)
+  .addCommand(ammWithdrawCommand);

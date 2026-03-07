@@ -167,3 +167,54 @@ describe("amm validation (no network)", () => {
     expect(result.stderr).not.toContain("--trading-fee must be");
   });
 });
+
+describe("amm deposit validation (no network)", () => {
+  it("no flags exits 1 with error message", () => {
+    const result = runCLI([
+      "amm", "deposit",
+      "--asset", "XRP",
+      "--asset2", `USD/${DUMMY_ISSUER}`,
+      "--seed", DUMMY_SEED,
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Error:");
+  });
+
+  it("--for-empty without --amount and --amount2 exits 1", () => {
+    const result = runCLI([
+      "amm", "deposit",
+      "--asset", "XRP",
+      "--asset2", `USD/${DUMMY_ISSUER}`,
+      "--for-empty",
+      "--seed", DUMMY_SEED,
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Error:");
+  });
+});
+
+describe("amm withdraw validation (no network)", () => {
+  it("no flags exits 1 with error message", () => {
+    const result = runCLI([
+      "amm", "withdraw",
+      "--asset", "XRP",
+      "--asset2", `USD/${DUMMY_ISSUER}`,
+      "--seed", DUMMY_SEED,
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Error:");
+  });
+
+  it("--all with --lp-token-in exits 1 (ambiguous mode)", () => {
+    const result = runCLI([
+      "amm", "withdraw",
+      "--asset", "XRP",
+      "--asset2", `USD/${DUMMY_ISSUER}`,
+      "--all",
+      "--lp-token-in", "10",
+      "--seed", DUMMY_SEED,
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Error:");
+  });
+});
