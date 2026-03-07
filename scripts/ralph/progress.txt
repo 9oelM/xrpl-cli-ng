@@ -1,18 +1,28 @@
 # Ralph Progress Log
-Started: Sat Mar  7 08:49:21 AM Universal 2026
+Started: Sat Mar  7 11:03:18 AM Universal 2026
 ---
 
-## 2026-03-07 - US-003
-- Implemented `permissioned-domain delete` subcommand in `src/commands/permissioned-domain.ts`
-- Added `PermissionedDomainDelete` tx type (imported from xrpl); uses `DomainID` field
-- Added `isDeletedNode` import (available from xrpl but not needed in output logic since we use domainId from options)
-- Added delete validation tests to `permissioned-domain.validation.test.ts` (missing --domain-id, invalid format, missing key material)
-- Created `tests/e2e/permissioned-domain/permissioned-domain.delete.test.ts` with 6 network tests: basic delete, verify-gone-via-account_objects, --json, --dry-run, --no-wait, --account/--keystore/--password
-- All 15 validation tests and 6 network tests pass
-- Files changed: src/commands/permissioned-domain.ts, tests/e2e/permissioned-domain/permissioned-domain.validation.test.ts, tests/e2e/permissioned-domain/permissioned-domain.delete.test.ts
+## Codebase Patterns
+- New commands need TWO wiring steps: export in `src/commands/index.ts` AND import+addCommand in `src/index.ts`
+- `tecEMPTY_DID`: DIDSet with empty results fails — must ensure at least one DID field remains after clearing
+- Credential tests already use unique CredentialType strings per test; filter deletions by credTypeHex to avoid cross-test pollution
+- Intermittent network timeouts on shared WebSocket client when 20 concurrent tests run; tests pass on retry
+
+## 2026-03-07 - US-001
+- Wired `didCommand` into CLI: added export to `src/commands/index.ts`, imported and registered in `src/index.ts`
+- Fixed `did.set.test.ts`: `--clear-uri` and `--uri ""` tests now also set `--data` before clearing URI, so the DID is never left fully empty (avoids `tecEMPTY_DID`)
+- Files changed: `src/commands/index.ts`, `src/index.ts`, `tests/e2e/did/did.set.test.ts`
+- All 29 DID tests pass
 - **Learnings for future iterations:**
-  - `PermissionedDomainDelete` is in xrpl.js types, requires `DomainID` field (not optional)
-  - Existing tests use `fundFromFaucet` directly (not the ticket-pool helper) since each test file funds only one master wallet and distributes to sub-wallets via direct Payment
-  - The `createDomain` helper pattern (run CLI, parse domain ID from stdout) is clean and reusable for test setup
-  - `account_objects` with `type: "permissioned_domain"` confirms domain presence/absence on-chain
+  - XRPL `tecEMPTY_DID` is returned if a DIDSet tx would leave all DID fields (URI, Data, DIDDocument) empty — use DIDDelete instead, or ensure at least one field remains
+  - Always wire new commands in BOTH files when adding to CLI
+
+## 2026-03-07 - US-002
+- Credential tests already had unique CredentialType per test and filtered by credTypeHex — no code changes needed
+- Previous CI failures were intermittent network timeouts on the shared WebSocket client under heavy concurrent load, not CredentialType collisions
+- All 20 credential network tests pass on fresh run
+- Files changed: none (acceptance criteria already satisfied)
+- **Learnings for future iterations:**
+  - When 20 concurrent tests share one WebSocket Client and each calls client.request() directly, timeouts can occur under load — these are flaky, not deterministic failures
+  - Re-run failing tests once before assuming a code fix is needed
 ---

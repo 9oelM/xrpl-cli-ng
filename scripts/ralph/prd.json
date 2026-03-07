@@ -1,73 +1,39 @@
 {
   "project": "xrpl-cli",
-  "branchName": "ralph/permissioned-domain",
-  "description": "Permissioned Domain Commands - Create, update, and delete permissioned domains that gate access via credentials on XRPL",
+  "branchName": "ralph/fix-failing-tests",
+  "description": "Fix 29 failing CI tests — register DID command in CLI entry points and fix credential delete concurrent collision",
   "userStories": [
     {
       "id": "US-001",
-      "title": "permissioned-domain create command",
-      "description": "As a CLI user, I want to create a permissioned domain with a set of accepted credentials so that I can define which credential holders are permitted in my domain.",
+      "title": "Register DID command in CLI entry points",
+      "description": "As a developer, I want `xrpl did` to be a valid CLI command so that all 28 failing DID tests can run.",
       "acceptanceCriteria": [
-        "Implement src/commands/permissioned-domain.ts with permissionedDomainCommand registered in src/commands/index.ts and src/index.ts",
-        "`xrpl permissioned-domain create --credential <issuer>:<type>` submits PermissionedDomainSet tx with no DomainID field (creates new domain)",
-        "--credential is repeatable (collect array); 1–10 credentials accepted; error if 0 or >10 provided",
-        "<type> in --credential <issuer>:<type> is treated as UTF-8 and auto-encoded to hex via convertStringToHex from xrpl",
-        "`--credentials-json <json>` accepts JSON array of {\"issuer\":\"r...\",\"credential_type\":\"hex...\"} objects as alternative input",
-        "--credential and --credentials-json are mutually exclusive; error if both provided",
-        "On success, outputs `Domain ID: <hash>` extracted from CreatedNode where LedgerEntryType === 'PermissionedDomain' in tx metadata",
-        "`--json` outputs {\"result\":\"success\",\"domainId\":\"<hash>\",\"tx\":\"<hash>\"}",
-        "`--dry-run` prints unsigned tx JSON and exits without submitting",
-        "`--no-wait` submits without waiting for validation",
-        "Supports --seed, --mnemonic, --account/--keystore/--password key material",
-        "Validation tests (no network): missing credentials exits with error, >10 credentials exits with error, both --credential and --credentials-json exits with error, invalid issuer address format exits with error",
-        "E2E tests on testnet: create with 1 credential, create with 3 credentials, --json, --dry-run, --no-wait",
-        "Typecheck passes",
-        "Tests pass"
+        "Add `export { didCommand } from \"./did.js\";` to `src/commands/index.ts` (follow the same pattern as every other command in that file)",
+        "Add `program.addCommand(didCommand);` to `src/index.ts` (follow the same pattern as every other command in that file)",
+        "Import `didCommand` at the top of `src/index.ts` (destructured from `./commands/index.js`)",
+        "Running the CLI with `did --help` exits 0 and prints DID subcommand help",
+        "All DID tests pass: run `npx vitest run tests/e2e/did` and confirm 0 failures",
+        "Typecheck passes"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "Requires PermissionedDomains and Credentials amendments. AcceptedCredentials wire format uses Issuer (address) and CredentialType (hex). If testnet does not have the amendment, use devnet instead and note this in a comment."
+      "notes": "The ralph/did branch implemented src/commands/did.ts and its tests but forgot to wire it into index.ts. This is a 2-line fix — do NOT touch did.ts or any test files in this story."
     },
     {
       "id": "US-002",
-      "title": "permissioned-domain update command",
-      "description": "As a CLI user, I want to update the accepted credentials of an existing permissioned domain I own so that I can change which credentials grant access.",
+      "title": "Fix credential delete test concurrent collision",
+      "description": "As a developer, I want each concurrent credential test to use a unique CredentialType so that post-delete assertions are not polluted by other in-flight tests.",
       "acceptanceCriteria": [
-        "`xrpl permissioned-domain update --domain-id <hash> --credential <issuer>:<type>` submits PermissionedDomainSet tx with DomainID field set",
-        "--domain-id required; must be 64-char hex string; error if missing or malformed",
-        "Same --credential / --credentials-json rules as create (1–10, mutually exclusive)",
-        "Help text clearly states update replaces the entire credentials list (not a merge)",
-        "On success, outputs `Domain ID: <hash>` and `Tx: <hash>`",
-        "`--json`, `--dry-run`, `--no-wait` supported",
-        "Supports --seed, --mnemonic, --account/--keystore/--password",
-        "Validation tests (no network): missing --domain-id exits with error, invalid --domain-id format exits with error, missing credentials exits with error",
-        "E2E tests on testnet: create domain in beforeAll, update credential list, verify via account_objects, --json, --dry-run",
-        "Typecheck passes",
-        "Tests pass"
+        "Locate `tests/e2e/credential/` and identify every `it.concurrent` block that creates a credential on-chain",
+        "Each `it.concurrent` block uses a distinct `CredentialType` value — assign a unique ASCII string per test (e.g. `KYC_01`, `KYC_02`, etc.) and hex-encode with `Buffer.from('KYC_01').toString('hex').toUpperCase()`",
+        "The `credential delete > issuer deletes a credential they created` test filters `account_objects` by its own specific `CredentialType` when asserting the credential is gone",
+        "Run `npx vitest run tests/e2e/credential` and confirm 0 failures",
+        "No other credential tests regress",
+        "Typecheck passes"
       ],
       "priority": 2,
       "passes": true,
-      "notes": "PermissionedDomainSet with DomainID = update; without DomainID = create. The AcceptedCredentials array fully replaces the existing list on update."
-    },
-    {
-      "id": "US-003",
-      "title": "permissioned-domain delete command",
-      "description": "As a CLI user, I want to delete a permissioned domain I own so that I can remove it from the ledger and reclaim the reserve.",
-      "acceptanceCriteria": [
-        "`xrpl permissioned-domain delete --domain-id <hash>` submits PermissionedDomainDelete tx",
-        "--domain-id required; must be 64-char hex string; error if missing or malformed",
-        "On success, outputs `Deleted domain: <hash>` and `Tx: <hash>`",
-        "`--json` outputs {\"result\":\"success\",\"domainId\":\"<hash>\",\"tx\":\"<hash>\"}",
-        "`--dry-run`, `--no-wait` supported",
-        "Supports --seed, --mnemonic, --account/--keystore/--password",
-        "Validation tests (no network): missing --domain-id exits with error, invalid --domain-id format exits with error",
-        "E2E tests on testnet: create domain in beforeAll then delete it, verify gone via account_objects (type: 'permissioned_domain'), --json, --dry-run, --no-wait",
-        "Typecheck passes",
-        "Tests pass"
-      ],
-      "priority": 3,
-      "passes": true,
-      "notes": "Error conditions: tecNO_ENTRY if domain doesn't exist, tecNO_PERMISSION if not the owner. Use isDeletedNode from xrpl to confirm deletion in metadata if needed."
+      "notes": "Root cause: concurrent tests share the same hardcoded CredentialType hex. After test A deletes its credential, test B's credential with the same type is still live, so the account_objects assertion finds it. Fix is to assign unique CredentialType strings per concurrent test block. Do NOT change command implementation — only test files."
     }
   ]
 }
