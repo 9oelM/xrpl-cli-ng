@@ -56,3 +56,17 @@ Started: Sat Mar  7 08:01:31 AM Universal 2026
   - setupMakerIssuer() helper in offer.network.test.ts correctly creates per-test wallets + trust line
   - offer tests with it.concurrent need setupMakerIssuer() to also use tickets — it calls createFunded internally
 ---
+
+## 2026-03-07 - US-004
+- Converted 4 large network test files to it.concurrent
+- channel.network.test.ts: 22 tests × 2 wallets; TICKET_COUNT=48; budget 97.6 ≤ 99 ✓; updated budget comment format
+- credential.network.test.ts: 20 tests × 2 wallets; TICKET_COUNT=42; budget 88.4 ≤ 99 ✓
+- nft.offers.test.ts: 31 wallets total; TICKET_COUNT=35; budget 69 ≤ 99 ✓
+- check.network.test.ts: 34 wallets; TICKET_COUNT=38; budget 75.6 ≤ 99 ✓; updated 60_000 timeouts to 90_000
+- All tests already used createFunded per test — no shared wallet state to move; purely mechanical it( → it.concurrent( conversions
+- Files changed: tests/e2e/channel/channel.network.test.ts, tests/e2e/credential/credential.network.test.ts, tests/e2e/nft/nft.offers.test.ts, tests/e2e/check/check.network.test.ts, scripts/ralph/prd.json, scripts/ralph/progress.txt
+- **Learnings for future iterations:**
+  - channel.network.test.ts was already near budget limit (97.6/99 XRP) — no budget headroom for additional tests
+  - Budget comments already existed in nft.offers and check files (pre-computed) — just needed it( conversion
+  - All four files had per-test createFunded patterns already in place — no refactoring needed
+---

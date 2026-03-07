@@ -68,7 +68,7 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "22–20 tests per file. check.network.test.ts pre-creates check IDs in beforeAll — move inline. channel.network.test.ts pre-creates channel IDs — move inline. Extract IDs from --json output of CLI calls. Budget likely requires splitting at least some of these files."
     },
     {
