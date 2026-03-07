@@ -1,7 +1,7 @@
 {
   "project": "xrpl-cli",
   "branchName": "ralph/vault",
-  "description": "Vault Commands - Create, manage, deposit, withdraw, and delete single-asset vaults on XRPL (devnet only \u2014 SingleAssetVault amendment not on testnet)",
+  "description": "Vault Commands - Create, manage, deposit, withdraw, and delete single-asset vaults on XRPL (devnet only — SingleAssetVault amendment not on testnet)",
   "userStories": [
     {
       "id": "US-001",
@@ -28,7 +28,7 @@
       ],
       "priority": 1,
       "passes": true,
-      "notes": "VaultCreate fee is elevated (0.2 XRP = 200000 drops) \u2014 set Fee explicitly or verify autofill covers it. Extract VaultID from CreatedNode.LedgerIndex where LedgerEntryType === 'Vault'. E2E tests MUST use devnet, not testnet."
+      "notes": "VaultCreate fee is elevated (0.2 XRP = 200000 drops) — set Fee explicitly or verify autofill covers it. Extract VaultID from CreatedNode.LedgerIndex where LedgerEntryType === 'Vault'. E2E tests MUST use devnet, not testnet."
     },
     {
       "id": "US-002",
@@ -51,7 +51,7 @@
       ],
       "priority": 2,
       "passes": true,
-      "notes": "VaultSet cannot change public/private status \u2014 that is immutable after creation. AssetsMaximum cannot be lowered below current holdings (ledger enforces, not CLI)."
+      "notes": "VaultSet cannot change public/private status — that is immutable after creation. AssetsMaximum cannot be lowered below current holdings (ledger enforces, not CLI)."
     },
     {
       "id": "US-003",
@@ -70,7 +70,7 @@
         "Tests pass"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "No transfer fees apply to VaultDeposit. For public vaults any funded account can deposit. Deposit test should create vault in beforeAll then deposit in each test case."
     },
     {
@@ -80,7 +80,7 @@
       "acceptanceCriteria": [
         "`xrpl vault withdraw --vault-id <hash> --amount <amount>` submits VaultWithdraw tx",
         "--vault-id required; 64-char hex",
-        "--amount required; can specify asset quantity (burns shares to deliver amount) or share quantity (redeems shares for assets) \u2014 both use standard amount format",
+        "--amount required; can specify asset quantity (burns shares to deliver amount) or share quantity (redeems shares for assets) — both use standard amount format",
         "`--destination <address>` optionally sends redeemed assets to a different account",
         "`--destination-tag <n>` optional UInt32 tag; error if used without --destination",
         "On success, outputs `Vault ID: <hash>` and `Tx: <hash>`",
@@ -93,7 +93,7 @@
       ],
       "priority": 4,
       "passes": false,
-      "notes": "VaultWithdraw does not respect PermissionedDomain rules \u2014 any shareholder can withdraw regardless. No transfer fees apply."
+      "notes": "VaultWithdraw does not respect PermissionedDomain rules — any shareholder can withdraw regardless. No transfer fees apply."
     },
     {
       "id": "US-005",
@@ -113,7 +113,7 @@
       ],
       "priority": 5,
       "passes": false,
-      "notes": "Vault must be completely empty before deletion \u2014 tecHAS_OBLIGATIONS if not. E2E delete test should use a fresh vault with no deposits."
+      "notes": "Vault must be completely empty before deletion — tecHAS_OBLIGATIONS if not. E2E delete test should use a fresh vault with no deposits."
     },
     {
       "id": "US-006",
@@ -129,13 +129,13 @@
         "`--json`, `--dry-run`, `--no-wait` supported",
         "Supports --seed, --mnemonic, --account/--keystore/--password",
         "Validation tests (no network): missing --vault-id, missing --holder, invalid --holder address format",
-        "E2E tests on devnet: IOU vault \u2014 issuer creates vault, holder deposits, issuer claws back; partial clawback with --amount; --json; --dry-run",
+        "E2E tests on devnet: IOU vault — issuer creates vault, holder deposits, issuer claws back; partial clawback with --amount; --json; --dry-run",
         "Typecheck passes",
         "Tests pass"
       ],
       "priority": 6,
       "passes": false,
-      "notes": "Only the token/MPT issuer can call VaultClawback \u2014 not for XRP vaults. The issuer must have enabled clawback on the asset. E2E setup: issuer creates IOU vault, holder deposits, issuer claws back holder's shares."
+      "notes": "Only the token/MPT issuer can call VaultClawback — not for XRP vaults. The issuer must have enabled clawback on the asset. E2E setup: issuer creates IOU vault, holder deposits, issuer claws back holder's shares."
     }
   ]
 }

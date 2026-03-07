@@ -1,40 +1,13 @@
-## Codebase Patterns
-- Vault commands MUST use devnet (wss://s.devnet.rippletest.net:51233) — SingleAssetVault amendment not on testnet
-- Devnet faucet: https://faucet.devnet.rippletest.net/accounts — helper at tests/helpers/devnet.ts
-- VaultCreate requires Fee = 200000 drops minimum (0.2 XRP) — set explicitly after autofill
-- VaultID is extracted from CreatedNode.LedgerIndex where LedgerEntryType === 'Vault' in tx metadata
-- All 6 vault subcommands (create/set/deposit/withdraw/delete/clawback) live in src/commands/vault.ts
-- Asset parsing for vault commands: reuse parseAmount from utils/amount.ts, map xrp→{currency:'XRP'}, iou→{currency,issuer}, mpt→{mpt_issuance_id}
-- For vault network tests: one faucet call in beforeAll, reuse same wallet seed for all tests (vaults are per-wallet independent)
-
 # Ralph Progress Log
-Started: Fri Mar  6 04:35:57 PM Universal 2026
+Started: Sat Mar  7 08:49:21 AM Universal 2026
 ---
 
-## 2026-03-06 - US-001
-- Implemented `xrpl vault create` command with all flags: --asset, --assets-maximum, --data, --mpt-metadata, --domain-id, --private, --non-transferable, --seed/--mnemonic/--account, --json, --dry-run, --no-wait
-- Also scaffolded vault set/deposit/withdraw/delete/clawback subcommands in vault.ts (implementations ready, tests in future stories)
-- Registered vaultCommand in src/commands/index.ts and src/index.ts
-- Created tests/helpers/devnet.ts with fundFromDevnetFaucet for devnet faucet
-- Created tests/e2e/vault/vault.create.validation.test.ts (24 tests, all pass)
-- Created tests/e2e/vault/vault.create.network.test.ts (7 tests, all pass on devnet)
-- Files changed: src/commands/vault.ts, src/commands/index.ts, src/index.ts, tests/helpers/devnet.ts, tests/e2e/vault/vault.create.validation.test.ts, tests/e2e/vault/vault.create.network.test.ts
+## 2026-03-07 - US-003
+- Implemented E2E network tests for `vault deposit` command
+- The vault command implementation was already complete in `src/commands/vault.ts`; validation tests were already in `vault.create.validation.test.ts`
+- Created `tests/e2e/vault/vault.deposit.network.test.ts` with 5 tests: XRP deposit, --json, --dry-run, --no-wait, --account/--keystore/--password
 - **Learnings for future iterations:**
-  - VaultCreate fee must be set to at least 200000 drops — autofill on devnet gives a lower fee
-  - VaultID is in CreatedNode.LedgerIndex in AffectedNodes where LedgerEntryType === 'Vault'
-  - The vault.ts file contains all 6 subcommand implementations already; future stories only need tests
-  - devnet faucet gives ~1000 XRP — enough for many vault creates (each costs 0.2 XRP fee + 2 XRP reserve)
-  - Vault network tests can reuse a single wallet for all tests since each VaultCreate produces a unique VaultID
----
-
-## 2026-03-06 - US-002
-- Created tests/e2e/vault/vault.set.network.test.ts with 6 devnet E2E tests
-- Validation tests were already present in vault.create.validation.test.ts (lines 110-151)
-- Implementation (vaultSetCommand) was already complete in src/commands/vault.ts from US-001
-- Tests: update --data, update --assets-maximum, --json, --dry-run, --no-wait, --account/--keystore/--password
-- Files changed: tests/e2e/vault/vault.set.network.test.ts, scripts/ralph/prd.json
-- **Learnings for future iterations:**
-  - vault set, deposit, withdraw, delete, clawback implementations were all scaffolded in US-001 — future stories only need test files
-  - Each test creates its own vault using a helper function (createVault), then calls vault set on it — clean test isolation
-  - The createVault() helper pattern: run CLI, parse Vault ID from stdout with regex, throw on failure
+  - vault.create.validation.test.ts already contains validation tests for ALL vault subcommands (deposit, withdraw, delete, clawback) — only network tests are missing for US-004 through US-006
+  - Devnet faucet pattern for vault tests: `fundFromDevnetFaucet(client)` in beforeAll (single call), create vault in beforeAll, each test deposits/withdraws from the same shared vault
+  - VaultDeposit accepts amount in drops (string) for XRP; `parseAmount("1")` returns drops as string
 ---
