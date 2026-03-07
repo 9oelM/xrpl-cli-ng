@@ -75,7 +75,7 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "amm clawback requires issuer to have AllowTrustLineClawback set before trust lines are created — complex setup. Skip amm clawback network test; validation test is sufficient. AMMDelete only works when pool is empty (all LP tokens returned)."
     }
   ]

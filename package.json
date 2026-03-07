@@ -2,10 +2,14 @@
   "name": "xrpl-cli",
   "version": "0.1.0",
   "description": "A CLI for interacting with the XRP Ledger",
+  "author": "9oelM <messagejoel@outlook.com>",
   "type": "module",
   "bin": {
     "xrpl": "./dist/index.js"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc && chmod +x dist/index.js",
     "dev": "tsx src/index.ts",
