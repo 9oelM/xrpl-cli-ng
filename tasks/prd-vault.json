@@ -27,7 +27,7 @@
         "Tests pass"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": "VaultCreate fee is elevated (0.2 XRP = 200000 drops) — set Fee explicitly or verify autofill covers it. Extract VaultID from CreatedNode.LedgerIndex where LedgerEntryType === 'Vault'. E2E tests MUST use devnet, not testnet."
     },
     {
@@ -50,7 +50,7 @@
         "Tests pass"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "VaultSet cannot change public/private status — that is immutable after creation. AssetsMaximum cannot be lowered below current holdings (ledger enforces, not CLI)."
     },
     {

@@ -25,7 +25,7 @@
         "Tests pass"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": "Requires PermissionedDomains and Credentials amendments. AcceptedCredentials wire format uses Issuer (address) and CredentialType (hex). If testnet does not have the amendment, use devnet instead and note this in a comment."
     },
     {
@@ -46,7 +46,7 @@
         "Tests pass"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "PermissionedDomainSet with DomainID = update; without DomainID = create. The AcceptedCredentials array fully replaces the existing list on update."
     },
     {
