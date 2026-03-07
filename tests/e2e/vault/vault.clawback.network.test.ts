@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { it, expect, beforeAll, afterAll } from "vitest";
 import { runCLI } from "../../helpers/cli.js";
 import { resolve } from "path";
 import { mkdtempSync, rmSync } from "fs";
@@ -6,13 +6,19 @@ import { tmpdir } from "os";
 import { Client, Wallet, xrpToDrops } from "xrpl";
 import type { AccountSet, TrustSet, Payment as XrplPayment, VaultCreate, VaultDeposit } from "xrpl";
 import { AccountSetAsfFlags } from "xrpl";
-import { fundFromDevnetFaucet, DEVNET_URL } from "../../helpers/devnet.js";
+import {
+  DEVNET_WS,
+  fundMasterDevnet,
+  initTicketPoolDevnet,
+  createFundedDevnet,
+} from "../helpers/devnet.js";
 
 const CURRENCY = "VCB";
 // One fresh holder per test case — prevents state bleed from prior clawbacks
 const N_HOLDERS = 6;
 
 let client: Client;
+let master: Wallet;
 let issuer: Wallet;
 let holders: Wallet[];
 let vaultId: string;
@@ -29,10 +35,17 @@ async function holderDeposit(holder: Wallet, amountStr: string): Promise<void> {
 }
 
 beforeAll(async () => {
-  client = new Client(DEVNET_URL);
+  client = new Client(DEVNET_WS);
   await client.connect();
 
-  issuer = await fundFromDevnetFaucet(client); // 1 faucet call
+  master = await fundMasterDevnet(client); // 1 faucet call
+
+  // 8 tickets: 1 for issuer (10 XRP) + 6 for holders (3 XRP each) + 1 buffer
+  // Budget: 8 × 0.2 + 1 × 10 + 6 × 3 = 1.6 + 10 + 18 = 29.6 ≤ 99
+  await initTicketPoolDevnet(client, master, 8);
+
+  // Fund issuer via master using a ticket
+  [issuer] = await createFundedDevnet(client, master, 1, 10);
 
   // Enable DefaultRipple on issuer — required for IOU vault creation on devnet
   const defaultRippleTx: AccountSet = await client.autofill({
@@ -73,21 +86,13 @@ beforeAll(async () => {
   vaultId = vaultNode?.CreatedNode?.LedgerIndex ?? "";
   if (!vaultId) throw new Error("Failed to extract VaultID from VaultCreate metadata");
 
-  // Create N_HOLDERS fresh holder wallets: fund 2 XRP each, set up trust lines, issue 100 VCB.
-  // Using sequential transactions to avoid sequence number conflicts.
+  // Create N_HOLDERS fresh holder wallets via master tickets, then set up trust lines
+  // and issue VCB sequentially to avoid issuer sequence conflicts.
   holders = [];
   for (let i = 0; i < N_HOLDERS; i++) {
-    const holder = Wallet.generate();
+    // Fund holder from master using a ticket (concurrent-safe)
+    const [holder] = await createFundedDevnet(client, master, 1, 3);
     holders.push(holder);
-
-    // Fund holder with 2 XRP from issuer (covers 1 XRP base + 0.2 trust line + 0.2 vault share)
-    const fundTx: XrplPayment = await client.autofill({
-      TransactionType: "Payment",
-      Account: issuer.address,
-      Amount: xrpToDrops(2),
-      Destination: holder.address,
-    });
-    await client.submitAndWait(issuer.sign(fundTx).tx_blob);
 
     // Holder creates trust line to issuer
     const trustTx: TrustSet = await client.autofill({
@@ -97,7 +102,7 @@ beforeAll(async () => {
     });
     await client.submitAndWait(holder.sign(trustTx).tx_blob);
 
-    // Issuer issues 100 VCB to holder
+    // Issuer issues 100 VCB to holder (sequential to avoid issuer seq conflicts)
     const issueTx: XrplPayment = await client.autofill({
       TransactionType: "Payment",
       Account: issuer.address,
@@ -112,10 +117,120 @@ afterAll(async () => {
   await client.disconnect();
 });
 
-describe("vault clawback (devnet)", () => {
-  it("full clawback: holder deposits IOU, issuer claws back all (explicit amount)", async () => {
-    const holder = holders[0];
-    await holderDeposit(holder, "10");
+it.concurrent("full clawback: holder deposits IOU, issuer claws back all (explicit amount)", async () => {
+  const holder = holders[0];
+  await holderDeposit(holder, "10");
+
+  const result = runCLI([
+    "--node", "devnet",
+    "vault", "clawback",
+    "--vault-id", vaultId,
+    "--holder", holder.address,
+    "--amount", `10/${CURRENCY}/${issuer.address}`,
+    "--seed", issuer.seed!,
+  ]);
+  expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0);
+  expect(result.stdout).toContain(`Vault ID: ${vaultId}`);
+  expect(result.stdout).toContain(`Holder:   ${holder.address}`);
+  expect(result.stdout).toContain("tesSUCCESS");
+}, 90_000);
+
+it.concurrent("partial clawback with --amount", async () => {
+  const holder = holders[1];
+  await holderDeposit(holder, "10");
+
+  const result = runCLI([
+    "--node", "devnet",
+    "vault", "clawback",
+    "--vault-id", vaultId,
+    "--holder", holder.address,
+    "--amount", `5/${CURRENCY}/${issuer.address}`,
+    "--seed", issuer.seed!,
+  ]);
+  expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0);
+  expect(result.stdout).toContain(`Vault ID: ${vaultId}`);
+  expect(result.stdout).toContain("tesSUCCESS");
+}, 120_000);
+
+it.concurrent("--json outputs {result, vaultId, holder, tx}", async () => {
+  const holder = holders[2];
+  await holderDeposit(holder, "10");
+
+  const result = runCLI([
+    "--node", "devnet",
+    "vault", "clawback",
+    "--vault-id", vaultId,
+    "--holder", holder.address,
+    "--amount", `10/${CURRENCY}/${issuer.address}`,
+    "--seed", issuer.seed!,
+    "--json",
+  ]);
+  expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0);
+  const out = JSON.parse(result.stdout) as {
+    result: string;
+    vaultId: string;
+    holder: string;
+    tx: string;
+  };
+  expect(out.result).toBe("success");
+  expect(out.vaultId).toBe(vaultId);
+  expect(out.holder).toBe(holder.address);
+  expect(typeof out.tx).toBe("string");
+  expect(out.tx).toHaveLength(64);
+}, 90_000);
+
+it.concurrent("--dry-run prints VaultClawback tx JSON without submitting", async () => {
+  const holder = holders[3];
+  await holderDeposit(holder, "10");
+
+  const result = runCLI([
+    "--node", "devnet",
+    "vault", "clawback",
+    "--vault-id", vaultId,
+    "--holder", holder.address,
+    "--seed", issuer.seed!,
+    "--dry-run",
+  ]);
+  expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0);
+  const out = JSON.parse(result.stdout) as {
+    tx_blob: string;
+    tx: { TransactionType: string; VaultID: string; Holder: string };
+  };
+  expect(out.tx.TransactionType).toBe("VaultClawback");
+  expect(out.tx.VaultID).toBe(vaultId);
+  expect(out.tx.Holder).toBe(holder.address);
+  expect(typeof out.tx_blob).toBe("string");
+}, 90_000);
+
+it.concurrent("--no-wait submits without waiting and outputs Transaction hash", async () => {
+  const holder = holders[4];
+  await holderDeposit(holder, "10");
+
+  const result = runCLI([
+    "--node", "devnet",
+    "vault", "clawback",
+    "--vault-id", vaultId,
+    "--holder", holder.address,
+    "--seed", issuer.seed!,
+    "--no-wait",
+  ]);
+  expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0);
+  expect(result.stdout).toMatch(/Transaction: [0-9A-Fa-f]{64}/);
+}, 60_000);
+
+it.concurrent("--account + --keystore + --password key material claws back successfully", async () => {
+  const holder = holders[5];
+  await holderDeposit(holder, "10");
+
+  const tmpDir = mkdtempSync(resolve(tmpdir(), "xrpl-vault-clawback-test-"));
+  try {
+    const importResult = runCLI([
+      "wallet", "import",
+      issuer.seed!,
+      "--password", "pw456",
+      "--keystore", tmpDir,
+    ]);
+    expect(importResult.status, `import: ${importResult.stderr}`).toBe(0);
 
     const result = runCLI([
       "--node", "devnet",
@@ -123,126 +238,14 @@ describe("vault clawback (devnet)", () => {
       "--vault-id", vaultId,
       "--holder", holder.address,
       "--amount", `10/${CURRENCY}/${issuer.address}`,
-      "--seed", issuer.seed!,
-    ]);
-    expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0);
-    expect(result.stdout).toContain(`Vault ID: ${vaultId}`);
-    expect(result.stdout).toContain(`Holder:   ${holder.address}`);
-    expect(result.stdout).toContain("tesSUCCESS");
-  }, 90_000);
-
-  it("partial clawback with --amount", async () => {
-    const holder = holders[1];
-    await holderDeposit(holder, "10");
-
-    const result = runCLI([
-      "--node", "devnet",
-      "vault", "clawback",
-      "--vault-id", vaultId,
-      "--holder", holder.address,
-      "--amount", `5/${CURRENCY}/${issuer.address}`,
-      "--seed", issuer.seed!,
+      "--account", issuer.address,
+      "--keystore", tmpDir,
+      "--password", "pw456",
     ]);
     expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0);
     expect(result.stdout).toContain(`Vault ID: ${vaultId}`);
     expect(result.stdout).toContain("tesSUCCESS");
-  }, 120_000);
-
-  it("--json outputs {result, vaultId, holder, tx}", async () => {
-    const holder = holders[2];
-    await holderDeposit(holder, "10");
-
-    const result = runCLI([
-      "--node", "devnet",
-      "vault", "clawback",
-      "--vault-id", vaultId,
-      "--holder", holder.address,
-      "--amount", `10/${CURRENCY}/${issuer.address}`,
-      "--seed", issuer.seed!,
-      "--json",
-    ]);
-    expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0);
-    const out = JSON.parse(result.stdout) as {
-      result: string;
-      vaultId: string;
-      holder: string;
-      tx: string;
-    };
-    expect(out.result).toBe("success");
-    expect(out.vaultId).toBe(vaultId);
-    expect(out.holder).toBe(holder.address);
-    expect(typeof out.tx).toBe("string");
-    expect(out.tx).toHaveLength(64);
-  }, 90_000);
-
-  it("--dry-run prints VaultClawback tx JSON without submitting", async () => {
-    const holder = holders[3];
-    await holderDeposit(holder, "10");
-
-    const result = runCLI([
-      "--node", "devnet",
-      "vault", "clawback",
-      "--vault-id", vaultId,
-      "--holder", holder.address,
-      "--seed", issuer.seed!,
-      "--dry-run",
-    ]);
-    expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0);
-    const out = JSON.parse(result.stdout) as {
-      tx_blob: string;
-      tx: { TransactionType: string; VaultID: string; Holder: string };
-    };
-    expect(out.tx.TransactionType).toBe("VaultClawback");
-    expect(out.tx.VaultID).toBe(vaultId);
-    expect(out.tx.Holder).toBe(holder.address);
-    expect(typeof out.tx_blob).toBe("string");
-  }, 90_000);
-
-  it("--no-wait submits without waiting and outputs Transaction hash", async () => {
-    const holder = holders[4];
-    await holderDeposit(holder, "10");
-
-    const result = runCLI([
-      "--node", "devnet",
-      "vault", "clawback",
-      "--vault-id", vaultId,
-      "--holder", holder.address,
-      "--seed", issuer.seed!,
-      "--no-wait",
-    ]);
-    expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0);
-    expect(result.stdout).toMatch(/Transaction: [0-9A-Fa-f]{64}/);
-  }, 60_000);
-
-  it("--account + --keystore + --password key material claws back successfully", async () => {
-    const holder = holders[5];
-    await holderDeposit(holder, "10");
-
-    const tmpDir = mkdtempSync(resolve(tmpdir(), "xrpl-vault-clawback-test-"));
-    try {
-      const importResult = runCLI([
-        "wallet", "import",
-        issuer.seed!,
-        "--password", "pw456",
-        "--keystore", tmpDir,
-      ]);
-      expect(importResult.status, `import: ${importResult.stderr}`).toBe(0);
-
-      const result = runCLI([
-        "--node", "devnet",
-        "vault", "clawback",
-        "--vault-id", vaultId,
-        "--holder", holder.address,
-        "--amount", `10/${CURRENCY}/${issuer.address}`,
-        "--account", issuer.address,
-        "--keystore", tmpDir,
-        "--password", "pw456",
-      ]);
-      expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0);
-      expect(result.stdout).toContain(`Vault ID: ${vaultId}`);
-      expect(result.stdout).toContain("tesSUCCESS");
-    } finally {
-      rmSync(tmpDir, { recursive: true, force: true });
-    }
-  }, 90_000);
-});
+  } finally {
+    rmSync(tmpDir, { recursive: true, force: true });
+  }
+}, 90_000);

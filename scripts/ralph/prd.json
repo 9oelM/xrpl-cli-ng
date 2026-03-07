@@ -17,7 +17,7 @@
         "Typecheck passes"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": "Copy the logic from tests/e2e/helpers/fund.ts — the ticket and payment logic is identical for devnet. Only the faucet URL changes. Devnet faucet: POST https://faucet.devnet.rippletest.net/accounts"
     },
     {
@@ -38,7 +38,7 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "vault.create has 7 tests (XRP vault creation, --assets-maximum, --json, --dry-run, --no-wait, --account/keystore/password, --non-transferable). vault.set has 6 tests. Each test gets its own wallet and creates its own vault. VaultCreate elevated fee (200000 drops) is handled by the CLI automatically."
     },
     {
@@ -59,7 +59,7 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Withdraw tests must deposit first (via xrpl.js VaultDeposit) within each it.concurrent body before calling the CLI withdraw command. Each test is fully self-contained. XRP vault creation uses xrpl.js directly with Fee: '200000'."
     },
     {
@@ -80,7 +80,7 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Clawback requires: issuer has asfAllowTrustLineClawback AND asfDefaultRipple set. These must be set before any trust lines are created. The issuer sequence conflicts are avoided by using xrpl.js autofill + submitAndWait sequentially within each test body (not concurrent issuer txs). VCB = vault clawback test currency."
     }
   ]
