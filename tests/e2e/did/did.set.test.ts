@@ -77,11 +77,12 @@ describe("did set", () => {
 
   it.concurrent("clears URI field with --clear-uri", async () => {
     const [owner] = await createFunded(client, master, 1, 3);
-    // Set a URI first
+    // Set both URI and data so the DID is not empty after clearing URI
     const setResult = runCLI([
       "--node", "testnet",
       "did", "set",
       "--uri", "https://example.com/did/to-clear",
+      "--data", "keep-this",
       "--seed", owner.seed!,
     ]);
     expect(setResult.status, `set: ${setResult.stderr}`).toBe(0);
@@ -97,11 +98,12 @@ describe("did set", () => {
 
   it.concurrent("--uri '' empty string clears URI (equivalent to --clear-uri)", async () => {
     const [owner] = await createFunded(client, master, 1, 3);
-    // First set a URI so we have something to clear
+    // Set both URI and data so the DID is not empty after clearing URI
     runCLI([
       "--node", "testnet",
       "did", "set",
       "--uri", "https://example.com/did/tmp",
+      "--data", "keep-this",
       "--seed", owner.seed!,
     ]);
     const result = runCLI([
