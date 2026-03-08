@@ -17,6 +17,18 @@ const FUND_AMOUNT = 2;
 let client: Client;
 let master: Wallet;
 
+/**
+ * Ensure the shared WebSocket client is connected.
+ * Under heavy concurrent load the connection can drop; this guard
+ * transparently reconnects so individual test cases don't fail with
+ * "DisconnectedError: WebSocket is not open".
+ */
+async function ensureConnected(): Promise<void> {
+  if (!client.isConnected()) {
+    await client.connect();
+  }
+}
+
 beforeAll(async () => {
   client = new Client(XRPL_WS);
   await client.connect();
@@ -32,6 +44,7 @@ afterAll(async () => {
 
 describe("credential create", () => {
   it.concurrent("creates a credential with --credential-type string", async () => {
+    await ensureConnected();
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const result = runCLI([
       "--node", "testnet",
@@ -46,6 +59,7 @@ describe("credential create", () => {
   }, 90_000);
 
   it.concurrent("creates a credential with --credential-type-hex", async () => {
+    await ensureConnected();
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const result = runCLI([
       "--node", "testnet",
@@ -60,6 +74,7 @@ describe("credential create", () => {
   }, 90_000);
 
   it.concurrent("creates a credential with --uri", async () => {
+    await ensureConnected();
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const result = runCLI([
       "--node", "testnet",
@@ -75,6 +90,7 @@ describe("credential create", () => {
   }, 90_000);
 
   it.concurrent("creates a credential with --expiration", async () => {
+    await ensureConnected();
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const future = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
     const result = runCLI([
@@ -90,6 +106,7 @@ describe("credential create", () => {
   }, 90_000);
 
   it.concurrent("--json outputs hash, result, fee, ledger, credentialId", async () => {
+    await ensureConnected();
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const result = runCLI([
       "--node", "testnet",
@@ -116,6 +133,7 @@ describe("credential create", () => {
   }, 90_000);
 
   it.concurrent("--dry-run outputs JSON with TransactionType CredentialCreate and does not submit", async () => {
+    await ensureConnected();
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const result = runCLI([
       "--node", "testnet",
@@ -136,6 +154,7 @@ describe("credential create", () => {
 
 describe("credential accept", () => {
   it.concurrent("subject accepts a credential issued by the issuer", async () => {
+    await ensureConnected();
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const credType = "KYC_ACCEPT";
     const credTypeHex = convertStringToHex(credType);
@@ -174,6 +193,7 @@ describe("credential accept", () => {
   }, 90_000);
 
   it.concurrent("--json outputs hash, result, fee, ledger", async () => {
+    await ensureConnected();
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const credType = "KYC_ACCEPT_JSON";
 
@@ -208,6 +228,7 @@ describe("credential accept", () => {
   }, 90_000);
 
   it.concurrent("--dry-run outputs JSON with TransactionType CredentialAccept and does not submit", async () => {
+    await ensureConnected();
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const result = runCLI([
       "--node", "testnet",
@@ -224,6 +245,7 @@ describe("credential accept", () => {
   }, 90_000);
 
   it.concurrent("accepts credential with --credential-type-hex", async () => {
+    await ensureConnected();
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const credType = "KYC_ACCEPT_HEX";
     const credTypeHex = convertStringToHex(credType);
@@ -249,6 +271,7 @@ describe("credential accept", () => {
   }, 90_000);
 
   it.concurrent("--no-wait submits without waiting and prints hash", async () => {
+    await ensureConnected();
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const credType = "KYC_ACCEPT_NOWAIT";
 
@@ -278,6 +301,7 @@ describe("credential accept", () => {
 
 describe("credential delete", () => {
   it.concurrent("issuer deletes a credential they created", async () => {
+    await ensureConnected();
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const credType = "KYC_DELETE_ISSUER";
     const credTypeHex = convertStringToHex(credType);
@@ -314,6 +338,7 @@ describe("credential delete", () => {
   }, 90_000);
 
   it.concurrent("subject deletes their own accepted credential", async () => {
+    await ensureConnected();
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const credType = "KYC_DELETE_SUBJECT";
     const credTypeHex = convertStringToHex(credType);
@@ -359,6 +384,7 @@ describe("credential delete", () => {
   }, 90_000);
 
   it.concurrent("--json outputs hash, result, fee, ledger, credentialId", async () => {
+    await ensureConnected();
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const credType = "KYC_DELETE_JSON";
 
@@ -395,6 +421,7 @@ describe("credential delete", () => {
   }, 90_000);
 
   it.concurrent("--dry-run outputs JSON with TransactionType CredentialDelete and does not submit", async () => {
+    await ensureConnected();
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const result = runCLI([
       "--node", "testnet",
@@ -411,6 +438,7 @@ describe("credential delete", () => {
   }, 90_000);
 
   it.concurrent("--credential-type-hex deletes credential using raw hex type", async () => {
+    await ensureConnected();
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const credType = "KYC_DELETE_HEX";
     const credTypeHex = convertStringToHex(credType);
@@ -436,6 +464,7 @@ describe("credential delete", () => {
   }, 90_000);
 
   it.concurrent("--no-wait submits without waiting and prints hash", async () => {
+    await ensureConnected();
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const credType = "KYC_DELETE_NOWAIT";
 
@@ -465,6 +494,7 @@ describe("credential delete", () => {
 
 describe("credential list", () => {
   it.concurrent("lists an accepted credential with accepted=yes", async () => {
+    await ensureConnected();
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const credType = "KYC_LIST_ACCEPTED";
 
@@ -499,6 +529,7 @@ describe("credential list", () => {
   }, 90_000);
 
   it.concurrent("lists a pending credential with accepted=no", async () => {
+    await ensureConnected();
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const credType = "KYC_LIST_PENDING";
 
@@ -522,6 +553,7 @@ describe("credential list", () => {
   }, 90_000);
 
   it.concurrent("--json outputs raw JSON array with accepted credential", async () => {
+    await ensureConnected();
     const [issuer, subject] = await createFunded(client, master, 2, FUND_AMOUNT);
     const credType = "KYC_LIST_JSON";
     const credTypeHex = convertStringToHex(credType);
