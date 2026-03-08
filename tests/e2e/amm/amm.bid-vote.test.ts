@@ -39,21 +39,22 @@ async function setupPool(
   );
   expect((acctSetResult.result.meta as { TransactionResult: string }).TransactionResult).toBe("tesSUCCESS");
 
-  await client.submitAndWait(
-    lp.sign(await client.autofill({
-      TransactionType: "TrustSet",
-      Account: lp.address,
-      LimitAmount: { currency, issuer: issuer.address, value: "1000000" },
-    })).tx_blob
-  );
-  await client.submitAndWait(
-    issuer.sign(await client.autofill({
-      TransactionType: "Payment",
-      Account: issuer.address,
-      Destination: lp.address,
-      Amount: { currency, issuer: issuer.address, value: "100000" },
-    })).tx_blob
-  );
+  const trustSetFilled = await client.autofill({
+    TransactionType: "TrustSet",
+    Account: lp.address,
+    LimitAmount: { currency, issuer: issuer.address, value: "1000000" },
+  });
+  trustSetFilled.LastLedgerSequence = (trustSetFilled.LastLedgerSequence ?? 0) + 80;
+  await client.submitAndWait(lp.sign(trustSetFilled).tx_blob);
+
+  const paymentFilled = await client.autofill({
+    TransactionType: "Payment",
+    Account: issuer.address,
+    Destination: lp.address,
+    Amount: { currency, issuer: issuer.address, value: "100000" },
+  });
+  paymentFilled.LastLedgerSequence = (paymentFilled.LastLedgerSequence ?? 0) + 80;
+  await client.submitAndWait(issuer.sign(paymentFilled).tx_blob);
   return `${currency}/${issuer.address}`;
 }
 
