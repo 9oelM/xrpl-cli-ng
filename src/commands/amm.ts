@@ -279,7 +279,17 @@ const ammCreateCommand = new Command("create")
         return;
       }
 
-      const response = await client.submitAndWait(signed.tx_blob);
+      let response;
+      try {
+        response = await client.submitAndWait(signed.tx_blob);
+      } catch (e: unknown) {
+        const err = e as Error;
+        if (err.constructor.name === "TimeoutError" || err.message?.includes("LastLedgerSequence")) {
+          process.stderr.write("Error: transaction expired (LastLedgerSequence exceeded)\n");
+          process.exit(1);
+        }
+        throw e;
+      }
 
       const txResult = response.result as {
         hash?: string;
@@ -422,7 +432,17 @@ async function submitTx(
     return;
   }
 
-  const response = await client.submitAndWait(signed.tx_blob);
+  let response;
+  try {
+    response = await client.submitAndWait(signed.tx_blob);
+  } catch (e: unknown) {
+    const err = e as Error;
+    if (err.constructor.name === "TimeoutError" || err.message?.includes("LastLedgerSequence")) {
+      process.stderr.write("Error: transaction expired (LastLedgerSequence exceeded)\n");
+      process.exit(1);
+    }
+    throw e;
+  }
   const txResult = response.result as {
     hash?: string;
     meta?: { TransactionResult?: string };
