@@ -259,6 +259,7 @@ const ammCreateCommand = new Command("create")
       };
 
       const filled = await client.autofill(baseTx);
+      filled.LastLedgerSequence = (filled.LastLedgerSequence ?? 0) + 80;
 
       if (options.dryRun) {
         const signed = signerWallet.sign(filled);
@@ -401,6 +402,7 @@ async function submitTx(
   options: { wait: boolean; json: boolean; dryRun: boolean }
 ): Promise<void> {
   const filled = await client.autofill(baseTx);
+  filled.LastLedgerSequence = (filled.LastLedgerSequence ?? 0) + 80;
 
   if (options.dryRun) {
     const signed = signerWallet.sign(filled);
