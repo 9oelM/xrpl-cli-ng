@@ -29,6 +29,16 @@ async function setupPool(
   lp: Wallet,
   currency = "USD"
 ): Promise<string> {
+  // Enable DefaultRipple on issuer so AMM transactions don't fail with terNO_RIPPLE
+  const acctSetResult = await client.submitAndWait(
+    issuer.sign(await client.autofill({
+      TransactionType: "AccountSet",
+      Account: issuer.address,
+      SetFlag: 8, // asfDefaultRipple
+    })).tx_blob
+  );
+  expect((acctSetResult.result.meta as { TransactionResult: string }).TransactionResult).toBe("tesSUCCESS");
+
   await client.submitAndWait(
     lp.sign(await client.autofill({
       TransactionType: "TrustSet",
