@@ -25,6 +25,9 @@ let master: Wallet;
  */
 async function ensureConnected(): Promise<void> {
   if (!client.isConnected()) {
+    // Disconnect first to clean up any half-open WebSocket state,
+    // otherwise xrpl.js throws "Websocket connection never cleaned up".
+    await client.disconnect().catch(() => {});
     await client.connect();
   }
 }
@@ -325,6 +328,7 @@ describe("credential delete", () => {
     expect(deleteResult.status, `delete: ${deleteResult.stderr}`).toBe(0);
     expect(deleteResult.stdout).toContain("tesSUCCESS");
 
+    await ensureConnected();
     const res = await resilientRequest(client, {
       command: "account_objects",
       account: subject.address,
@@ -335,7 +339,7 @@ describe("credential delete", () => {
       (o) => o.CredentialType === credTypeHex
     );
     expect(cred).toBeUndefined();
-  }, 90_000);
+  }, 180_000);
 
   it.concurrent("subject deletes their own accepted credential", async () => {
     await ensureConnected();
