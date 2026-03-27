@@ -545,3 +545,178 @@ List Multi-Purpose Tokens (MPT) held by an account.
 ```bash
 xrpl account mptokens rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh
 ```
+
+## payment
+
+Alias: `send`. Send a Payment transaction on the XRP Ledger.
+
+| Flag | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `--to <address-or-alias>` | string | Yes | — | Destination address or alias |
+| `--amount <amount>` | string | Yes | — | Amount to send: `1.5` for XRP, `10/USD/rIssuer` for IOU, `100/<48-hex>` for MPT |
+| `--seed <seed>` | string | No* | — | Family seed for signing |
+| `--mnemonic <phrase>` | string | No* | — | BIP39 mnemonic for signing |
+| `--account <address-or-alias>` | string | No* | — | Account address or alias to load from keystore |
+| `--password <password>` | string | No | — | Keystore decryption password (insecure; prefer interactive prompt) |
+| `--keystore <dir>` | string | No | `~/.xrpl/keystore/` | Keystore directory (env: `XRPL_KEYSTORE`) |
+| `--destination-tag <n>` | string | No | — | Destination tag (unsigned 32-bit integer) |
+| `--memo <text>` | string | No | — | Memo text to attach (repeatable) |
+| `--memo-type <hex>` | string | No | — | MemoType hex for the last memo |
+| `--memo-format <hex>` | string | No | — | MemoFormat hex for the last memo |
+| `--send-max <amount>` | string | No | — | SendMax field; supports XRP, IOU, and MPT amounts |
+| `--deliver-min <amount>` | string | No | — | DeliverMin field; sets `tfPartialPayment` automatically |
+| `--paths <json-or-file>` | string | No | — | Payment paths as JSON array or path to a `.json` file |
+| `--partial` | boolean | No | false | Set `tfPartialPayment` flag |
+| `--no-ripple-direct` | boolean | No | false | Set `tfNoRippleDirect` flag |
+| `--limit-quality` | boolean | No | false | Set `tfLimitQuality` flag |
+| `--no-wait` | boolean | No | false | Submit without waiting for validation |
+| `--json` | boolean | No | false | Output as JSON |
+| `--dry-run` | boolean | No | false | Print signed tx JSON without submitting |
+
+\* Exactly one of `--seed`, `--mnemonic`, or `--account` is required.
+
+```bash
+xrpl payment --to rDestination... --amount 1.5 --seed sEd...
+```
+
+---
+
+## trust
+
+Manage XRPL trust lines.
+
+---
+
+### trust set
+
+Create or update a trust line (TrustSet transaction). Setting `--limit 0` effectively removes the trust line.
+
+| Flag | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `--currency <code>` | string | Yes | — | Currency code (3-char ASCII or 40-char hex) |
+| `--issuer <address-or-alias>` | string | Yes | — | Issuer address or alias |
+| `--limit <value>` | string | Yes | — | Trust line limit (`0` removes the trust line) |
+| `--seed <seed>` | string | No* | — | Family seed for signing |
+| `--mnemonic <phrase>` | string | No* | — | BIP39 mnemonic for signing |
+| `--account <address-or-alias>` | string | No* | — | Account address or alias to load from keystore |
+| `--password <password>` | string | No | — | Keystore decryption password (insecure; prefer interactive prompt) |
+| `--keystore <dir>` | string | No | `~/.xrpl/keystore/` | Keystore directory (env: `XRPL_KEYSTORE`) |
+| `--no-ripple` | boolean | No | false | Set `NoRipple` flag on the trust line |
+| `--clear-no-ripple` | boolean | No | false | Clear `NoRipple` flag on the trust line |
+| `--freeze` | boolean | No | false | Freeze the trust line |
+| `--unfreeze` | boolean | No | false | Unfreeze the trust line |
+| `--auth` | boolean | No | false | Authorize the trust line |
+| `--quality-in <n>` | string | No | — | Set `QualityIn` (unsigned integer) |
+| `--quality-out <n>` | string | No | — | Set `QualityOut` (unsigned integer) |
+| `--no-wait` | boolean | No | false | Submit without waiting for validation |
+| `--json` | boolean | No | false | Output as JSON |
+| `--dry-run` | boolean | No | false | Print signed tx JSON without submitting |
+
+\* Exactly one of `--seed`, `--mnemonic`, or `--account` is required.
+`--no-ripple` and `--clear-no-ripple` are mutually exclusive. `--freeze` and `--unfreeze` are mutually exclusive.
+
+```bash
+xrpl trust set --currency USD --issuer rIssuer... --limit 1000 --seed sEd...
+```
+
+---
+
+### trust delete
+
+Remove a trust line by setting its limit to zero.
+
+```bash
+xrpl trust set --currency USD --issuer rIssuer... --limit 0 --seed sEd...
+```
+
+---
+
+## offer
+
+Manage DEX offers on the XRP Ledger.
+
+---
+
+### offer create
+
+Create a DEX offer (OfferCreate transaction).
+
+| Flag | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `--taker-pays <amount>` | string | Yes | — | Amount the taker pays (e.g. `1.5` for XRP, `10/USD/rIssuer` for IOU) |
+| `--taker-gets <amount>` | string | Yes | — | Amount the taker gets (e.g. `1.5` for XRP, `10/USD/rIssuer` for IOU) |
+| `--seed <seed>` | string | No* | — | Family seed for signing |
+| `--mnemonic <phrase>` | string | No* | — | BIP39 mnemonic for signing |
+| `--account <address-or-alias>` | string | No* | — | Account address or alias to load from keystore |
+| `--password <password>` | string | No | — | Keystore decryption password (insecure; prefer interactive prompt) |
+| `--keystore <dir>` | string | No | `~/.xrpl/keystore/` | Keystore directory (env: `XRPL_KEYSTORE`) |
+| `--sell` | boolean | No | false | Set `tfSell` flag |
+| `--passive` | boolean | No | false | Set `tfPassive` flag (do not consume matching offers) |
+| `--immediate-or-cancel` | boolean | No | false | Set `tfImmediateOrCancel` flag |
+| `--fill-or-kill` | boolean | No | false | Set `tfFillOrKill` flag |
+| `--expiration <iso>` | string | No | — | Offer expiration as ISO 8601 string (e.g. `2030-01-01T00:00:00Z`) |
+| `--replace <sequence>` | string | No | — | Cancel offer with this sequence and replace it atomically |
+| `--no-wait` | boolean | No | false | Submit without waiting for validation |
+| `--json` | boolean | No | false | Output as JSON |
+| `--dry-run` | boolean | No | false | Print signed tx JSON without submitting |
+
+\* Exactly one of `--seed`, `--mnemonic`, or `--account` is required.
+`--immediate-or-cancel` and `--fill-or-kill` are mutually exclusive.
+
+```bash
+xrpl offer create --taker-pays 10/USD/rIssuer... --taker-gets 1.5 --seed sEd...
+```
+
+---
+
+### offer cancel
+
+Cancel an existing DEX offer (OfferCancel transaction).
+
+| Flag | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `--sequence <n>` | string | Yes | — | Sequence number of the offer to cancel |
+| `--seed <seed>` | string | No* | — | Family seed for signing |
+| `--mnemonic <phrase>` | string | No* | — | BIP39 mnemonic for signing |
+| `--account <address-or-alias>` | string | No* | — | Account address or alias to load from keystore |
+| `--password <password>` | string | No | — | Keystore decryption password (insecure; prefer interactive prompt) |
+| `--keystore <dir>` | string | No | `~/.xrpl/keystore/` | Keystore directory (env: `XRPL_KEYSTORE`) |
+| `--no-wait` | boolean | No | false | Submit without waiting for validation |
+| `--json` | boolean | No | false | Output as JSON |
+| `--dry-run` | boolean | No | false | Print signed tx JSON without submitting |
+
+\* Exactly one of `--seed`, `--mnemonic`, or `--account` is required.
+
+```bash
+xrpl offer cancel --sequence 12 --seed sEd...
+```
+
+---
+
+## clawback
+
+Claw back issued tokens (IOU or MPT) from a holder account.
+
+| Flag | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `--amount <amount>` | string | Yes | — | For IOU: `value/CURRENCY/holder-address`; for MPT: `value/MPT_ISSUANCE_ID` |
+| `--holder <address>` | string | No† | — | Holder address to claw back from (required for MPT mode only) |
+| `--seed <seed>` | string | No* | — | Family seed for signing |
+| `--mnemonic <phrase>` | string | No* | — | BIP39 mnemonic for signing |
+| `--account <address-or-alias>` | string | No* | — | Account address or alias to load from keystore |
+| `--password <password>` | string | No | — | Keystore decryption password (insecure; prefer interactive prompt) |
+| `--keystore <dir>` | string | No | `~/.xrpl/keystore/` | Keystore directory (env: `XRPL_KEYSTORE`) |
+| `--no-wait` | boolean | No | false | Submit without waiting for validation |
+| `--json` | boolean | No | false | Output as JSON |
+| `--dry-run` | boolean | No | false | Print signed tx JSON without submitting |
+
+\* Exactly one of `--seed`, `--mnemonic`, or `--account` is required.
+† `--holder` is required when `--amount` is an MPT amount; must be omitted for IOU amounts.
+
+```bash
+# IOU clawback
+xrpl clawback --amount 50/USD/rHolder... --seed sEd...
+
+# MPT clawback
+xrpl clawback --amount 100/0000000000000000000000000000000000000001 --holder rHolder... --seed sEd...
+```
