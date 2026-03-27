@@ -1461,10 +1461,11 @@ xrpl --node testnet amm create \
   --account rOwnerXXXXXXXXXXXXXXXXXXXXXXXXX \
   --password mypassword
 
-# 2. Withdraw all liquidity (auto-deletes pool when no other LP holders)
+# 2. Withdraw all liquidity using tfWithdrawAll (auto-deletes pool when no other LP holders)
 xrpl --node testnet amm withdraw \
   --asset XRP \
   --asset2 USD/rIssuerXXXXXXXXXXXXXXXXXXXXXXXXX \
+  --all \
   --account rOwnerXXXXXXXXXXXXXXXXXXXXXXXXX \
   --password mypassword
 ```

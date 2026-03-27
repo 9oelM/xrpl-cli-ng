@@ -1,7 +1,7 @@
 {
   "project": "xrpl-cli",
   "branchName": "ralph/publish-skill",
-  "description": "Publish SKILL.md — a machine-readable skill file at the repo root documenting every xrpl-cli command for AI agents, including installation, security rules, flag-by-flag reference, and copy-paste workflows",
+  "description": "Publish SKILL.md \u2014 a machine-readable skill file at the repo root documenting every xrpl-cli command for AI agents, including installation, security rules, flag-by-flag reference, and copy-paste workflows",
   "userStories": [
     {
       "id": "US-001",
@@ -152,7 +152,7 @@
         "Typecheck passes"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -170,7 +170,7 @@
         "Typecheck passes"
       ],
       "priority": 11,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -179,14 +179,14 @@
       "description": "As an agent, I want copy-paste workflow examples so I can quickly compose multi-step operations correctly.",
       "acceptanceCriteria": [
         "SKILL.md contains a '## Common Agent Workflows' section after all command documentation",
-        "Workflow 1 'Fund a new wallet and send XRP': shows full CLI sequence — wallet new, wallet fund, payment send — with placeholder values and --node testnet",
+        "Workflow 1 'Fund a new wallet and send XRP': shows full CLI sequence \u2014 wallet new, wallet fund, payment send \u2014 with placeholder values and --node testnet",
         "Workflow 2 'Create an IOU trust line and receive tokens': shows trust set then payment send with placeholder values",
         "Workflow 3 'Create and drain an AMM pool': shows amm create then amm withdraw with tfWithdrawAll flag",
         "Each workflow uses realistic placeholder values (e.g. rXXX... for addresses)",
         "Typecheck passes"
       ],
       "priority": 12,
-      "passes": false,
+      "passes": true,
       "notes": ""
     }
   ]
