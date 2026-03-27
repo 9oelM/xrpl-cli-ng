@@ -12,6 +12,8 @@ import type {
   AMMClawback,
   AMMInfoRequest,
   AMMInfoResponse,
+  AccountInfoRequest,
+  AccountInfoResponse,
   IssuedCurrencyAmount,
   Currency,
   Client,
@@ -413,6 +415,16 @@ async function submitTx(
 ): Promise<void> {
   const filled = await client.autofill(baseTx);
   filled.LastLedgerSequence = (filled.LastLedgerSequence ?? 0) + 200;
+
+  // autofill uses ledger_index:'current' for sequence, which can be stale on a
+  // fresh WebSocket connection routed to a server that hasn't applied the latest
+  // validated ledger yet.  Re-fetch from 'validated' (consistent across all nodes).
+  const accountInfoResp = await client.request({
+    command: "account_info",
+    account: signerWallet.address,
+    ledger_index: "validated",
+  } as AccountInfoRequest) as AccountInfoResponse;
+  filled.Sequence = accountInfoResp.result.account_data.Sequence;
 
   if (options.dryRun) {
     const signed = signerWallet.sign(filled);
