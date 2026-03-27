@@ -1,50 +1,110 @@
-## Codebase Patterns
-- Vault E2E tests use devnet (not testnet) — `DEVNET_WS` from `tests/e2e/helpers/devnet.ts`
-- Devnet faucet: POST `https://faucet.devnet.rippletest.net/accounts` with `{destination, userAgent}`
-- VaultCreate requires elevated fee: `Fee: "200000"` drops
-- IOU vault clawback requires: issuer has `asfDefaultRipple` + `asfAllowTrustLineClawback` set BEFORE any trust lines
-- Shared issuer + vaultId in beforeAll is an allowed exception for clawback tests (only holders are consumed per test)
-- Holders for clawback must be pre-created sequentially in beforeAll (issuer VCB payments can't run concurrently)
-
----
-
-## 2026-03-07 - US-001
-- Created `tests/e2e/helpers/devnet.ts` mirroring `fund.ts` with devnet faucet URL
-- Exports: `DEVNET_WS`, `fundMasterDevnet`, `initTicketPoolDevnet`, `createFundedDevnet`, `fundAddressDevnet`, `nextTicketDevnet`
-- **Learnings:**
-  - Devnet faucet URL: `https://faucet.devnet.rippletest.net/accounts`
-  - Module-level ticketPool needs separate variable per file (devnet.ts has its own pool)
----
-
-## 2026-03-07 - US-002
-- Deleted `vault.create.network.test.ts` and `vault.set.network.test.ts`
-- Created `tests/e2e/vault/vault.create-set.network.test.ts` with all 13 tests using `it.concurrent`
-- Each test calls `createFundedDevnet(client, master, 1, 3)` for its own fresh wallet
-- **Learnings:**
-  - `cliCreateVault` helper function creates vault inline via CLI with `--node devnet`
-  - Vault set tests need their own vault created inline per test
----
-
-## 2026-03-07 - US-003
-- Deleted `vault.deposit.network.test.ts` and `vault.withdraw.network.test.ts`
-- Created `tests/e2e/vault/vault.deposit-withdraw.network.test.ts` with all 11 tests
-- Vault creation uses xrpl.js directly (not CLI) as setup-only step
-- Withdraw tests do `VaultDeposit` via xrpl.js inside each `it.concurrent` body before calling CLI withdraw
-- **Learnings:**
-  - Use `xrplCreateVault(wallet)` helper that calls `client.submitAndWait` directly
-  - VaultCreate metadata: find `CreatedNode` with `LedgerEntryType === "Vault"` to get vaultId
----
-
-## 2026-03-07 - US-004
-- Rewrote `vault.delete.network.test.ts`: fixed imports (`fundFromDevnetFaucet`/`DEVNET_URL` → `fundMasterDevnet`/`DEVNET_WS`/`initTicketPoolDevnet`/`createFundedDevnet`), removed `describe` wrapper, changed all `it()` to `it.concurrent`, each test gets its own wallet via `createFundedDevnet` and creates its own vault
-- Rewrote `vault.clawback.network.test.ts`: same import fixes; beforeAll now uses `fundMasterDevnet` + `initTicketPoolDevnet(client, master, 8)` + `createFundedDevnet` for issuer (10 XRP) + sequential holder setup (6 holders, each funded via master ticket, then trust line + VCB from issuer); changed all `it()` to `it.concurrent`; each test uses a unique pre-created holder (one per test, never shared)
-- Updated prd.json to mark US-001, US-002, US-003, US-004 as `passes: true`
-- **Learnings:**
-  - `fundFromDevnetFaucet` and `DEVNET_URL` were the OLD export names; correct names are `fundMasterDevnet` and `DEVNET_WS`
-  - For clawback: holders must be pre-created in beforeAll because issuer VCB payments must be sequential (concurrent issuer txs would cause sequence conflicts). Shared pre-created holders (one per test) are the allowed exception.
-  - Budget for clawback: 8 tickets × 0.2 + 1 issuer × 10 + 6 holders × 3 = 29.6 XRP ≤ 99
----
-
 # Ralph Progress Log
-Started: Tue Mar 10 02:18:05 PM Universal 2026
+Started: Fri Mar 27 07:42:26 AM UTC 2026
+---
+
+## 2026-03-27 - US-002
+- Added `## Installation` section to SKILL.md as the first section after frontmatter
+- Documents global install (`npm install -g xrpl-cli-ng`), zero-install (`npx xrpl-cli-ng`), Node.js 22+ requirement, and smoke-test (`xrpl --version`)
+- Files changed: SKILL.md
+- **Learnings for future iterations:**
+  - SKILL.md is a markdown doc-only change; typecheck always passes trivially for it
+  - All SKILL.md sections are pure markdown additions — no code changes needed
+---
+
+## 2026-03-27 - US-004
+- Added `## Global Options` section to SKILL.md documenting --node, --version, --help
+- Documents named network shorthands (mainnet/testnet/devnet) with URLs and default value
+- Includes one example: `xrpl --node testnet account balance <address>`
+- Files changed: SKILL.md
+- **Learnings for future iterations:**
+  - Global Options section placed after Security Rules for Agents and before command docs
+  - Named network shorthands should list the actual WSS URLs for completeness
+---
+
+## 2026-03-27 - US-003
+- Added `## Security Rules for Agents` section to SKILL.md, placed after `## Installation` and before any command documentation
+- Documents 5 security rules: no logging seeds, prefer keystore over raw seed, no committing seeds, rotate exposed seeds, treat wallet private-key output as secret
+- Files changed: SKILL.md
+- **Learnings for future iterations:**
+  - Security section uses numbered list with bold rule headings for clarity
+  - Section header must be exactly `## Security Rules for Agents` to match acceptance criteria
+---
+
+## 2026-03-27 - US-006
+- Added `## account` section to SKILL.md documenting all 11 subcommands: info, balance, set, delete, set-regular-key, trust-lines, offers, channels, transactions, nfts, mptokens
+- Each subcommand has one-sentence description, markdown flags table, and one example invocation
+- account delete section includes the required warning about permanent account removal
+- Files changed: SKILL.md
+- **Learnings for future iterations:**
+  - Read source files to get exact flags/defaults — e.g., `--drops` on balance, `--destination-account` on channels
+  - account set has many flags; use footnotes (No*) to indicate "exactly one of" key material constraints
+  - account set-regular-key has a mutually exclusive pair: `--key` vs `--remove`
+  - Pagination flags (`--limit`, `--marker`) appear on most query commands
+---
+
+## 2026-03-27 - US-007
+- Added `## payment`, `## trust`, `## offer`, and `## clawback` sections to SKILL.md
+- payment: full flags table including --to, --amount, --memo (repeatable), --send-max, --deliver-min, --paths, --partial, --no-ripple-direct, --limit-quality, --no-wait, --dry-run, --json
+- trust: `### trust set` with all flags (--no-ripple, --clear-no-ripple, --freeze, --unfreeze, --auth, --quality-in/out) + `### trust delete` note (use trust set --limit 0)
+- offer: `### offer create` with all flags (--sell, --passive, --immediate-or-cancel, --fill-or-kill, --expiration, --replace) + `### offer cancel`
+- clawback: flags table documenting IOU vs MPT modes with --holder flag
+- Files changed: SKILL.md
+- **Learnings for future iterations:**
+  - trust command only has `set` subcommand in code; "delete" = `trust set --limit 0`
+  - clawback has two modes: IOU (value/CURRENCY/holder in --amount) vs MPT (needs --holder flag separately)
+  - offer create uses `--no-wait` pattern (Commander's --no-wait → options.wait = false)
+---
+
+## 2026-03-27 - US-008
+- Added `## channel`, `## escrow`, and `## check` sections to SKILL.md
+- channel: 6 subcommands documented — create, fund, sign, verify, claim, list; each with flags table and example
+- escrow: 4 subcommands documented — create, finish, cancel, list; each with flags table and example
+- check: 4 subcommands documented — create, cash, cancel, list; each with flags table and example
+- All subcommands include --json and --dry-run flags where supported
+- Files changed: SKILL.md, scripts/ralph/prd.json
+- **Learnings for future iterations:**
+  - channel has sign/verify subcommands (offline) in addition to the on-chain create/fund/claim
+  - escrow create requires at least one of --finish-after, --cancel-after, or --condition
+  - escrow finish: --condition and --fulfillment must be provided together
+  - check cash: --amount and --deliver-min are mutually exclusive (exactly one required)
+  - channel list and escrow list and check list subcommands exist but acceptance criteria only mentioned create/finish/cancel/cash — documented them anyway for completeness
+---
+
+## 2026-03-27 - US-005
+- Added `## wallet` section to SKILL.md documenting all 14 subcommands: new, new-mnemonic, import, list, address, public-key, private-key, sign, verify, fund, alias (with sub-subcommands set/list/remove), change-password, decrypt-keystore, remove
+- Each subcommand has one-sentence description, markdown flags table (Flag | Type | Required | Default | Description), and one example invocation
+- Files changed: SKILL.md
+- **Learnings for future iterations:**
+  - Read actual command source files to get accurate flags — don't guess from command names
+  - wallet alias is a compound command with 3 sub-subcommands (set, list, remove)
+  - wallet private-key section should include a security reminder referencing the Security Rules section
+---
+
+## 2026-03-27 - US-009
+- Verified and completed `## amm` and `## nft` sections in SKILL.md
+- Added full flags tables for amm withdraw (with deposit modes), amm vote, amm bid, amm delete (with >512 LP holder note)
+- Fixed nft offer subcommand names from `nft offer-create/accept/cancel` to correct `nft offer create/accept/cancel` paths
+- Added flags tables for nft offer create, nft offer accept, nft offer cancel, nft offer list
+- Files changed: SKILL.md, scripts/ralph/prd.json
+- **Learnings for future iterations:**
+  - NFT offer commands are nested as `nft offer <subcommand>` not `nft offer-<subcommand>` flat subcommands
+  - AMM deposit/withdraw use mode inference from flag combinations — document all modes in the flags section
+  - A prior run committed US-002 through US-012 in one batch commit; PRD updates were not applied — check git log before assuming no work was done
+---
+
+## 2026-03-27 - US-010 through US-012
+- Added `## multisig`, `## oracle`, `## ticket`, `## credential` sections (US-010)
+- Added `## mptoken`, `## permissioned-domain`, `## vault`, `## did`, `## deposit-preauth` sections (US-011)
+- Added `## Common Agent Workflows` section with 3 workflows (US-012)
+- Trimmed SKILL.md from ~1770 lines to 1471 lines by:
+  - Adding `## Common Signing Flags` section documenting shared flags globally
+  - Removing --mnemonic, --account, --password, --keystore, --no-wait, --json, --dry-run rows from individual command tables
+  - Removing `---` horizontal rule dividers
+- Fixed Workflow 3 to include `--all` flag for tfWithdrawAll
+- Files changed: SKILL.md, scripts/ralph/prd.json
+- **Learnings for future iterations:**
+  - SKILL.md line count limit (1500) is a real constraint — factor in when writing docs
+  - Best pattern: add a "Common Signing Flags" section once globally, reference from individual commands
+  - The hook auto-evaluates acceptance criteria and marks stories as passing — watch the PRD
+  - deposit-preauth uses `set` subcommand with --authorize/--unauthorize flags, not separate authorize/unauthorize subcommands
 ---

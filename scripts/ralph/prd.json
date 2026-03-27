@@ -1,16 +1,16 @@
 {
   "project": "xrpl-cli",
-  "branchName": "ralph/fix-amm-credential-test-failures",
-  "description": "Fix 22 failing E2E tests across AMM and credential commands — enable DefaultRipple on issuer, increase LastLedgerSequence offset, add friendly error handling, fix WebSocket disconnection",
+  "branchName": "ralph/publish-skill",
+  "description": "Publish SKILL.md \u2014 a machine-readable skill file at the repo root documenting every xrpl-cli command for AI agents, including installation, security rules, flag-by-flag reference, and copy-paste workflows",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Enable DefaultRipple on issuer in AMM test helpers",
-      "description": "As a developer running AMM tests, I need the test helper to set DefaultRipple on the issuer account so that AMM transactions don't fail with terNO_RIPPLE.",
+      "title": "Create SKILL.md skeleton with frontmatter",
+      "description": "As a maintainer, I want a canonical SKILL.md at the repo root so agents automatically receive it in their context.",
       "acceptanceCriteria": [
-        "Each AMM test file's setupPool() function calls AccountSet with SetFlag: 8 (asfDefaultRipple) on the issuer account BEFORE creating the trust line",
-        "The AccountSet transaction is submitted via client.submitAndWait() and the result asserts tesSUCCESS",
-        "Files to modify: tests/e2e/amm/amm.create-info.test.ts, tests/e2e/amm/amm.bid-vote.test.ts, tests/e2e/amm/amm.delete.test.ts, tests/e2e/amm/amm.deposit-withdraw.test.ts",
+        "File exists at SKILL.md (repo root, same level as README.md)",
+        "File starts with YAML frontmatter block containing: name: xrpl-cli, description: one-line summary, version matching package.json version field",
+        "File is not listed in .gitignore",
         "Typecheck passes"
       ],
       "priority": 1,
@@ -19,12 +19,14 @@
     },
     {
       "id": "US-002",
-      "title": "Increase LastLedgerSequence offset in AMM test setup",
-      "description": "As a developer, I need the setupPool() helper's client.autofill() calls to use a larger LastLedgerSequence offset so the TrustSet and Payment transactions in test setup don't expire under concurrent load.",
+      "title": "Add Installation section to SKILL.md",
+      "description": "As an agent or developer, I want clear installation instructions so I can get xrpl-cli running before invoking any commands.",
       "acceptanceCriteria": [
-        "In each AMM test file's setupPool(), after client.autofill(), override LastLedgerSequence on the filled tx object by adding 80 to the autofilled value (e.g. filled.LastLedgerSequence = (filled.LastLedgerSequence ?? 0) + 80)",
-        "Apply the override to both the TrustSet autofill and the Payment autofill inside setupPool()",
-        "Files to modify: tests/e2e/amm/amm.create-info.test.ts, tests/e2e/amm/amm.bid-vote.test.ts, tests/e2e/amm/amm.delete.test.ts, tests/e2e/amm/amm.deposit-withdraw.test.ts",
+        "SKILL.md contains an '## Installation' section as the first section after frontmatter",
+        "Documents global install: npm install -g xrpl-cli-ng",
+        "Documents zero-install alternative: npx xrpl-cli-ng <command>",
+        "Documents Node.js 22+ requirement",
+        "Includes smoke-test: xrpl --version",
         "Typecheck passes"
       ],
       "priority": 2,
@@ -33,12 +35,15 @@
     },
     {
       "id": "US-003",
-      "title": "Increase LastLedgerSequence offset in AMM CLI command",
-      "description": "As a CLI user submitting AMM transactions, I need a larger LastLedgerSequence offset so transactions don't expire on slow networks.",
+      "title": "Add Security Rules section to SKILL.md",
+      "description": "As an agent, I want explicit security constraints so I never accidentally expose seed phrases or private keys.",
       "acceptanceCriteria": [
-        "In src/commands/amm.ts, after each client.autofill(baseTx) call, add: filled.LastLedgerSequence = (filled.LastLedgerSequence ?? 0) + 80",
-        "Apply this to ALL AMM transaction types: AMMCreate, AMMDeposit, AMMWithdraw, AMMBid, AMMVote, AMMDelete, AMMClawback",
-        "The offset increase applies to both submitAndWait and submit (no-wait) code paths",
+        "SKILL.md contains a '## Security Rules for Agents' section placed before any command documentation",
+        "Rule documented: Never log, echo, or store --seed / --private-key values",
+        "Rule documented: Prefer --keystore <path> --password <pass> over raw --seed in automated pipelines",
+        "Rule documented: Never commit seed values to version control",
+        "Rule documented: Rotate any seed that appears in shell history or logs",
+        "Note documented: wallet private-key output must be treated as a secret and not forwarded to downstream tools",
         "Typecheck passes"
       ],
       "priority": 3,
@@ -47,14 +52,13 @@
     },
     {
       "id": "US-004",
-      "title": "Add friendly error handling for LastLedgerSequence expiry in AMM command",
-      "description": "As a CLI user, when my AMM transaction expires, I want a clear error message instead of a raw stack trace.",
+      "title": "Document global flags and root options",
+      "description": "As an agent, I want to know which global flags apply to every command so I can set --node and other options correctly.",
       "acceptanceCriteria": [
-        "In src/commands/amm.ts, wrap each client.submitAndWait() call in a try/catch block",
-        "The catch block detects errors where err.constructor.name === 'TimeoutError' OR err.message includes 'LastLedgerSequence'",
-        "On match, write 'Error: transaction expired (LastLedgerSequence exceeded)\\n' to stderr and call process.exit(1)",
-        "Pattern must match the existing implementation in src/commands/credential.ts lines 236-245",
-        "Apply to all 7 AMM subcommand handlers: create, deposit, withdraw, bid, vote, delete, clawback",
+        "SKILL.md contains a '## Global Options' section",
+        "Documents --node <url|mainnet|testnet|devnet> with default value testnet",
+        "Documents --version and --help",
+        "Includes one example showing --node combined with a subcommand (e.g. xrpl --node testnet account balance <address>)",
         "Typecheck passes"
       ],
       "priority": 4,
@@ -63,12 +67,12 @@
     },
     {
       "id": "US-005",
-      "title": "Fix WebSocket DisconnectedError in credential tests",
-      "description": "As a developer running credential tests, I need the 3 failing credential delete tests to not fail with DisconnectedError: WebSocket is not open.",
+      "title": "Document wallet subcommands",
+      "description": "As an agent, I want to create, import, and sign with wallets so I can fund test accounts and authorize transactions.",
       "acceptanceCriteria": [
-        "In tests/e2e/credential/credential.network.test.ts, add a reconnection guard: before operations that use the shared client, check if client.isConnected() is false and reconnect if needed",
-        "Alternatively, wrap credential delete test setup operations with resilientSubmitAndWait from tests/e2e/helpers/fund.ts",
-        "The 3 credential delete tests (--dry-run, --credential-type-hex, --no-wait) that failed with DisconnectedError now pass",
+        "SKILL.md contains a '## wallet' section documenting all subcommands: new, new-mnemonic, import, list, address, public-key, private-key, sign, verify, fund, alias, change-password, decrypt-keystore, remove",
+        "Each subcommand entry has: one-sentence description, markdown flags table (columns: Flag | Type | Required | Default | Description), and one example invocation",
+        "Flags table uses markdown table syntax (| col | col |)",
         "Typecheck passes"
       ],
       "priority": 5,
@@ -77,16 +81,112 @@
     },
     {
       "id": "US-006",
-      "title": "Verify all 22 previously-failing tests pass",
-      "description": "As a developer, I need to confirm the fixes resolve all failures with no regressions.",
+      "title": "Document account subcommands",
+      "description": "As an agent, I want to query and configure XRPL accounts so I can check balances, trust lines, and account settings.",
       "acceptanceCriteria": [
-        "Run: npx vitest run tests/e2e/amm/ tests/e2e/credential/credential.network.test.ts",
-        "All 22 previously-failing tests pass",
-        "No regressions in other test files",
+        "SKILL.md contains an '## account' section documenting all subcommands: info, balance, set, delete, set-regular-key, trust-lines, offers, channels, transactions, nfts, mptokens",
+        "Each subcommand entry has: one-sentence description, flags table, and one example invocation",
+        "account delete entry includes warning: 'Permanently removes the account from the ledger; requires destination and fee reserve'",
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Document payment, trust, offer, and clawback commands",
+      "description": "As an agent, I want to send payments and manage trust lines and DEX offers so I can automate common XRPL value-transfer workflows.",
+      "acceptanceCriteria": [
+        "SKILL.md contains '## payment' section (alias: send) documenting flags: --amount, --destination, --seed/--keystore/--mnemonic, --memo, --destination-tag, --no-wait, --dry-run, --json; includes one example",
+        "SKILL.md contains '## trust' section documenting subcommands set and delete with flags --limit, --currency, --issuer; one example per subcommand",
+        "SKILL.md contains '## offer' section documenting subcommands create and cancel with flags --taker-pays, --taker-gets, --sequence; one example per subcommand",
+        "SKILL.md contains '## clawback' section documenting flags --amount, --holder; includes one example",
+        "Each section includes --json and --dry-run flags where supported",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Document channel, escrow, and check commands",
+      "description": "As an agent, I want to manage payment channels, escrows, and checks so I can automate conditional and streamed payments.",
+      "acceptanceCriteria": [
+        "SKILL.md contains '## channel' section documenting subcommands: create, fund, claim, close; each with flags table and one example",
+        "SKILL.md contains '## escrow' section documenting subcommands: create, finish, cancel; each with flags table and one example",
+        "SKILL.md contains '## check' section documenting subcommands: create, cash, cancel; each with flags table and one example",
+        "Each section includes --json and --dry-run flags where supported",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Document AMM and NFT commands",
+      "description": "As an agent, I want to interact with AMM pools and NFTs so I can automate DeFi and digital asset workflows.",
+      "acceptanceCriteria": [
+        "SKILL.md contains '## amm' section documenting subcommands: create, deposit, withdraw, vote, bid, delete, info; each with flags table and one example",
+        "amm delete entry includes note: 'Only succeeds when the AMM pool has >512 LP token holders and tfWithdrawAll returned tecINCOMPLETE; with few holders, AMMWithdraw(tfWithdrawAll) auto-deletes the pool'",
+        "SKILL.md contains '## nft' section documenting subcommands: mint, burn, offer-create, offer-accept, offer-cancel, list; each with flags table and one example",
+        "Each section includes --json and --dry-run flags where supported",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Document multisig, oracle, ticket, and credential commands",
+      "description": "As an agent, I want to use multi-signature, oracle, ticket, and credential features so I can handle governance and identity workflows.",
+      "acceptanceCriteria": [
+        "SKILL.md contains '## multisig' section documenting subcommands: set, sign, submit; each with flags table and one example",
+        "SKILL.md contains '## oracle' section documenting subcommands: set, delete; each with flags table and one example",
+        "SKILL.md contains '## ticket' section documenting subcommand: create; with flags table and one example",
+        "SKILL.md contains '## credential' section documenting subcommands: create, accept, delete; each with flags table and one example",
+        "Each section includes --json and --dry-run flags where supported",
+        "Typecheck passes"
+      ],
+      "priority": 10,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Document MPToken, permissioned-domain, vault, DID, and deposit-preauth commands",
+      "description": "As an agent, I want to use MPT, vaults, DIDs, permissioned domains, and deposit preauth so I can work with all amendment-gated XRPL features.",
+      "acceptanceCriteria": [
+        "SKILL.md contains '## mptoken' section documenting subcommands: create-issuance, destroy-issuance, authorize, unauthorize, mint, burn; each with flags table and one example",
+        "SKILL.md contains '## permissioned-domain' section documenting subcommands: create, update, delete; each with flags table and one example",
+        "SKILL.md contains '## vault' section documenting subcommands: create, deposit, withdraw, delete, clawback; each with flags table and one example",
+        "SKILL.md contains '## did' section documenting subcommands: set, delete; each with flags table and one example",
+        "SKILL.md contains '## deposit-preauth' section documenting subcommands: authorize, unauthorize; each with flags table and one example",
+        "Each section includes --json and --dry-run flags where supported",
+        "Total SKILL.md line count does not exceed 1500 lines",
+        "Typecheck passes"
+      ],
+      "priority": 11,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Add Common Agent Workflows section",
+      "description": "As an agent, I want copy-paste workflow examples so I can quickly compose multi-step operations correctly.",
+      "acceptanceCriteria": [
+        "SKILL.md contains a '## Common Agent Workflows' section after all command documentation",
+        "Workflow 1 'Fund a new wallet and send XRP': shows full CLI sequence \u2014 wallet new, wallet fund, payment send \u2014 with placeholder values and --node testnet",
+        "Workflow 2 'Create an IOU trust line and receive tokens': shows trust set then payment send with placeholder values",
+        "Workflow 3 'Create and drain an AMM pool': shows amm create then amm withdraw with tfWithdrawAll flag",
+        "Each workflow uses realistic placeholder values (e.g. rXXX... for addresses)",
+        "Typecheck passes"
+      ],
+      "priority": 12,
+      "passes": true,
       "notes": ""
     }
   ]
