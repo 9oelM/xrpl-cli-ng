@@ -5,16 +5,11 @@ import { fundMaster, initTicketPool, createFunded, resilientSubmitAndWait, XRPL_
 
 // Budget: 10 tickets × 0.2 + 8 wallets × 5 XRP = 2 + 40 = 42 XRP ≤ 99 ✓
 // 4 tests × 2 wallets (issuer + lp) = 8 wallets total
+// Tests run sequentially (plain `it`) because runCLI uses spawnSync which blocks
+// the Node.js event loop, making concurrent WebSocket operations hang.
 
 let client: Client;
 let master: Wallet;
-
-async function ensureConnected(): Promise<void> {
-  if (!client.isConnected()) {
-    await client.disconnect().catch(() => {});
-    await client.connect();
-  }
-}
 
 beforeAll(async () => {
   client = new Client(XRPL_WS);
@@ -36,7 +31,6 @@ async function setupPool(
   lp: Wallet,
   currency = "USD"
 ): Promise<string> {
-  await ensureConnected();
   // Enable DefaultRipple on issuer so AMM transactions don't fail with terNO_RIPPLE
   const acctSetFilled = await client.autofill({
     TransactionType: "AccountSet",
@@ -44,9 +38,7 @@ async function setupPool(
     SetFlag: 8, // asfDefaultRipple
   });
   acctSetFilled.LastLedgerSequence = (acctSetFilled.LastLedgerSequence ?? 0) + 200;
-  const acctSetResult = await resilientSubmitAndWait(
-    client, issuer.sign(acctSetFilled).tx_blob
-  );
+  const acctSetResult = await resilientSubmitAndWait(client, issuer.sign(acctSetFilled).tx_blob);
   expect((acctSetResult.result.meta as { TransactionResult: string }).TransactionResult).toBe("tesSUCCESS");
 
   const trustSetFilled = await client.autofill({
@@ -70,15 +62,9 @@ async function setupPool(
 
 /**
  * Create an AMM pool via xrpl.js directly (bypassing the CLI).
- * This avoids the long spawnSync timeout when the CLI's submitAndWait hangs
- * under concurrent load. Delete tests test the delete command, not create.
+ * Delete tests test the delete command, not create.
  */
-async function createPoolViaXrpl(
-  lp: Wallet,
-  issuer: Wallet,
-  currency = "USD"
-): Promise<void> {
-  await ensureConnected();
+async function createPoolViaXrpl(lp: Wallet, issuer: Wallet, currency = "USD"): Promise<void> {
   const createFilled = await client.autofill({
     TransactionType: "AMMCreate",
     Account: lp.address,
@@ -92,14 +78,9 @@ async function createPoolViaXrpl(
 }
 
 /**
- * Withdraw all LP tokens from the pool via xrpl.js.
+ * Withdraw all LP tokens from the pool via xrpl.js (tfWithdrawAll).
  */
-async function withdrawAllViaXrpl(
-  lp: Wallet,
-  issuer: Wallet,
-  currency = "USD"
-): Promise<void> {
-  await ensureConnected();
+async function withdrawAllViaXrpl(lp: Wallet, issuer: Wallet, currency = "USD"): Promise<void> {
   const withdrawFilled = await client.autofill({
     TransactionType: "AMMWithdraw",
     Account: lp.address,
@@ -108,45 +89,38 @@ async function withdrawAllViaXrpl(
     Flags: 0x00020000, // tfWithdrawAll
   });
   withdrawFilled.LastLedgerSequence = (withdrawFilled.LastLedgerSequence ?? 0) + 200;
-  await resilientSubmitAndWait(client, lp.sign(withdrawFilled).tx_blob);
+  const result = await resilientSubmitAndWait(client, lp.sign(withdrawFilled).tx_blob);
+  expect((result.result.meta as { TransactionResult: string }).TransactionResult).toBe("tesSUCCESS");
 }
 
 describe("amm delete", () => {
-  it.concurrent(
+  it(
     "delete pool after withdrawing all LP tokens: exits 0 with tesSUCCESS",
     async () => {
-      await ensureConnected();
       const [issuer, lp] = await createFunded(client, master, 2, 5);
       const iouSpec = await setupPool(issuer, lp);
-
-      // Create pool via xrpl.js (faster and more reliable than CLI under concurrent load)
       await createPoolViaXrpl(lp, issuer);
-
-      // Withdraw all LP tokens to empty the pool
       await withdrawAllViaXrpl(lp, issuer);
 
-      // Delete the now-empty pool via CLI
       const result = runCLI([
         "--node", "testnet",
         "amm", "delete",
         "--asset", "XRP",
         "--asset2", iouSpec,
         "--seed", lp.seed!,
-      ], {}, 300_000);
+      ]);
 
       expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0);
       expect(result.stdout).toContain("tesSUCCESS");
     },
-    480_000
+    300_000
   );
 
-  it.concurrent(
+  it(
     "--json output includes hash and result",
     async () => {
-      await ensureConnected();
       const [issuer, lp] = await createFunded(client, master, 2, 5);
       const iouSpec = await setupPool(issuer, lp);
-
       await createPoolViaXrpl(lp, issuer);
       await withdrawAllViaXrpl(lp, issuer);
 
@@ -157,23 +131,21 @@ describe("amm delete", () => {
         "--asset2", iouSpec,
         "--json",
         "--seed", lp.seed!,
-      ], {}, 300_000);
+      ]);
 
       expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0);
       const out = JSON.parse(result.stdout) as { hash: string; result: string };
       expect(out.hash).toMatch(/^[0-9A-Fa-f]{64}$/);
       expect(out.result).toBe("tesSUCCESS");
     },
-    480_000
+    300_000
   );
 
-  it.concurrent(
+  it(
     "--dry-run: prints AMMDelete tx JSON without submitting",
     async () => {
-      await ensureConnected();
       const [issuer, lp] = await createFunded(client, master, 2, 5);
       const iouSpec = await setupPool(issuer, lp);
-
       await createPoolViaXrpl(lp, issuer);
 
       // dry-run doesn't require pool to be empty
@@ -184,7 +156,7 @@ describe("amm delete", () => {
         "--asset2", iouSpec,
         "--dry-run",
         "--seed", lp.seed!,
-      ], {}, 300_000);
+      ]);
 
       expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0);
       const out = JSON.parse(result.stdout) as {
@@ -194,16 +166,14 @@ describe("amm delete", () => {
       expect(out.tx.TransactionType).toBe("AMMDelete");
       expect(typeof out.tx_blob).toBe("string");
     },
-    480_000
+    300_000
   );
 
-  it.concurrent(
+  it(
     "--no-wait: exits 0 and output is a 64-char hex hash",
     async () => {
-      await ensureConnected();
       const [issuer, lp] = await createFunded(client, master, 2, 5);
       const iouSpec = await setupPool(issuer, lp);
-
       await createPoolViaXrpl(lp, issuer);
       await withdrawAllViaXrpl(lp, issuer);
 
@@ -214,11 +184,11 @@ describe("amm delete", () => {
         "--asset2", iouSpec,
         "--no-wait",
         "--seed", lp.seed!,
-      ], {}, 300_000);
+      ]);
 
       expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0);
       expect(result.stdout.trim()).toMatch(/^[0-9A-Fa-f]{64}$/);
     },
-    480_000
+    300_000
   );
 });
