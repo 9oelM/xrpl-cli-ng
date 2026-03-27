@@ -720,3 +720,353 @@ xrpl clawback --amount 50/USD/rHolder... --seed sEd...
 # MPT clawback
 xrpl clawback --amount 100/0000000000000000000000000000000000000001 --holder rHolder... --seed sEd...
 ```
+
+---
+
+## channel
+
+Manage XRPL payment channels: open, fund, sign off-chain claims, verify claims, redeem claims, and list channels.
+
+---
+
+### channel create
+
+Open a new payment channel (PaymentChannelCreate transaction).
+
+| Flag | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `--to <address-or-alias>` | string | Yes | — | Destination address or alias |
+| `--amount <xrp>` | string | Yes | — | XRP to lock in the channel (decimal, e.g. `10`) |
+| `--settle-delay <seconds>` | string | Yes | — | Seconds the source must wait before closing with unclaimed funds |
+| `--public-key <hex>` | string | No | derived | 33-byte public key hex (derived from key material if omitted) |
+| `--cancel-after <iso8601>` | string | No | — | Hard expiry in ISO 8601 format |
+| `--destination-tag <n>` | string | No | — | Destination tag (unsigned 32-bit integer) |
+| `--seed <seed>` | string | No* | — | Family seed for signing |
+| `--mnemonic <phrase>` | string | No* | — | BIP39 mnemonic for signing |
+| `--account <address-or-alias>` | string | No* | — | Account address or alias to load from keystore |
+| `--password <password>` | string | No | — | Keystore decryption password (insecure; prefer interactive prompt) |
+| `--keystore <dir>` | string | No | `~/.xrpl/keystore/` | Keystore directory (env: `XRPL_KEYSTORE`) |
+| `--no-wait` | boolean | No | false | Submit without waiting for validation |
+| `--json` | boolean | No | false | Output as JSON (includes `channelId`) |
+| `--dry-run` | boolean | No | false | Print signed tx JSON without submitting |
+
+\* Exactly one of `--seed`, `--mnemonic`, or `--account` is required.
+
+```bash
+xrpl channel create --to rDestination... --amount 10 --settle-delay 86400 --seed sEd...
+```
+
+---
+
+### channel fund
+
+Add XRP to an existing payment channel (PaymentChannelFund transaction).
+
+| Flag | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `--channel <hex>` | string | Yes | — | 64-character payment channel ID |
+| `--amount <xrp>` | string | Yes | — | XRP to add (decimal, e.g. `5`) |
+| `--expiration <iso8601>` | string | No | — | New soft expiry in ISO 8601 format |
+| `--seed <seed>` | string | No* | — | Family seed for signing |
+| `--mnemonic <phrase>` | string | No* | — | BIP39 mnemonic for signing |
+| `--account <address-or-alias>` | string | No* | — | Account address or alias to load from keystore |
+| `--password <password>` | string | No | — | Keystore decryption password (insecure; prefer interactive prompt) |
+| `--keystore <dir>` | string | No | `~/.xrpl/keystore/` | Keystore directory (env: `XRPL_KEYSTORE`) |
+| `--no-wait` | boolean | No | false | Submit without waiting for validation |
+| `--json` | boolean | No | false | Output as JSON |
+| `--dry-run` | boolean | No | false | Print signed tx JSON without submitting |
+
+\* Exactly one of `--seed`, `--mnemonic`, or `--account` is required.
+
+```bash
+xrpl channel fund --channel <64-hex-id> --amount 5 --seed sEd...
+```
+
+---
+
+### channel sign
+
+Sign an off-chain payment channel claim (offline — no network call).
+
+| Flag | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `--channel <hex>` | string | Yes | — | 64-character payment channel ID |
+| `--amount <xrp>` | string | Yes | — | XRP amount to authorize (decimal, e.g. `5`) |
+| `--seed <seed>` | string | No* | — | Family seed for signing |
+| `--mnemonic <phrase>` | string | No* | — | BIP39 mnemonic for signing |
+| `--account <address-or-alias>` | string | No* | — | Account address or alias to load from keystore |
+| `--password <password>` | string | No | — | Keystore decryption password (insecure; prefer interactive prompt) |
+| `--keystore <dir>` | string | No | `~/.xrpl/keystore/` | Keystore directory (env: `XRPL_KEYSTORE`) |
+| `--json` | boolean | No | false | Output as JSON `{signature}` |
+
+\* Exactly one of `--seed`, `--mnemonic`, or `--account` is required.
+
+```bash
+xrpl channel sign --channel <64-hex-id> --amount 5 --seed sEd...
+```
+
+---
+
+### channel verify
+
+Verify an off-chain payment channel claim signature (offline — no network call).
+
+| Flag | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `--channel <hex>` | string | Yes | — | 64-character payment channel ID |
+| `--amount <xrp>` | string | Yes | — | Amount in the claim (decimal) |
+| `--signature <hex>` | string | Yes | — | Hex-encoded claim signature |
+| `--public-key <hex>` | string | Yes | — | Hex-encoded public key of the signer |
+| `--json` | boolean | No | false | Output as JSON `{valid: boolean}` |
+
+```bash
+xrpl channel verify --channel <64-hex-id> --amount 5 --signature <hex> --public-key <hex>
+```
+
+---
+
+### channel claim
+
+Redeem a signed payment channel claim or request channel closure (PaymentChannelClaim transaction).
+
+| Flag | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `--channel <hex>` | string | Yes | — | 64-character payment channel ID |
+| `--amount <xrp>` | string | No | — | XRP amount authorized by the signature |
+| `--balance <xrp>` | string | No | — | Total XRP delivered by this claim |
+| `--signature <hex>` | string | No | — | Hex-encoded claim signature (requires `--amount`, `--balance`, `--public-key`) |
+| `--public-key <hex>` | string | No | — | Hex-encoded public key of the channel source |
+| `--close` | boolean | No | false | Request channel closure (`tfClose` flag) |
+| `--renew` | boolean | No | false | Clear channel expiration (`tfRenew` flag, source account only) |
+| `--seed <seed>` | string | No* | — | Family seed for signing |
+| `--mnemonic <phrase>` | string | No* | — | BIP39 mnemonic for signing |
+| `--account <address-or-alias>` | string | No* | — | Account address or alias to load from keystore |
+| `--password <password>` | string | No | — | Keystore decryption password (insecure; prefer interactive prompt) |
+| `--keystore <dir>` | string | No | `~/.xrpl/keystore/` | Keystore directory (env: `XRPL_KEYSTORE`) |
+| `--no-wait` | boolean | No | false | Submit without waiting for validation |
+| `--json` | boolean | No | false | Output as JSON |
+| `--dry-run` | boolean | No | false | Print signed tx JSON without submitting |
+
+\* Exactly one of `--seed`, `--mnemonic`, or `--account` is required.
+
+```bash
+xrpl channel claim --channel <64-hex-id> --amount 5 --balance 5 --signature <hex> --public-key <hex> --seed sEd...
+```
+
+---
+
+### channel list
+
+List open payment channels for an account (read-only, no key material needed).
+
+| Flag | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `--destination <address>` | string | No | — | Filter channels by destination account |
+| `--json` | boolean | No | false | Output as JSON array |
+
+```bash
+xrpl channel list rSource...
+```
+
+---
+
+## escrow
+
+Manage XRPL escrows: create time-locked or crypto-condition escrows, release funds, cancel expired escrows, and list pending escrows.
+
+---
+
+### escrow create
+
+Create an escrow on the XRP Ledger (EscrowCreate transaction). At least one of `--finish-after`, `--cancel-after`, or `--condition` is required.
+
+| Flag | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `--to <address>` | string | Yes | — | Destination address for escrowed funds |
+| `--amount <xrp>` | string | Yes | — | Amount to escrow in XRP (decimal, e.g. `10`) |
+| `--finish-after <iso>` | string | No† | — | Time after which funds can be released (ISO 8601) |
+| `--cancel-after <iso>` | string | No† | — | Expiration; escrow can be cancelled after this (ISO 8601) |
+| `--condition <hex>` | string | No† | — | PREIMAGE-SHA-256 crypto-condition hex blob |
+| `--destination-tag <n>` | string | No | — | Destination tag (unsigned 32-bit integer) |
+| `--source-tag <n>` | string | No | — | Source tag (unsigned 32-bit integer) |
+| `--seed <seed>` | string | No* | — | Family seed for signing |
+| `--mnemonic <phrase>` | string | No* | — | BIP39 mnemonic for signing |
+| `--account <address-or-alias>` | string | No* | — | Account address or alias to load from keystore |
+| `--password <password>` | string | No | — | Keystore decryption password (insecure; prefer interactive prompt) |
+| `--keystore <dir>` | string | No | `~/.xrpl/keystore/` | Keystore directory (env: `XRPL_KEYSTORE`) |
+| `--no-wait` | boolean | No | false | Submit without waiting for validation |
+| `--json` | boolean | No | false | Output as JSON (includes `sequence` of the EscrowCreate) |
+| `--dry-run` | boolean | No | false | Print signed tx JSON without submitting |
+
+\* Exactly one of `--seed`, `--mnemonic`, or `--account` is required.
+† At least one of `--finish-after`, `--cancel-after`, or `--condition` must be provided.
+
+```bash
+xrpl escrow create --to rDestination... --amount 10 --finish-after 2030-01-01T00:00:00Z --seed sEd...
+```
+
+---
+
+### escrow finish
+
+Release funds from an escrow (EscrowFinish transaction).
+
+| Flag | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `--owner <address>` | string | Yes | — | Address of the account that created the escrow |
+| `--sequence <n>` | string | Yes | — | Sequence number of the EscrowCreate transaction |
+| `--condition <hex>` | string | No‡ | — | PREIMAGE-SHA-256 condition hex blob |
+| `--fulfillment <hex>` | string | No‡ | — | Matching crypto-condition fulfillment hex blob |
+| `--seed <seed>` | string | No* | — | Family seed for signing |
+| `--mnemonic <phrase>` | string | No* | — | BIP39 mnemonic for signing |
+| `--account <address-or-alias>` | string | No* | — | Account address or alias to load from keystore |
+| `--password <password>` | string | No | — | Keystore decryption password (insecure; prefer interactive prompt) |
+| `--keystore <dir>` | string | No | `~/.xrpl/keystore/` | Keystore directory (env: `XRPL_KEYSTORE`) |
+| `--no-wait` | boolean | No | false | Submit without waiting for validation |
+| `--json` | boolean | No | false | Output as JSON |
+| `--dry-run` | boolean | No | false | Print signed tx JSON without submitting |
+
+\* Exactly one of `--seed`, `--mnemonic`, or `--account` is required.
+‡ `--condition` and `--fulfillment` must be provided together (or both omitted).
+
+```bash
+xrpl escrow finish --owner rCreator... --sequence 12 --seed sEd...
+```
+
+---
+
+### escrow cancel
+
+Cancel an expired escrow and return funds to the owner (EscrowCancel transaction).
+
+| Flag | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `--owner <address>` | string | Yes | — | Address of the account that created the escrow |
+| `--sequence <n>` | string | Yes | — | Sequence number of the EscrowCreate transaction |
+| `--seed <seed>` | string | No* | — | Family seed for signing |
+| `--mnemonic <phrase>` | string | No* | — | BIP39 mnemonic for signing |
+| `--account <address-or-alias>` | string | No* | — | Account address or alias to load from keystore |
+| `--password <password>` | string | No | — | Keystore decryption password (insecure; prefer interactive prompt) |
+| `--keystore <dir>` | string | No | `~/.xrpl/keystore/` | Keystore directory (env: `XRPL_KEYSTORE`) |
+| `--no-wait` | boolean | No | false | Submit without waiting for validation |
+| `--json` | boolean | No | false | Output as JSON |
+| `--dry-run` | boolean | No | false | Print signed tx JSON without submitting |
+
+\* Exactly one of `--seed`, `--mnemonic`, or `--account` is required.
+
+```bash
+xrpl escrow cancel --owner rCreator... --sequence 12 --seed sEd...
+```
+
+---
+
+### escrow list
+
+List pending escrows for an account (read-only, no key material needed).
+
+| Flag | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `--json` | boolean | No | false | Output as JSON array |
+
+```bash
+xrpl escrow list rAccount...
+```
+
+---
+
+## check
+
+Manage XRPL Checks: create deferred payment authorizations, cash them, cancel them, and list pending checks.
+
+---
+
+### check create
+
+Create a Check on the XRP Ledger (CheckCreate transaction).
+
+| Flag | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `--to <address>` | string | Yes | — | Destination address that can cash the Check |
+| `--send-max <amount>` | string | Yes | — | Maximum amount the Check can debit (XRP decimal or `value/CURRENCY/issuer`) |
+| `--expiration <iso>` | string | No | — | Check expiration time (ISO 8601) |
+| `--destination-tag <n>` | string | No | — | Destination tag (unsigned 32-bit integer) |
+| `--invoice-id <string>` | string | No | — | Invoice identifier (≤32 bytes UTF-8, auto hex-encoded to UInt256) |
+| `--seed <seed>` | string | No* | — | Family seed for signing |
+| `--mnemonic <phrase>` | string | No* | — | BIP39 mnemonic for signing |
+| `--account <address-or-alias>` | string | No* | — | Account address or alias to load from keystore |
+| `--password <password>` | string | No | — | Keystore decryption password (insecure; prefer interactive prompt) |
+| `--keystore <dir>` | string | No | `~/.xrpl/keystore/` | Keystore directory (env: `XRPL_KEYSTORE`) |
+| `--no-wait` | boolean | No | false | Submit without waiting for validation |
+| `--json` | boolean | No | false | Output as JSON (includes `checkId`) |
+| `--dry-run` | boolean | No | false | Print signed tx JSON without submitting |
+
+\* Exactly one of `--seed`, `--mnemonic`, or `--account` is required.
+
+```bash
+xrpl check create --to rReceiver... --send-max 10 --seed sEd...
+```
+
+---
+
+### check cash
+
+Cash a Check on the XRP Ledger (CheckCash transaction). Exactly one of `--amount` or `--deliver-min` is required.
+
+| Flag | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `--check <id>` | string | Yes | — | 64-character Check ID (hex) |
+| `--amount <amount>` | string | No† | — | Exact amount to cash (XRP decimal or `value/CURRENCY/issuer`) |
+| `--deliver-min <amount>` | string | No† | — | Minimum amount to receive (flexible cash; sets partial delivery) |
+| `--seed <seed>` | string | No* | — | Family seed for signing |
+| `--mnemonic <phrase>` | string | No* | — | BIP39 mnemonic for signing |
+| `--account <address-or-alias>` | string | No* | — | Account address or alias to load from keystore |
+| `--password <password>` | string | No | — | Keystore decryption password (insecure; prefer interactive prompt) |
+| `--keystore <dir>` | string | No | `~/.xrpl/keystore/` | Keystore directory (env: `XRPL_KEYSTORE`) |
+| `--no-wait` | boolean | No | false | Submit without waiting for validation |
+| `--json` | boolean | No | false | Output as JSON |
+| `--dry-run` | boolean | No | false | Print signed tx JSON without submitting |
+
+\* Exactly one of `--seed`, `--mnemonic`, or `--account` is required.
+† Exactly one of `--amount` or `--deliver-min` is required; they are mutually exclusive.
+
+```bash
+xrpl check cash --check <64-hex-id> --amount 10 --seed sEd...
+```
+
+---
+
+### check cancel
+
+Cancel a Check on the XRP Ledger (CheckCancel transaction).
+
+| Flag | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `--check <id>` | string | Yes | — | 64-character Check ID (hex) |
+| `--seed <seed>` | string | No* | — | Family seed for signing |
+| `--mnemonic <phrase>` | string | No* | — | BIP39 mnemonic for signing |
+| `--account <address-or-alias>` | string | No* | — | Account address or alias to load from keystore |
+| `--password <password>` | string | No | — | Keystore decryption password (insecure; prefer interactive prompt) |
+| `--keystore <dir>` | string | No | `~/.xrpl/keystore/` | Keystore directory (env: `XRPL_KEYSTORE`) |
+| `--no-wait` | boolean | No | false | Submit without waiting for validation |
+| `--json` | boolean | No | false | Output as JSON |
+| `--dry-run` | boolean | No | false | Print signed tx JSON without submitting |
+
+\* Exactly one of `--seed`, `--mnemonic`, or `--account` is required.
+
+```bash
+xrpl check cancel --check <64-hex-id> --seed sEd...
+```
+
+---
+
+### check list
+
+List pending checks for an account (read-only, no key material needed).
+
+| Flag | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `--json` | boolean | No | false | Output as JSON array |
+
+```bash
+xrpl check list rAccount...
+```

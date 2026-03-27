@@ -11,6 +11,16 @@ Started: Fri Mar 27 07:42:26 AM UTC 2026
   - All SKILL.md sections are pure markdown additions — no code changes needed
 ---
 
+## 2026-03-27 - US-004
+- Added `## Global Options` section to SKILL.md documenting --node, --version, --help
+- Documents named network shorthands (mainnet/testnet/devnet) with URLs and default value
+- Includes one example: `xrpl --node testnet account balance <address>`
+- Files changed: SKILL.md
+- **Learnings for future iterations:**
+  - Global Options section placed after Security Rules for Agents and before command docs
+  - Named network shorthands should list the actual WSS URLs for completeness
+---
+
 ## 2026-03-27 - US-003
 - Added `## Security Rules for Agents` section to SKILL.md, placed after `## Installation` and before any command documentation
 - Documents 5 security rules: no logging seeds, prefer keystore over raw seed, no committing seeds, rotate exposed seeds, treat wallet private-key output as secret
@@ -18,4 +28,54 @@ Started: Fri Mar 27 07:42:26 AM UTC 2026
 - **Learnings for future iterations:**
   - Security section uses numbered list with bold rule headings for clarity
   - Section header must be exactly `## Security Rules for Agents` to match acceptance criteria
+---
+
+## 2026-03-27 - US-006
+- Added `## account` section to SKILL.md documenting all 11 subcommands: info, balance, set, delete, set-regular-key, trust-lines, offers, channels, transactions, nfts, mptokens
+- Each subcommand has one-sentence description, markdown flags table, and one example invocation
+- account delete section includes the required warning about permanent account removal
+- Files changed: SKILL.md
+- **Learnings for future iterations:**
+  - Read source files to get exact flags/defaults — e.g., `--drops` on balance, `--destination-account` on channels
+  - account set has many flags; use footnotes (No*) to indicate "exactly one of" key material constraints
+  - account set-regular-key has a mutually exclusive pair: `--key` vs `--remove`
+  - Pagination flags (`--limit`, `--marker`) appear on most query commands
+---
+
+## 2026-03-27 - US-007
+- Added `## payment`, `## trust`, `## offer`, and `## clawback` sections to SKILL.md
+- payment: full flags table including --to, --amount, --memo (repeatable), --send-max, --deliver-min, --paths, --partial, --no-ripple-direct, --limit-quality, --no-wait, --dry-run, --json
+- trust: `### trust set` with all flags (--no-ripple, --clear-no-ripple, --freeze, --unfreeze, --auth, --quality-in/out) + `### trust delete` note (use trust set --limit 0)
+- offer: `### offer create` with all flags (--sell, --passive, --immediate-or-cancel, --fill-or-kill, --expiration, --replace) + `### offer cancel`
+- clawback: flags table documenting IOU vs MPT modes with --holder flag
+- Files changed: SKILL.md
+- **Learnings for future iterations:**
+  - trust command only has `set` subcommand in code; "delete" = `trust set --limit 0`
+  - clawback has two modes: IOU (value/CURRENCY/holder in --amount) vs MPT (needs --holder flag separately)
+  - offer create uses `--no-wait` pattern (Commander's --no-wait → options.wait = false)
+---
+
+## 2026-03-27 - US-008
+- Added `## channel`, `## escrow`, and `## check` sections to SKILL.md
+- channel: 6 subcommands documented — create, fund, sign, verify, claim, list; each with flags table and example
+- escrow: 4 subcommands documented — create, finish, cancel, list; each with flags table and example
+- check: 4 subcommands documented — create, cash, cancel, list; each with flags table and example
+- All subcommands include --json and --dry-run flags where supported
+- Files changed: SKILL.md, scripts/ralph/prd.json
+- **Learnings for future iterations:**
+  - channel has sign/verify subcommands (offline) in addition to the on-chain create/fund/claim
+  - escrow create requires at least one of --finish-after, --cancel-after, or --condition
+  - escrow finish: --condition and --fulfillment must be provided together
+  - check cash: --amount and --deliver-min are mutually exclusive (exactly one required)
+  - channel list and escrow list and check list subcommands exist but acceptance criteria only mentioned create/finish/cancel/cash — documented them anyway for completeness
+---
+
+## 2026-03-27 - US-005
+- Added `## wallet` section to SKILL.md documenting all 14 subcommands: new, new-mnemonic, import, list, address, public-key, private-key, sign, verify, fund, alias (with sub-subcommands set/list/remove), change-password, decrypt-keystore, remove
+- Each subcommand has one-sentence description, markdown flags table (Flag | Type | Required | Default | Description), and one example invocation
+- Files changed: SKILL.md
+- **Learnings for future iterations:**
+  - Read actual command source files to get accurate flags — don't guess from command names
+  - wallet alias is a compound command with 3 sub-subcommands (set, list, remove)
+  - wallet private-key section should include a security reminder referencing the Security Rules section
 ---
