@@ -10,3 +10,12 @@ Started: Fri Mar 27 07:42:26 AM UTC 2026
   - SKILL.md is a markdown doc-only change; typecheck always passes trivially for it
   - All SKILL.md sections are pure markdown additions — no code changes needed
 ---
+
+## 2026-03-27 - US-003
+- Added `## Security Rules for Agents` section to SKILL.md, placed after `## Installation` and before any command documentation
+- Documents 5 security rules: no logging seeds, prefer keystore over raw seed, no committing seeds, rotate exposed seeds, treat wallet private-key output as secret
+- Files changed: SKILL.md
+- **Learnings for future iterations:**
+  - Security section uses numbered list with bold rule headings for clarity
+  - Section header must be exactly `## Security Rules for Agents` to match acceptance criteria
+---
