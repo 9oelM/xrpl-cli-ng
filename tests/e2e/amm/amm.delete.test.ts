@@ -93,14 +93,30 @@ async function withdrawAllViaXrpl(lp: Wallet, issuer: Wallet, currency = "USD"):
   expect((result.result.meta as { TransactionResult: string }).TransactionResult).toBe("tesSUCCESS");
 }
 
+// AMMDelete can only be triggered when AMMWithdraw(tfWithdrawAll) returns
+// tecINCOMPLETE, which requires >512 simultaneous LP token holders on the AMM
+// account. With 1–2 funded test wallets, tfWithdrawAll auto-deletes the AMM
+// entirely, so AMMDelete would return terNO_AMM. Creating 513+ funded testnet
+// accounts via the faucet is impractical, so the submit+wait tests below are
+// skipped until a feasible setup strategy is found.
+//
+// References:
+//   https://xrpl.org/docs/references/protocol/transactions/types/ammdelete
+//   https://xrpl.org/docs/references/protocol/transactions/transaction-results/ter-codes.md
+
 describe("amm delete", () => {
-  it(
+  it.skip(
     "delete pool after withdrawing all LP tokens: exits 0 with tesSUCCESS",
     async () => {
       const [issuer, lp] = await createFunded(client, master, 2, 5);
       const iouSpec = await setupPool(issuer, lp);
       await createPoolViaXrpl(lp, issuer);
       await withdrawAllViaXrpl(lp, issuer);
+      // Allow 2 ledger closes for the validated ledger to propagate to all
+      // testnet nodes. A CLI subprocess connecting immediately after may land
+      // on a node that hasn't yet applied the latest validated ledger, causing
+      // autofill to return a stale sequence (tefPAST_SEQ → txnNotFound forever).
+      await new Promise(r => setTimeout(r, 10_000));
 
       const result = runCLI([
         "--node", "testnet",
@@ -108,7 +124,7 @@ describe("amm delete", () => {
         "--asset", "XRP",
         "--asset2", iouSpec,
         "--seed", lp.seed!,
-      ]);
+      ], {}, 180_000);
 
       expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0);
       expect(result.stdout).toContain("tesSUCCESS");
@@ -116,13 +132,14 @@ describe("amm delete", () => {
     300_000
   );
 
-  it(
+  it.skip(
     "--json output includes hash and result",
     async () => {
       const [issuer, lp] = await createFunded(client, master, 2, 5);
       const iouSpec = await setupPool(issuer, lp);
       await createPoolViaXrpl(lp, issuer);
       await withdrawAllViaXrpl(lp, issuer);
+      await new Promise(r => setTimeout(r, 10_000));
 
       const result = runCLI([
         "--node", "testnet",
@@ -131,7 +148,7 @@ describe("amm delete", () => {
         "--asset2", iouSpec,
         "--json",
         "--seed", lp.seed!,
-      ]);
+      ], {}, 180_000);
 
       expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0);
       const out = JSON.parse(result.stdout) as { hash: string; result: string };
@@ -169,13 +186,14 @@ describe("amm delete", () => {
     300_000
   );
 
-  it(
+  it.skip(
     "--no-wait: exits 0 and output is a 64-char hex hash",
     async () => {
       const [issuer, lp] = await createFunded(client, master, 2, 5);
       const iouSpec = await setupPool(issuer, lp);
       await createPoolViaXrpl(lp, issuer);
       await withdrawAllViaXrpl(lp, issuer);
+      await new Promise(r => setTimeout(r, 10_000));
 
       const result = runCLI([
         "--node", "testnet",
