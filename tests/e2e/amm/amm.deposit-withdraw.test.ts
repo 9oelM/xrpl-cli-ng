@@ -1,13 +1,20 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { runCLI } from "../../helpers/cli.js";
 import { Client, Wallet } from "xrpl";
-import { fundMaster, initTicketPool, createFunded, XRPL_WS } from "../helpers/fund.js";
+import { fundMaster, initTicketPool, createFunded, resilientSubmitAndWait, XRPL_WS } from "../helpers/fund.js";
 
 // Budget: 16 tickets × 0.2 + 12 wallets × 5 XRP = 3.2 + 60 = 63.2 XRP ≤ 99 ✓
 // 6 tests × 2 wallets (issuer + lp) = 12 wallets total
 
 let client: Client;
 let master: Wallet;
+
+async function ensureConnected(): Promise<void> {
+  if (!client.isConnected()) {
+    await client.disconnect().catch(() => {});
+    await client.connect();
+  }
+}
 
 beforeAll(async () => {
   client = new Client(XRPL_WS);
@@ -29,21 +36,35 @@ async function setupPool(
   lp: Wallet,
   currency = "USD"
 ): Promise<string> {
-  await client.submitAndWait(
-    lp.sign(await client.autofill({
-      TransactionType: "TrustSet",
-      Account: lp.address,
-      LimitAmount: { currency, issuer: issuer.address, value: "1000000" },
-    })).tx_blob
+  await ensureConnected();
+  // Enable DefaultRipple on issuer so AMM transactions don't fail with terNO_RIPPLE
+  const acctSetFilled = await client.autofill({
+    TransactionType: "AccountSet",
+    Account: issuer.address,
+    SetFlag: 8, // asfDefaultRipple
+  });
+  acctSetFilled.LastLedgerSequence = (acctSetFilled.LastLedgerSequence ?? 0) + 200;
+  const acctSetResult = await resilientSubmitAndWait(
+    client, issuer.sign(acctSetFilled).tx_blob
   );
-  await client.submitAndWait(
-    issuer.sign(await client.autofill({
-      TransactionType: "Payment",
-      Account: issuer.address,
-      Destination: lp.address,
-      Amount: { currency, issuer: issuer.address, value: "100000" },
-    })).tx_blob
-  );
+  expect((acctSetResult.result.meta as { TransactionResult: string }).TransactionResult).toBe("tesSUCCESS");
+
+  const trustSetFilled = await client.autofill({
+    TransactionType: "TrustSet",
+    Account: lp.address,
+    LimitAmount: { currency, issuer: issuer.address, value: "1000000" },
+  });
+  trustSetFilled.LastLedgerSequence = (trustSetFilled.LastLedgerSequence ?? 0) + 200;
+  await resilientSubmitAndWait(client, lp.sign(trustSetFilled).tx_blob);
+
+  const paymentFilled = await client.autofill({
+    TransactionType: "Payment",
+    Account: issuer.address,
+    Destination: lp.address,
+    Amount: { currency, issuer: issuer.address, value: "100000" },
+  });
+  paymentFilled.LastLedgerSequence = (paymentFilled.LastLedgerSequence ?? 0) + 200;
+  await resilientSubmitAndWait(client, issuer.sign(paymentFilled).tx_blob);
   return `${currency}/${issuer.address}`;
 }
 
@@ -51,6 +72,7 @@ describe("amm deposit", () => {
   it.concurrent(
     "double-asset deposit (tfTwoAsset): deposits XRP and IOU into pool",
     async () => {
+      await ensureConnected();
       const [issuer, lp] = await createFunded(client, master, 2, 5);
       const iouSpec = await setupPool(issuer, lp);
 
@@ -87,6 +109,7 @@ describe("amm deposit", () => {
   it.concurrent(
     "single-asset deposit (tfSingleAsset): deposits only XRP into pool",
     async () => {
+      await ensureConnected();
       const [issuer, lp] = await createFunded(client, master, 2, 5);
       const iouSpec = await setupPool(issuer, lp);
 
@@ -121,6 +144,7 @@ describe("amm deposit", () => {
   it.concurrent(
     "--dry-run: prints AMMDeposit tx JSON without submitting",
     async () => {
+      await ensureConnected();
       const [issuer, lp] = await createFunded(client, master, 2, 5);
       const iouSpec = await setupPool(issuer, lp);
 
@@ -163,6 +187,7 @@ describe("amm withdraw", () => {
   it.concurrent(
     "LP-token withdraw (tfLPToken): redeems LP tokens for both assets",
     async () => {
+      await ensureConnected();
       const [issuer, lp] = await createFunded(client, master, 2, 5);
       const iouSpec = await setupPool(issuer, lp);
 
@@ -197,6 +222,7 @@ describe("amm withdraw", () => {
   it.concurrent(
     "single-asset withdraw (tfSingleAsset): withdraws XRP from pool",
     async () => {
+      await ensureConnected();
       const [issuer, lp] = await createFunded(client, master, 2, 5);
       const iouSpec = await setupPool(issuer, lp);
 
@@ -231,6 +257,7 @@ describe("amm withdraw", () => {
   it.concurrent(
     "--json output includes hash and result",
     async () => {
+      await ensureConnected();
       const [issuer, lp] = await createFunded(client, master, 2, 5);
       const iouSpec = await setupPool(issuer, lp);
 
@@ -247,16 +274,17 @@ describe("amm withdraw", () => {
       expect(createResult.status, `create stderr: ${createResult.stderr}`).toBe(0);
 
       // Deposit first via xrpl.js to ensure fresh LP tokens for this test
-      await client.submitAndWait(
-        lp.sign(await client.autofill({
-          TransactionType: "AMMDeposit",
-          Account: lp.address,
-          Asset: { currency: "XRP" },
-          Asset2: { currency: "USD", issuer: issuer.address },
-          Flags: 0x00080000, // tfSingleAsset
-          Amount: "50000",
-        })).tx_blob
-      );
+      await ensureConnected();
+      const depositFilled = await client.autofill({
+        TransactionType: "AMMDeposit",
+        Account: lp.address,
+        Asset: { currency: "XRP" },
+        Asset2: { currency: "USD", issuer: issuer.address },
+        Flags: 0x00080000, // tfSingleAsset
+        Amount: "50000",
+      });
+      depositFilled.LastLedgerSequence = (depositFilled.LastLedgerSequence ?? 0) + 200;
+      await resilientSubmitAndWait(client, lp.sign(depositFilled).tx_blob);
 
       const result = runCLI([
         "--node", "testnet",

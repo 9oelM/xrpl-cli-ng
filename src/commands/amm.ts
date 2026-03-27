@@ -12,6 +12,8 @@ import type {
   AMMClawback,
   AMMInfoRequest,
   AMMInfoResponse,
+  AccountInfoRequest,
+  AccountInfoResponse,
   IssuedCurrencyAmount,
   Currency,
   Client,
@@ -259,6 +261,7 @@ const ammCreateCommand = new Command("create")
       };
 
       const filled = await client.autofill(baseTx);
+      filled.LastLedgerSequence = (filled.LastLedgerSequence ?? 0) + 200;
 
       if (options.dryRun) {
         const signed = signerWallet.sign(filled);
@@ -278,7 +281,17 @@ const ammCreateCommand = new Command("create")
         return;
       }
 
-      const response = await client.submitAndWait(signed.tx_blob);
+      let response;
+      try {
+        response = await client.submitAndWait(signed.tx_blob);
+      } catch (e: unknown) {
+        const err = e as Error;
+        if (err.constructor.name === "TimeoutError" || err.message?.includes("LastLedgerSequence")) {
+          process.stderr.write("Error: transaction expired (LastLedgerSequence exceeded)\n");
+          process.exit(1);
+        }
+        throw e;
+      }
 
       const txResult = response.result as {
         hash?: string;
@@ -401,6 +414,17 @@ async function submitTx(
   options: { wait: boolean; json: boolean; dryRun: boolean }
 ): Promise<void> {
   const filled = await client.autofill(baseTx);
+  filled.LastLedgerSequence = (filled.LastLedgerSequence ?? 0) + 200;
+
+  // autofill uses ledger_index:'current' for sequence, which can be stale on a
+  // fresh WebSocket connection routed to a server that hasn't applied the latest
+  // validated ledger yet.  Re-fetch from 'validated' (consistent across all nodes).
+  const accountInfoResp = await client.request({
+    command: "account_info",
+    account: signerWallet.address,
+    ledger_index: "validated",
+  } as AccountInfoRequest) as AccountInfoResponse;
+  filled.Sequence = accountInfoResp.result.account_data.Sequence;
 
   if (options.dryRun) {
     const signed = signerWallet.sign(filled);
@@ -420,7 +444,17 @@ async function submitTx(
     return;
   }
 
-  const response = await client.submitAndWait(signed.tx_blob);
+  let response;
+  try {
+    response = await client.submitAndWait(signed.tx_blob);
+  } catch (e: unknown) {
+    const err = e as Error;
+    if (err.constructor.name === "TimeoutError" || err.message?.includes("LastLedgerSequence")) {
+      process.stderr.write("Error: transaction expired (LastLedgerSequence exceeded)\n");
+      process.exit(1);
+    }
+    throw e;
+  }
   const txResult = response.result as {
     hash?: string;
     meta?: { TransactionResult?: string };
