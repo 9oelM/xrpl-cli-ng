@@ -46,6 +46,23 @@ Named network shorthands:
 - `testnet` → `wss://s.altnet.rippletest.net:51233`
 - `devnet` → `wss://s.devnet.rippletest.net:51233`
 
+### When to use each network
+
+| Scenario | Use |
+|----------|-----|
+| Learning, experimenting, running tests | `testnet` (default) — free faucet funds, no real value at risk |
+| Testing features only on devnet (e.g. Vault, MPT early amendments) | `devnet` — bleeding-edge amendments enabled before testnet |
+| Real transactions with real XRP | `mainnet` — irreversible; double-check all parameters |
+| Private or enterprise XRPL node | `--node wss://your-node.example.com:51233` — pass the full WebSocket URL |
+
+> **Rule:** Never pass `--node mainnet` in automated agent pipelines unless the intent is explicitly to spend real XRP. Default to `testnet` for all experiments and CI runs.
+
+**Custom endpoint example:**
+
+```bash
+xrpl --node wss://xrpl.example.com:51233 account balance rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh
+```
+
 **Example — query balance on testnet:**
 
 ```bash
@@ -66,6 +83,40 @@ Every command that submits a transaction supports these flags (omitted from indi
 | `--no-wait` | boolean | false | Submit without waiting for validation |
 | `--json` | boolean | false | Output result as JSON |
 | `--dry-run` | boolean | false | Print signed tx without submitting |
+
+### Storing the keystore password for agent pipelines
+
+In automated agent workflows the CLI cannot prompt interactively. The recommended approach is to store the password in a file with restricted permissions and pipe it via the `XRPL_PASSWORD` environment variable or a file read:
+
+**Option 1 — environment variable (recommended for CI/agents):**
+
+```bash
+# Store once (chmod 600 so only your user can read it)
+echo 'my-keystore-password' > ~/.xrpl/keystore.pwd
+chmod 600 ~/.xrpl/keystore.pwd
+
+# Export before running the agent session
+export XRPL_PASSWORD=$(cat ~/.xrpl/keystore.pwd)
+
+# Pass to CLI via --password
+xrpl --node testnet payment \
+  --account rSenderXXX \
+  --destination rReceiverXXX \
+  --amount 10 \
+  --password "$XRPL_PASSWORD"
+```
+
+**Option 2 — inline pipe (one-off commands):**
+
+```bash
+xrpl --node testnet payment \
+  --account rSenderXXX \
+  --destination rReceiverXXX \
+  --amount 10 \
+  --password "$(cat ~/.xrpl/keystore.pwd)"
+```
+
+> **Security note:** Never hard-code the password string in a script file or agent prompt. Always read it from a `chmod 600` file or a secrets manager (e.g. `op read op://vault/item/password` for 1Password). The `--password` flag value is visible to all processes on the host via `ps aux` — keep the value short-lived and avoid logging the full command line.
 
 ## wallet
 
