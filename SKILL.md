@@ -21,3 +21,13 @@ Smoke-test after install:
 ```bash
 xrpl --version
 ```
+
+## Security Rules for Agents
+
+> **These rules are mandatory. Never bypass them.**
+
+1. **Never log, echo, or store `--seed` / `--private-key` values.** Treat them as ephemeral secrets that must not appear in stdout, stderr, log files, or shell history.
+2. **Prefer `--keystore <path> --password <pass>` over raw `--seed` in automated pipelines.** Keystores encrypt the private key at rest; raw seeds do not.
+3. **Never commit seed values to version control.** If a seed appears in a file that is tracked by git, rotate it immediately.
+4. **Rotate any seed that appears in shell history or logs.** Run `history -c` or equivalent, then generate a new wallet with `xrpl wallet new`.
+5. **`wallet private-key` output must be treated as a secret.** Do not forward it to downstream tools, store it in environment variables, or include it in CI/CD output.
