@@ -79,3 +79,15 @@ Started: Fri Mar 27 07:42:26 AM UTC 2026
   - wallet alias is a compound command with 3 sub-subcommands (set, list, remove)
   - wallet private-key section should include a security reminder referencing the Security Rules section
 ---
+
+## 2026-03-27 - US-009
+- Verified and completed `## amm` and `## nft` sections in SKILL.md
+- Added full flags tables for amm withdraw (with deposit modes), amm vote, amm bid, amm delete (with >512 LP holder note)
+- Fixed nft offer subcommand names from `nft offer-create/accept/cancel` to correct `nft offer create/accept/cancel` paths
+- Added flags tables for nft offer create, nft offer accept, nft offer cancel, nft offer list
+- Files changed: SKILL.md, scripts/ralph/prd.json
+- **Learnings for future iterations:**
+  - NFT offer commands are nested as `nft offer <subcommand>` not `nft offer-<subcommand>` flat subcommands
+  - AMM deposit/withdraw use mode inference from flag combinations — document all modes in the flags section
+  - A prior run committed US-002 through US-012 in one batch commit; PRD updates were not applied — check git log before assuming no work was done
+---
