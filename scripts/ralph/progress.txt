@@ -1,50 +1,12 @@
-## Codebase Patterns
-- Vault E2E tests use devnet (not testnet) — `DEVNET_WS` from `tests/e2e/helpers/devnet.ts`
-- Devnet faucet: POST `https://faucet.devnet.rippletest.net/accounts` with `{destination, userAgent}`
-- VaultCreate requires elevated fee: `Fee: "200000"` drops
-- IOU vault clawback requires: issuer has `asfDefaultRipple` + `asfAllowTrustLineClawback` set BEFORE any trust lines
-- Shared issuer + vaultId in beforeAll is an allowed exception for clawback tests (only holders are consumed per test)
-- Holders for clawback must be pre-created sequentially in beforeAll (issuer VCB payments can't run concurrently)
-
----
-
-## 2026-03-07 - US-001
-- Created `tests/e2e/helpers/devnet.ts` mirroring `fund.ts` with devnet faucet URL
-- Exports: `DEVNET_WS`, `fundMasterDevnet`, `initTicketPoolDevnet`, `createFundedDevnet`, `fundAddressDevnet`, `nextTicketDevnet`
-- **Learnings:**
-  - Devnet faucet URL: `https://faucet.devnet.rippletest.net/accounts`
-  - Module-level ticketPool needs separate variable per file (devnet.ts has its own pool)
----
-
-## 2026-03-07 - US-002
-- Deleted `vault.create.network.test.ts` and `vault.set.network.test.ts`
-- Created `tests/e2e/vault/vault.create-set.network.test.ts` with all 13 tests using `it.concurrent`
-- Each test calls `createFundedDevnet(client, master, 1, 3)` for its own fresh wallet
-- **Learnings:**
-  - `cliCreateVault` helper function creates vault inline via CLI with `--node devnet`
-  - Vault set tests need their own vault created inline per test
----
-
-## 2026-03-07 - US-003
-- Deleted `vault.deposit.network.test.ts` and `vault.withdraw.network.test.ts`
-- Created `tests/e2e/vault/vault.deposit-withdraw.network.test.ts` with all 11 tests
-- Vault creation uses xrpl.js directly (not CLI) as setup-only step
-- Withdraw tests do `VaultDeposit` via xrpl.js inside each `it.concurrent` body before calling CLI withdraw
-- **Learnings:**
-  - Use `xrplCreateVault(wallet)` helper that calls `client.submitAndWait` directly
-  - VaultCreate metadata: find `CreatedNode` with `LedgerEntryType === "Vault"` to get vaultId
----
-
-## 2026-03-07 - US-004
-- Rewrote `vault.delete.network.test.ts`: fixed imports (`fundFromDevnetFaucet`/`DEVNET_URL` → `fundMasterDevnet`/`DEVNET_WS`/`initTicketPoolDevnet`/`createFundedDevnet`), removed `describe` wrapper, changed all `it()` to `it.concurrent`, each test gets its own wallet via `createFundedDevnet` and creates its own vault
-- Rewrote `vault.clawback.network.test.ts`: same import fixes; beforeAll now uses `fundMasterDevnet` + `initTicketPoolDevnet(client, master, 8)` + `createFundedDevnet` for issuer (10 XRP) + sequential holder setup (6 holders, each funded via master ticket, then trust line + VCB from issuer); changed all `it()` to `it.concurrent`; each test uses a unique pre-created holder (one per test, never shared)
-- Updated prd.json to mark US-001, US-002, US-003, US-004 as `passes: true`
-- **Learnings:**
-  - `fundFromDevnetFaucet` and `DEVNET_URL` were the OLD export names; correct names are `fundMasterDevnet` and `DEVNET_WS`
-  - For clawback: holders must be pre-created in beforeAll because issuer VCB payments must be sequential (concurrent issuer txs would cause sequence conflicts). Shared pre-created holders (one per test) are the allowed exception.
-  - Budget for clawback: 8 tickets × 0.2 + 1 issuer × 10 + 6 holders × 3 = 29.6 XRP ≤ 99
----
-
 # Ralph Progress Log
-Started: Tue Mar 10 02:18:05 PM Universal 2026
+Started: Fri Mar 27 07:42:26 AM UTC 2026
+---
+
+## 2026-03-27 - US-002
+- Added `## Installation` section to SKILL.md as the first section after frontmatter
+- Documents global install (`npm install -g xrpl-cli-ng`), zero-install (`npx xrpl-cli-ng`), Node.js 22+ requirement, and smoke-test (`xrpl --version`)
+- Files changed: SKILL.md
+- **Learnings for future iterations:**
+  - SKILL.md is a markdown doc-only change; typecheck always passes trivially for it
+  - All SKILL.md sections are pure markdown additions — no code changes needed
 ---
