@@ -91,3 +91,20 @@ Started: Fri Mar 27 07:42:26 AM UTC 2026
   - AMM deposit/withdraw use mode inference from flag combinations — document all modes in the flags section
   - A prior run committed US-002 through US-012 in one batch commit; PRD updates were not applied — check git log before assuming no work was done
 ---
+
+## 2026-03-27 - US-010 through US-012
+- Added `## multisig`, `## oracle`, `## ticket`, `## credential` sections (US-010)
+- Added `## mptoken`, `## permissioned-domain`, `## vault`, `## did`, `## deposit-preauth` sections (US-011)
+- Added `## Common Agent Workflows` section with 3 workflows (US-012)
+- Trimmed SKILL.md from ~1770 lines to 1471 lines by:
+  - Adding `## Common Signing Flags` section documenting shared flags globally
+  - Removing --mnemonic, --account, --password, --keystore, --no-wait, --json, --dry-run rows from individual command tables
+  - Removing `---` horizontal rule dividers
+- Fixed Workflow 3 to include `--all` flag for tfWithdrawAll
+- Files changed: SKILL.md, scripts/ralph/prd.json
+- **Learnings for future iterations:**
+  - SKILL.md line count limit (1500) is a real constraint — factor in when writing docs
+  - Best pattern: add a "Common Signing Flags" section once globally, reference from individual commands
+  - The hook auto-evaluates acceptance criteria and marks stories as passing — watch the PRD
+  - deposit-preauth uses `set` subcommand with --authorize/--unauthorize flags, not separate authorize/unauthorize subcommands
+---
