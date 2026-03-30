@@ -1,8 +1,21 @@
 {
   "name": "xrpl-cli-ng",
-  "description": "Claude skill for xrpl-cli-ng — send transactions, manage wallets, query accounts, and interact with features on the XRP Ledger",
   "version": "0.1.3",
+  "description": "CLI tool for interacting with the XRP Ledger — payments, wallets, trust lines, NFTs, AMM, escrows, and more",
   "author": {
-    "name": "xrpl-cli-ng"
-  }
+    "name": "9oelM",
+    "email": "messagejoel@outlook.com"
+  },
+  "repository": "https://github.com/9oelM/xrpl-cli-ng",
+  "homepage": "https://github.com/9oelM/xrpl-cli-ng",
+  "license": "MIT",
+  "skills": "./skills/",
+  "keywords": [
+    "xrpl",
+    "xrp",
+    "blockchain",
+    "cli",
+    "wallet",
+    "defi"
+  ]
 }

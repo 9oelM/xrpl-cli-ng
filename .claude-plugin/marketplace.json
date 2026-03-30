@@ -1,0 +1,38 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "xrpl-cli-ng",
+  "description": "XRPL CLI — send transactions, manage wallets, query accounts, and interact with features on the XRP Ledger",
+  "owner": {
+    "name": "9oelM",
+    "email": "messagejoel@outlook.com"
+  },
+  "plugins": [
+    {
+      "name": "xrpl-cli-ng",
+      "description": "CLI tool for interacting with the XRP Ledger — payments, wallets, trust lines, NFTs, AMM, escrows, and more",
+      "version": "0.1.3",
+      "author": {
+        "name": "9oelM",
+        "email": "messagejoel@outlook.com"
+      },
+      "source": "./",
+      "category": "development",
+      "homepage": "https://github.com/9oelM/xrpl-cli-ng",
+      "repository": "https://github.com/9oelM/xrpl-cli-ng",
+      "license": "MIT",
+      "keywords": [
+        "xrpl",
+        "xrp",
+        "blockchain",
+        "cli",
+        "wallet",
+        "defi"
+      ],
+      "tags": [
+        "xrpl",
+        "blockchain",
+        "cli"
+      ]
+    }
+  ]
+}
