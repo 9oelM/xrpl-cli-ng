@@ -1,0 +1,8 @@
+{
+  "name": "xrpl-cli-ng",
+  "description": "Claude skill for xrpl-cli-ng — send transactions, manage wallets, query accounts, and interact with features on the XRP Ledger",
+  "version": "0.1.3",
+  "author": {
+    "name": "xrpl-cli-ng"
+  }
+}
